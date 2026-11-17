@@ -37,8 +37,8 @@ Back to the [map](./README.md). The gotchas are collected at the end.
       `.github/dependabot.yml`, `lighthouserc.cjs`, `playwright.config.ts`, `tests/a11y/`,
       `scripts/preview.mjs`, `scripts/lighthouse-summary.mjs`, `src/lib/routes.ts`. Keep the job names
       `check`, `a11y`, `lighthouse`, `dependency-review` exactly.
-- [ ] Copy `.npmrc` (`engine-strict=true`) and the `engines` block of `package.json`. Generate the
-      lockfile with npm 10.
+- [ ] Copy the `engines` block of `package.json`. Do not add an `.npmrc` with `engine-strict=true`
+      (Dependabot's npm 12 fails on it). Generate the lockfile with npm 10.
 - [ ] Copy `.gitignore` (it covers `.env*` except `.env.example`, `.dev.vars*`, `secrets/`,
       `.wrangler`, `/incoming/`, `.lighthouseci/`, `playwright-report/`, `test-results/`).
 - [ ] Write `AGENTS.md` and `CLAUDE.md` for the client repo from this repo's, replacing every
@@ -252,10 +252,10 @@ Each one is either in a repo file or PR (cited) or supplied by the owner for thi
   `systems-4.webp`, the headshot is the owner's own name, raw source images live in the git-ignored
   `/incoming/`, and the plan document had its internal notes and third-party business names trimmed
   (`docs/website-plan.md` "Public-repo trim", PR 52).
-- **G6. npm 10 `engine-strict`.** A lockfile written by npm 11 broke CI's `npm ci` on PR 31. Now
-  `engines.npm` is `>=10.9.2 <11` and `.npmrc` has `engine-strict=true`, so `npm install`/`npm ci`
-  refuse under npm 11; use `npx --yes npm@10.9.9 ci`. Always watch the first CI run's Install
-  dependencies step after a lockfile change. (PR 34, `CLAUDE.md`.)
+- **G6. npm 10 lockfile.** A lockfile written by npm 11 broke CI's `npm ci` on PR 31. `engines.npm`
+  is `>=10.9.2 <11` with no `engine-strict` (it made Dependabot's npm 12 fail), so `npm install`/
+  `npm ci` only warn under npm 11; use `npx --yes npm@10.9.9 ci`. Always watch the first CI run's
+  Install dependencies step after a lockfile change. (PR 34, `CLAUDE.md`.)
 - **G7. `NO_NAVSTART` on `lighthouse`.** A Lighthouse trace-recording hiccup, not a site problem.
   "Re-run failed jobs" on the run. (`CLAUDE.md`, README.)
 - **G8. Dependabot grouped a TypeScript major into the npm group** and `check` failed with

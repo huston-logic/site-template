@@ -59,7 +59,7 @@ Back to the [map](./README.md).
 | **Zero required approvals** | One-person shop; the owner merges their own PRs | Requiring a review that the same person would give | ruleset `pull_request` rule |
 | **`strict_required_status_checks_policy: false`** | A PR need not be rebased onto the latest `main` to merge | Strict mode (extra pushes for every merge) | ruleset |
 | **Both `a11y` and `lighthouse` build the site themselves** | Each job stands alone; no artifact hand-off | Building once in `check` and downloading `out/` | `ci.yml` |
-| **`npm 10` with `engine-strict`** (`>=10.9.2 <11`) | A lockfile written by npm 11 broke CI's `npm ci` (PR 31); the range accepts both CI's 10.9.9 and Cloudflare's 10.9.2 | Upgrading CI to npm 11 (Cloudflare's image was 10.9.2) | PR 34, `.npmrc`, `package.json` |
+| **`engines.npm` `>=10.9.2 <11`, no `engine-strict`** | A lockfile written by npm 11 broke CI's `npm ci` (PR 31); the range accepts both CI's 10.9.9 and Cloudflare's 10.9.2. `engine-strict` (PR 34) was removed because Dependabot's npm 12 failed on it; CI's npm 10 `npm ci` is the guard | Upgrading CI to npm 11 (Cloudflare's image was 10.9.2); keeping `engine-strict` | PR 34, `package.json` |
 
 ## Gate 2: the a11y suite
 
@@ -150,5 +150,6 @@ Back to the [map](./README.md).
 - The reason for running `review-security` on opus while the other two run on sonnet is not recorded
   (**UNVERIFIED**; the table row above says the same).
 - Whether `_headers`' `workers.dev` host pattern matches a real preview URL was never confirmed.
-- Whether Dependabot's npm passes `engine-strict` is untested in isolation (PR 19 merged after
-  PR 34, which suggests yes).
+- Dependabot's npm 12 failed on `engine-strict` ("Due to the engine-strict setting"), so
+  `engine-strict` was removed. **UNVERIFIED** until the next "Check for updates" opens a PR that
+  passes CI's npm 10 `npm ci`.
