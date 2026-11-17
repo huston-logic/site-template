@@ -57,9 +57,13 @@ These can go stale if the ruleset is changed in Settings, so re-check before rel
   local `npm ci` passes. CI uses npm 10 (10.9.9 on 2026-11-13, Node 22). Generate
   lockfile changes with the same npm major as CI, and check the first CI run's Install
   dependencies step.
-- `.npmrc` sets `engine-strict=true` and `package.json` requires `"npm": ">=10.9.2 <11"`,
-  so `npm install` and `npm ci` refuse to run under npm 11 (this Mac's default). Use
-  `npx --yes npm@10.9.9 ci` (or `install`); `npm run ...` scripts are unaffected.
+- `package.json` says `"npm": ">=10.9.2 <11"`. There is no `engine-strict` (removed so
+  Dependabot's npm 12 can update; with it on, Dependabot failed with "Due to the engine-strict
+  setting"), so under npm 11 `npm install` only warns. Still run installs with
+  `npx --yes npm@10.9.9 ci` (or `install`) on this Mac. CI's `npm ci` under npm 10 is the guard:
+  a lockfile npm 10 cannot read fails the required `check` job. CI also pins Node 22, so the
+  `engines.node` floor (`>=22.19`) is still enforced there. Dependabot lockfiles are written by
+  npm 12 and are expected to pass; if one fails `Install dependencies`, revisit this.
 
 ## Protected folders (hooks)
 - Claude cannot edit `.claude/hooks/**`, `.claude/agents/**`, `.claude/skills/**`,

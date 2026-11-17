@@ -579,10 +579,14 @@ From PR 34 and `CLAUDE.md`: a lockfile written by a different npm major than CI'
 `npm ci` even when a local `npm ci` passes. CI uses npm 10 (10.9.9 on Node 22, read from a CI log on
 2026-11-13); Cloudflare's build image had npm 10.9.2; this Mac had npm 11.8.0. The fix:
 
-- `.npmrc` contains `engine-strict=true`.
 - `package.json` has `"engines": { "node": ">=22.19", "npm": ">=10.9.2 <11" }`.
-- So `npm install` and `npm ci` refuse to run under npm 11; use `npx --yes npm@10.9.9 ci` (or
-  `install`). `npm run ...` scripts are unaffected.
+- PR 34 also added `.npmrc` with `engine-strict=true`, so installs refused under npm 11. That was
+  removed (2026-11-16) because Dependabot's npm job runs npm 12 and failed with "Due to the
+  engine-strict setting, the update will not succeed". Now npm 11 only warns; use
+  `npx --yes npm@10.9.9 ci` (or `install`) on the Mac. `npm run ...` scripts are unaffected.
+- The guard is CI's `npm ci` under npm 10 (required `check`, plus `a11y` and `lighthouse`) and
+  Cloudflare's npm 10.9.2 build: a lockfile npm 10 cannot read fails there. CI pins Node 22, so
+  the `engines.node` floor is still enforced in CI.
 - Generate lockfile changes with the same npm major as CI, and check the first CI run's Install
   dependencies step.
 

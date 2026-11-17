@@ -319,8 +319,8 @@ updates:
   updates, which merged. The `ignore` list is version updates only; security updates still open PRs.
 - Dependabot PRs get a preview deployment like any other branch, and `dependency-review` runs on
   them.
-- Dependabot's npm version is "untested" against `engine-strict` (PR 34). **UNVERIFIED** whether a
-  Dependabot-written lockfile passes CI's `npm ci`; PR 19 merged after PR 34, so at least one did.
+- Dependabot's npm 12 failed on `engine-strict` (PR 34), so `engine-strict` was removed.
+  **UNVERIFIED** until the next "Check for updates" PR passes CI's npm 10 `npm ci`.
 
 ## Launch checklist (README, current state)
 

@@ -32,7 +32,7 @@ Legend: **G** = Generic (keep). **C** = Per-client (moves to the config file). *
 | `.claude/skills/*` | G | `human-touch-design` reads `docs/STYLE-GUIDE.md` |
 | `.env.example` | C | `NEXT_PUBLIC_SITE_URL` default domain |
 | `.github/workflows/*`, `dependabot.yml` | G | Gate 2; owner-only |
-| `.gitignore`, `.npmrc` | G | |
+| `.gitignore` | G | `.npmrc` was removed (no `engine-strict`; it broke Dependabot's npm 12) |
 | `AGENTS.md`, `CLAUDE.md` | G | Names replaced by `[[...]]` in PR 1 |
 | `README.md` | G | Names replaced in PR 1; Contact form section still lists per-client setup as `[[...]]` |
 | `design-v3/` | H | Deleted in PR 1 |
