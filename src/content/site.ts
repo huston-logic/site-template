@@ -1,17 +1,17 @@
+import { siteConfig as base } from "../../site.config";
 import { providers } from "./providers";
 
 export const siteConfig = {
-  name: "Huston Logic",
-  founder: "Grant Huston",
-  url: (process.env.NEXT_PUBLIC_SITE_URL ?? "https://hustonlogic.com").replace(/\/+$/, ""),
+  name: base.business.name,
+  founder: base.owner.name,
+  url: (process.env.NEXT_PUBLIC_SITE_URL ?? base.domain.url).replace(/\/+$/, ""),
   /** The Rev 7.1 one-line positioning (docs/website-plan.md, A1). Feeds the JSON-LD description. */
-  oneLiner:
-    "Huston Logic builds custom websites and fixes the workflows behind them, for small businesses and solo pros. One person does the work, from the first call to the handoff.",
-  copyrightYear: 2026,
+  oneLiner: base.business.oneLiner,
+  copyrightYear: base.business.copyrightYear,
   /** Footer and bios (docs/website-plan.md, A1 and B10). */
-  tagline: "Custom websites and workflows, from hello to handled.",
-  footerBrandLine: "Grant Huston · Based in Southern California · Working with clients anywhere",
-  /** Provider-dependent values, set in `providers.ts`. */
+  tagline: base.business.tagline,
+  footerBrandLine: `${base.owner.name} · ${base.owner.regionLine} · Working with clients anywhere`,
+  /** Provider-dependent values, set in `site.config.ts` and re-exported by `providers.ts`. */
   email: providers.email,
   schedulerUrl: providers.schedulerUrl,
   linkedInUrl: providers.linkedInUrl,
