@@ -13,7 +13,7 @@ Line numbers are from the commit this document was written on and will drift; re
 | PR | Scope |
 | --- | --- |
 | 1 (this) | Generic identity, `docs/TEMPLATE.md`, empty input-doc skeletons |
-| 2 | Add `site.config.ts`, `sync:config`, `check:config`; route `src/content/site.ts` and `providers.ts` through it |
+| 2 (built) | Add `site.config.ts`, `sync:config`, `check:config`; route `src/content/site.ts`, `providers.ts` and `card.ts` through it |
 | 3 | Strip Huston-only content, copy, images and brand files from `src/`, `public/`, tests |
 | 4 | Generic Worker (names, emails, Sheet tabs from config) and its tests |
 | 5 | Owner-only hand-copy PR (section D), pipeline docs pass, template README polish |
@@ -123,7 +123,28 @@ Owner-only files are marked (owner).
 | GitHub repo / ruleset ids | `docs/pipeline/README.md:35`; `docs/pipeline/gate2-ci.md:469,478` |
 | Google Cloud project | `docs/pipeline/contact-form.md:291`; `docs/pipeline/client-onboarding-checklist.md:143` |
 
-## C. Proposed `site.config.ts`
+## C. `site.config.ts` (built in PR 2)
+
+**Status.** `site.config.ts` exists at the repo root, holding the current Huston values, so the built site is
+unchanged (PR 3 swaps in placeholders). What is wired:
+
+- `src/content/site.ts`, `providers.ts` and `card.ts` read it (existing imports still work); `layout.tsx` and
+  `metadata.ts` build the default title and OG alt from the business name; `og.png/route.tsx` reads `theme.colors`
+  and `brand.badge`.
+- `npm run sync:config` (`scripts/sync-config.mjs`) writes exactly four files: `wrangler.jsonc`, `public/_headers`,
+  the `--hl-*` palette lines in `src/app/hl.css`, and `src/lib/fonts.ts`. With the Huston values the output is
+  byte-identical to the files before PR 2.
+- `npm run check:config` regenerates in memory and fails with a diff if a committed file differs. It runs first in
+  `npm run check` and in `build:launch`.
+- `npm run check:placeholders` (so `build:launch`) also reads `site.config.ts`: it fails on any `[[...]]` in it and on
+  any empty required value, naming the key. `legalName`, `prices.website`, `csp.extra*` and `analytics` are optional.
+- Held in the config but **not yet read** by anything: `contact.fromName`, `replyFromName`, `bookingFallbackPath`,
+  `sheetTabs`, `domain.previewHostSuffix`, `brand.wordmark/full/headshot`, `prices.website`. The Worker (PR 4) and
+  `Marks.tsx`/`AboutTeaser.tsx` (PR 3) will take them. The Worker code is untouched; it still gets `providers` through
+  `providers.ts`, which now imports `site.config.ts` (listed in `worker/tsconfig.json`).
+- The four generated files carry no "generated" banner, because they had to stay byte-identical.
+
+The original proposal follows.
 
 One typed file at the repo root. It imports nothing, so the site, the Worker and plain Node scripts can all read it.
 
@@ -196,6 +217,7 @@ These paths are blocked for Claude. For each, the owner copies the new text into
 | `.claude/hooks/scan-src.mjs:6,12,116`, `selftest.mjs:35` | References to `docs/STYLE-GUIDE.md` §13/§14 | No change needed: the skeleton keeps those section numbers. Only revisit if the style-guide numbering changes. |
 | `.github/workflows/*.yml` | No Huston strings found | None expected; re-check with `git grep -i huston .github` before PR 5 |
 | `.claude/settings*.json` | No Huston strings found | None |
+| `.github/workflows/ci.yml`, `check` job (hand-copy with PR 5) | Between the `Install dependencies` step and `- name: Lint`, nothing | Insert, with the same indentation as the other steps: `      - name: Check generated config` then `        run: npm run check:config`. The `check` job runs each script on its own (it does not call `npm run check`), so without this step CI never runs `check:config`. Do not rename the job. |
 
 `wrangler.jsonc` is not owner-only; it only asks for approval on each change. Its edits are in table B.
 

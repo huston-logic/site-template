@@ -2,17 +2,19 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
 import { siteConfig } from "@/content/site";
+import { siteConfig as base } from "../../../site.config";
 
 export const dynamic = "force-static";
 
 const size = { width: 1200, height: 630 };
 
-// Hex values mirror the v3 tokens in src/app/hl.css. ImageResponse cannot read CSS variables.
-const color = { silver: "#f3f5f4", ink: "#29332d", ink2: "#4a5750", green: "#2b6455", rust: "#994d34" };
+// Hex values come from site.config.ts, the same source as the tokens in src/app/hl.css. ImageResponse cannot read CSS variables.
+const { silver, ink, ink2, green, rust } = base.theme.colors;
+const color = { silver, ink, ink2, green, rust };
 
 /** Reads the badge geometry from public/brand so the mark is never redrawn here. */
 async function loadBadge() {
-  const svg = await readFile(path.join(process.cwd(), "public/brand/huston-logic-badge-black.svg"), "utf8");
+  const svg = await readFile(path.join(process.cwd(), "public", base.brand.badge), "utf8");
   const viewBox = /viewBox="([^"]+)"/.exec(svg)?.[1];
   const d = /<path[^>]* d="([^"]+)"/.exec(svg)?.[1];
   if (!viewBox || !d) throw new Error("Could not read the badge SVG in public/brand.");

@@ -1,3 +1,4 @@
+import { siteConfig as base } from "../../site.config";
 import { siteConfig } from "./site";
 
 /**
@@ -6,21 +7,21 @@ import { siteConfig } from "./site";
  */
 export const card = {
   meta: {
-    title: "Grant Huston | Huston Logic",
-    description: "Grant Huston, Founder, Huston Logic. Personal websites and software.",
+    title: `${base.owner.name} | ${base.business.name}`,
+    description: `${base.owner.name}, ${base.owner.role}, ${base.business.name}. Personal websites and software.`,
   },
-  name: "Grant Huston",
-  givenName: "Grant",
-  familyName: "Huston",
-  jobTitle: "Founder",
-  role: "Founder, Huston Logic",
+  name: base.owner.name,
+  givenName: base.owner.givenName,
+  familyName: base.owner.familyName,
+  jobTitle: base.owner.role,
+  role: `${base.owner.role}, ${base.business.name}`,
   lines: ["Personal websites and software", "For the parts of the job you never signed up for"] as const,
   /** Grant's mobile number, in international format for `tel:`, `sms:` and the vCard. */
-  phone: "+1-949-702-2626",
+  phone: base.owner.phone,
   email: siteConfig.email,
   saveLabel: "Save my contact ↓",
-  vcardPath: "/grant.vcf",
-  vcardFileName: "Grant-Huston.vcf",
+  vcardPath: base.owner.vcardPath,
+  vcardFileName: base.owner.vcardFileName,
   actions: { call: "Call", text: "Text", email: "Email" },
   links: [
     { label: "See my work →", href: "/" },
