@@ -22,7 +22,7 @@ clearly one or the other, ask me.
   Never run `wrangler deploy` by hand (a hook blocks it).
 
 ## Protect main (GitHub ruleset)
-Read from GitHub on 2026-11-13 (`gh api repos/ghuston/huston-tech-website/rulesets`).
+Read from GitHub on 2026-11-13 (`gh api repos/[[GITHUB_OWNER]]/[[REPO_NAME]]/rulesets`).
 These can go stale if the ruleset is changed in Settings, so re-check before relying on them.
 - The ruleset is named "Protect main" and applies to the default branch (`main`).
 - A pull request is required to change `main`. Required approvals: 0.
@@ -105,8 +105,8 @@ These can go stale if the ruleset is changed in Settings, so re-check before rel
 
 ## Sources of truth
 - Copy: `docs/website-plan.md` (Revision 7.1), Section B only.
-- Design: `docs/STYLE-GUIDE.md` (v3), then `design-v3/reference/home-top.html`.
-  Compare builds against the reference at 1440 × 900 and 390 × 844.
+- Design: `docs/STYLE-GUIDE.md` (v3).
+  Compare builds against the style guide's first-screen spec at 1440 × 900 and 390 × 844.
 - If a source and the code disagree, or a rule isn't clearly covered by either, tell me.
 
 ## Secrets
