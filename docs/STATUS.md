@@ -8,9 +8,10 @@ Plan: `docs/PLAN.md`. Rules: CLAUDE.md, "Autonomous runs". Started 2026-11-18. U
 | --- | --- | --- | --- |
 | 0 | Autonomous runs rules, PLAN.md, STATUS.md | [#7](https://github.com/huston-logic/site-template/pull/7) | merged |
 | 1 | T3b Organization JSON-LD (homepage only) | [#8](https://github.com/huston-logic/site-template/pull/8) | merged |
-| 2 | Redirect slot and check-redirects | [#9](https://github.com/huston-logic/site-template/pull/9) | open, review passed, ready for auto-merge |
-| 3 | T4 generic Worker, Apps Script writer, SECRETS.md | [#10](https://github.com/huston-logic/site-template/pull/10) | open, review passed; CodeQL alert fixed, waiting on CI |
-| 4 | T5 ruleset export, pipeline docs, launch checklist stub | [#11](https://github.com/huston-logic/site-template/pull/11) | open, review passed, ready for auto-merge |
+| 2 | Redirect slot and check-redirects | [#9](https://github.com/huston-logic/site-template/pull/9) | open, review passed (CI: see the PR) |
+| 3 | T4 generic Worker, Apps Script writer, SECRETS.md | [#10](https://github.com/huston-logic/site-template/pull/10) | open, review passed; the CodeQL alert is fixed in the code (CI: see the PR) |
+| 4 | T5 ruleset export, pipeline docs, launch checklist stub | [#11](https://github.com/huston-logic/site-template/pull/11) | open, review passed (CI: see the PR) |
+| - | This STATUS update | [#12](https://github.com/huston-logic/site-template/pull/12) | open |
 | 5 | T1c Dependabot lhci/playwright bump | none yet | queued: `@lhci/cli` 0.16.1 is not 7 days old until 2026-11-18 23:40Z |
 | 6 | Mark repo as template | none (API call) | done (`is_template` is true) |
 
@@ -21,7 +22,7 @@ Plan: `docs/PLAN.md`. Rules: CLAUDE.md, "Autonomous runs". Started 2026-11-18. U
 - PR 0 (docs only) was written directly, not through an implementer subagent. The other tasks used an implementer and a
   separate reviewer subagent each.
 - `gh pr merge --auto --squash` is blocked by the owner-only hook `.claude/hooks/guard-bash.mjs` (it also blocks merging
-  through `gh api`). I did not work around it. Every PR is left open as "ready for auto-merge" once its review passes.
+  through `gh api`). I did not work around it. Every PR is left open and announced as "ready for auto-merge" once its review passes ("review passed" is the author's record, not something GitHub shows).
   The owner approved (Nov 18) a hook change that allows exactly `gh pr merge <number> --auto --squash` and `--auto
   --merge`; it is in the hand-copy batch.
 - Because PRs stay open, each task branches from `main` and no PR depends on another. After a PR merged, the other open
