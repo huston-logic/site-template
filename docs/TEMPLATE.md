@@ -121,6 +121,7 @@ Owner-only files are marked (owner).
 | Rate-limit namespace ids | `wrangler.jsonc:17,24` (`1001`, `1002`; must be unique per Cloudflare account) |
 | Analytics | `public/_headers:8,13` (Cloudflare Web Analytics origins in CSP); `src/content/privacy.ts:9` (copy). No token in code; it is enabled in the dashboard. |
 | GitHub repo / ruleset ids | The pipeline docs write `<owner>/<repo>` and `<ruleset-id>`; the ruleset itself is `docs/ruleset-protect-main.json` (apply with `gh api -X POST repos/<owner>/<repo>/rulesets --input docs/ruleset-protect-main.json`) |
+| GitHub repo settings | "Generate from template" copies files only, not repo settings. After creating a repo, turn on "Allow auto-merge" (`gh api repos/<owner>/<repo> --method PATCH -F allow_auto_merge=true`); without it `gh pr merge <n> --auto --squash` fails with "Auto merge is not allowed for this repository". Found by the smoke test (Nov 18). |
 | Google Cloud project | The pipeline docs write `<gcp-project>` |
 
 ## C. `site.config.ts` (built in PR 2)
