@@ -90,7 +90,7 @@ Legend: **G** = Generic (keep). **C** = Per-client (moves to the config file). *
 | File | Class |
 | --- | --- |
 | `contact.ts`, `email.ts`, `env.ts`, `messages.ts`, `sheets.ts`, `turnstile.ts`, `tsconfig.json`, `worker-configuration.d.ts` | G logic, C values (table B) |
-| `contact.test.ts` | G logic; fixtures use Huston values (H) |
+| `contact.test.ts` | G (builds the Worker from a fixture config with fake values; no client literal) |
 | `turnstile-errors.test.ts` | G |
 
 ## B. Hard-coded client-specific values

@@ -11,7 +11,7 @@ Permanent architecture, security and content rules are in [`AGENTS.md`](./AGENTS
 | `/` | Home |
 | `/services` | Services and FAQ |
 | `/about` | About |
-| `/contact` | Scheduler placeholder and the contact form (`?topic=partner` shows the Zoho partner variant) |
+| `/contact` | Scheduler placeholder and the contact form (`?topic=partner` shows the partner variant) |
 | `/contact/thanks` | Form confirmation, reached only after a real send (noindex) |
 | `POST /api/contact` | The contact form Worker (`worker/contact.ts`), not a page |
 | `/privacy` | Privacy policy (draft, needs review) |
@@ -285,7 +285,7 @@ If a production build itself fails, nothing is deployed and the old version stay
 - [ ] Domain, DNS and business email working; `NEXT_PUBLIC_SITE_URL` set to the final domain
 - [ ] `email`, `schedulerUrl`, `linkedInUrl`, `turnstileSiteKey` set in `site.config.ts`
 - [ ] `npm run check:placeholders` passes (photos, screenshots, titles, location, background wording, musician line, certifications, privacy date)
-- [ ] Contact form tested end to end on desktop and phone on the live domain: the email to grant@, the automatic reply (SPF, DKIM and DMARC all PASS in "Show original"), the Sheet row; then delete the test row
+- [ ] Contact form tested end to end on desktop and phone on the live domain: the notification email to the site address, the automatic reply (SPF, DKIM and DMARC all PASS in "Show original"), the Sheet row; then delete the test row
 - [ ] Scheduler wired and its CSP origin added
 - [ ] Privacy policy checked against the tools actually used
 - [ ] Screenshots supplied with names blurred (or placeholders removed)
