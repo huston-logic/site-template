@@ -541,7 +541,9 @@ describe("client values come from the config", () => {
     assert.equal(called("notify")[0].json?.from, "Another Co <team@another.test>");
     assert.deepEqual(called("notify")[0].json?.to, ["team@another.test"]);
     assert.equal(called("reply")[0].json?.from, "Sam Other <team@another.test>");
-    assert.ok(String(called("reply")[0].json?.text).includes("https://another.test/call"));
+    const replyLines = String(called("reply")[0].json?.text).split("\n");
+    assert.ok(replyLines.some((line) => line === "https://another.test/call"), "the booking link is on its own line");
+    assert.ok(replyLines.some((line) => line === "Book a free 20-minute call: https://another.test/call"));
   });
 
   for (const [label, contact] of [
