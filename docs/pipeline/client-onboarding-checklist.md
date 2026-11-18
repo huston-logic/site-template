@@ -14,7 +14,7 @@ Back to the [map](./README.md). The gotchas are collected at the end.
 
 ## 0. Before you start
 
-- [ ] Decide the Worker name (this repo: `huston-site`), the apex domain and whether `www.` redirects
+- [ ] Decide the Worker name (for example `<worker-name>`), the apex domain and whether `www.` redirects
       to the apex (this repo: yes, 301).
 - [ ] Decide public or private repo. This repo is **public**, which is why business names of third
       parties, client sales notes and raw source images were trimmed out of it (`docs/website-plan.md`
@@ -132,7 +132,7 @@ Back to the [map](./README.md). The gotchas are collected at the end.
 - [ ] Create an API key with **Sending access** for this domain only. It becomes the Worker secret
       `RESEND_API_KEY`.
 - [ ] Set the `from` display name and address: the Worker builds `FROM` as
-      `Huston Logic <providers.email>` in `worker/contact.ts`; change the display name for the
+      `Business Name <providers.email>` in `worker/contact.ts`; change the display name for the
       client.
 
 ## 6. Google Sheet and service account (client's Google account)
@@ -140,7 +140,7 @@ Back to the [map](./README.md). The gotchas are collected at the end.
 - [ ] Create the Sheet with two tabs, `Submissions` and `Preview`, each with the header row
       `Received (UTC) | Need | Topic | Name | Email | Business | Message | Tools | Website | Source | Mode`.
       Its ID (between `/d/` and `/edit`) becomes the Worker secret `GOOGLE_SHEET_ID`.
-- [ ] Google Cloud Console: create a project (this repo: `huston-logic-site`). Enable the **Google
+- [ ] Google Cloud Console: create a project (for example `<gcp-project>`). Enable the **Google
       Sheets API**.
 - [ ] IAM & Admin, Service Accounts, Create (this repo: `contact-form-writer`). Grant **no project
       roles**.

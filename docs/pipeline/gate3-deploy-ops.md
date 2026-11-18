@@ -33,7 +33,7 @@ deploy time.
 
 | Setting | Value |
 |---|---|
-| Worker name | `huston-site` |
+| Worker name | `<worker-name>` |
 | Production branch | `main` |
 | Build command | `npm run build` (to become `npm run build:launch` at launch, so a build with unresolved placeholders cannot go live) |
 | Deploy command | `npx wrangler deploy` (run by Workers Builds, never by hand) |
@@ -51,7 +51,7 @@ What `npm run build:launch` adds (`package.json`): `npm run check:placeholders &
 
 ### The merge-commit check
 
-Each merge to `main` also shows a "Workers Builds: huston-site" check on the merge commit. A failed
+Each merge to `main` also shows a "Workers Builds: <worker-name>" check on the merge commit. A failed
 production build leaves the previous version live and sends **no email**; that red check is the
 only signal (README "Monitoring"). Cloudflare's documented route for an alert is a Queue plus a
 small Worker posting to a Slack or Discord webhook; it has not been built.
@@ -61,7 +61,7 @@ small Worker posting to a Slack or Discord webhook; it has not been built.
 ```jsonc
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "huston-site",
+  "name": "<worker-name>",
   // The contact form Worker. It runs only for /api/* (run_worker_first); every page and file is served from ./out.
   "main": "./worker/contact.ts",
   "compatibility_date": "2026-11-11",
@@ -115,14 +115,14 @@ The installed wrangler is 4.160.1 (exact-pinned devDependency). `wrangler previe
 
 - Workers Builds deploys every non-`main` branch (including Dependabot's) to a Worker Preview and
   comments on the PR with the URL. The comment on PR 16 shows the shape: a branch-level URL
-  `<branch-slug>-huston-site.<account>.workers.dev` that always points at the latest preview
-  deployment, and a per-deployment URL `<deployment-id>-huston-site.<account>.workers.dev`.
+  `<branch-slug>-<worker-name>.<account>.workers.dev` that always points at the latest preview
+  deployment, and a per-deployment URL `<deployment-id>-<worker-name>.<account>.workers.dev`.
 - **Preview secrets are separate from production** and are copied from the Preview base config
   **when the preview is created**. Set the four secrets on the base config before pushing a branch;
   an existing preview is fixed with `wrangler preview secret put <NAME> --name <branch>`, which
   creates a new deployment of that preview. Full commands in
   [contact-form.md](./contact-form.md#secrets-by-name).
-- The Worker treats any `*.workers.dev` host other than `huston-site.<account>.workers.dev` as a
+- The Worker treats any `*.workers.dev` host other than `<worker-name>.<account>.workers.dev` as a
   preview even if `SITE_ENV` says production (`worker/env.ts`, `resolveMode`), so a misconfigured
   preview can never email a visitor or write to the `Submissions` tab.
 - `public/_headers` adds `X-Robots-Tag: noindex` to `https://:version.:subdomain.workers.dev/*`
@@ -179,10 +179,10 @@ These are the owner's post-merge steps from PR 53, written for the launch. None 
 repo. Step 4 below is as practised on this domain (owner-confirmed 2026-11-15); the rest is the PR 53
 plan and is **UNVERIFIED (dashboard)**.
 
-1. **Build command.** Workers & Pages, `huston-site`, Settings, Builds, Build configuration, Edit:
+1. **Build command.** Workers & Pages, `<worker-name>`, Settings, Builds, Build configuration, Edit:
    change `npm run build` to `npm run build:launch`. Save, then Retry deployment (or push any
    commit). The build fails if any placeholder is left.
-2. **Custom domains.** Workers & Pages, `huston-site`, Settings, Domains & Routes, Add, Custom
+2. **Custom domains.** Workers & Pages, `<worker-name>`, Settings, Domains & Routes, Add, Custom
    domain. Add the apex, then `www.`. The domain must be a zone in the same Cloudflare account;
    Cloudflare creates the DNS records and certificates.
 3. **Turnstile hostnames.** Turnstile, the contact widget, Settings, Hostnames: add the apex and
@@ -206,7 +206,7 @@ PR 53 also recorded why no code change was needed: the Worker has no hard-coded 
 (the origin check uses the request's own origin and Turnstile is checked against the request
 hostname), nothing noindexes the real domain (`robots.txt` allows all; only `/contact/thanks` and the
 404 carry a page-level noindex), and production mode applies to every host except `*.workers.dev`
-hosts other than `huston-site.*`.
+hosts other than `<worker-name>.*`.
 
 ## Rollback runbook (README, practised 2026-11-13)
 
@@ -214,7 +214,7 @@ A rollback points the live site at an older version within about a minute. It ch
 Git: `main` still contains the bad commit, and the next merge to `main` redeploys `main`'s HEAD over
 the rollback. Use it when a deploy broke the live site and it must be fixed now.
 
-**Roll back.** Cloudflare dashboard, Workers & Pages, `huston-site`, Deployments. Pick an older row
+**Roll back.** Cloudflare dashboard, Workers & Pages, `<worker-name>`, Deployments. Pick an older row
 that was a real production deployment (match its time to the merge time of the PR; never a preview).
 Three-dot menu, **Rollback**. Read the dialog, add a message, confirm. The Active deployment card
 switches to the older version (the move is recorded under View rollout history; the Deployments list
