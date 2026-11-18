@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { Text } from "@/components/ui/Text";
 import { thanks } from "@/content/contact";
 import { parseHandoff, readHandoff } from "@/lib/contact-handoff";
 
@@ -12,6 +13,6 @@ const subscribe = () => () => {};
  */
 export function ThanksText({ part }: { part: "heading" | "body" }) {
   const { firstName, autoReplyFailed } = parseHandoff(useSyncExternalStore(subscribe, readHandoff, () => null));
-  if (part === "heading") return <>{firstName ? thanks.headingWithName.replace("{firstName}", firstName) : thanks.heading}</>;
-  return <>{autoReplyFailed ? thanks.bodyAutoReplyFailed : thanks.body}</>;
+  if (part === "heading") return <Text>{firstName ? thanks.headingWithName.replace("{firstName}", firstName) : thanks.heading}</Text>;
+  return <Text>{autoReplyFailed ? thanks.bodyAutoReplyFailed : thanks.body}</Text>;
 }

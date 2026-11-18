@@ -3,8 +3,7 @@ import { Footer } from "./Footer";
 import { Header } from "./Header";
 
 /**
- * The header, `main#main` and footer around every site page. Used by `app/(site)/layout.tsx` and the 404. Pages outside
- * the `(site)` group (the NFC card at /card) render their own `main#main` without the site navigation.
+ * The header, `main#main` and footer around every site page. Used by `app/(site)/layout.tsx` and the 404.
  */
 export function SiteChrome({ children }: { children: ReactNode }) {
   return (

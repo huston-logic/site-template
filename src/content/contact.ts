@@ -1,116 +1,108 @@
-import { fw } from "@/lib/framework";
 import { honeypot, needOptions, sourceOptions } from "./contact-fields";
 
-/** Copy: docs/website-plan.md Revision 7.1, B7, B7b and B8. Field options and limits live in `contact-fields.ts`. */
+/**
+ * Contact page copy. Client-specific text is a double-bracket placeholder. The field option labels and limits live in
+ * `contact-fields.ts`, which the Worker also reads (generic Worker: T4).
+ */
 export const contactMeta = {
-  title: "Contact | Book a Free 20-Minute Call | Huston Logic",
-  description:
-    "Need a website, or help with a workflow? Book a free 20-minute call or send a quick note. You get an automatic reply right away and Grant's own reply within one business day.",
+  title: "[[Contact page SEO title]]",
+  description: "[[Contact page SEO description]]",
 };
 
 export const contactHero = {
-  eyebrow: "Huston, we have a problem.",
-  title: "Good. Tell me about it.",
-  intro: "Two ways to start, and both are free. Send a note and you'll get one automatic reply right away, then a real one from me.",
+  eyebrow: "[[Contact eyebrow]]",
+  title: "[[Contact headline]]",
+  intro: "[[Contact introduction]]",
 };
 
 export const scheduler = {
-  heading: "Book a 20-minute call",
-  body: "Pick a time that works. Tell me what you need and what you use today, and I'll tell you whether there's a sensible next step.",
-  buttonLabel: "Pick a time →",
-  /** Dev-only marker until `siteConfig.schedulerUrl` is set; fails the launch gate on purpose. */
-  placeholder: "Booking link not set yet.",
+  heading: "[[Scheduler heading]]",
+  body: "[[Scheduler text]]",
+  buttonLabel: "[[Scheduler button label]]",
+  /** Shown instead of the button until `siteConfig.schedulerUrl` is set; fails the launch gate on purpose. */
+  placeholder: "[[Booking link not set yet]]",
 };
 
 export const noteForm = {
-  heading: "Or send a quick note",
-  partnerHeading: "Zoho partner? Tell me about the work and your timeline.",
-  needLegend: "What do you need?",
+  heading: "[[Contact form heading]]",
+  partnerHeading: "[[Partner contact form heading]]",
+  needLegend: "[[What do you need? question]]",
   needOptions,
   name: { label: "Your name" },
-  email: { label: "Best email" },
+  email: { label: "Email" },
   business: { label: "Business name (optional)" },
   message: {
-    label: "What's going on?",
+    label: "Message",
     placeholders: {
-      website: "e.g. A site for my business with a services page and a booking form.",
-      workflow: "e.g. New inquiries come in from three places and nobody's sure who follows up.",
-      other: "e.g. Our site is old, and inquiries from it get lost.",
+      website: "[[Example message for a website request]]",
+      workflow: "[[Example message for a workflow request]]",
+      other: "[[Example message for another request]]",
     },
   },
   tools: {
-    label: "What do you use today?",
+    label: "[[Tools question label (optional)]]",
     placeholders: {
-      website: "e.g. A Facebook page, an old site, or nothing yet.",
-      workflow: "e.g. SimplePractice, QuickBooks, Google Sheets, Zoho… or 'not sure'.",
-      other: "e.g. A Facebook page, an old site, or nothing yet.",
+      website: "[[Example answer]]",
+      workflow: "[[Example answer]]",
+      other: "[[Example answer]]",
     },
   },
   website: { label: "Current website (optional)" },
   source: {
-    label: "How did you hear about Huston Logic?",
-    /** Interface string, not in Section B; flagged for Grant's OK. */
+    label: "[[How did you hear about us? question]]",
     empty: "Choose one",
     options: sourceOptions,
   },
   honeypotLabel: honeypot.label,
-  privacyNote:
-    "Please don't include client or patient details, account numbers or passwords. Anything sensitive gets handled the right way, later.",
-  submitLabel: "Send it over →",
+  privacyNote: "[[Note about what not to include in the form]]",
+  submitLabel: "[[Submit button label]]",
   errors: {
-    need: "Pick the closest one. 'Not sure' counts.",
+    need: "Please pick one.",
     name: "Please add your name.",
     email: "That email doesn't look quite right.",
-    message: "A sentence or two is plenty, but I do need something to go on.",
+    message: "Please add a message.",
   },
-  /** Shown when sending fails (B7, Grant, Nov 15). The form keeps the visitor's answers. */
   sendErrors: {
     notVerified: "That didn't go through. Please try again.",
-    rateLimited: "That's a few tries in a row. Give it a minute and try again.",
-    failed: "Something broke on my end and your note didn't send. Your answers are still here, or email grant@hustonlogic.com.",
+    rateLimited: "Too many tries in a row. Wait a minute and try again.",
+    failed: "[[Message shown when sending fails, with a fallback email address]]",
   },
 };
 
 export const whatHappensNext = {
-  heading: "What happens next",
+  heading: "[[What happens next heading]]",
   steps: [
-    {
-      lead: "An automatic reply",
-      body: "reaches you right away, so you know it arrived. Then I read your note myself and reply within one business day (Monday to Friday).",
-    },
-    { lead: "Step zero: a free 20-minute call", body: "about what you need and the tools involved." },
-    {
-      lead: "If there's a fit,",
-      body: "you get a written plan and price for a website, or a short written scope for a Workflow Review. If not, I'll point you somewhere useful.",
-    },
+    { lead: "[[Step 1 lead]]", body: "[[Step 1 description]]" },
+    { lead: "[[Step 2 lead]]", body: "[[Step 2 description]]" },
+    { lead: "[[Step 3 lead]]", body: "[[Step 3 description]]" },
   ],
-  emailLabel: "Prefer email?",
+  emailLabel: "[[Prefer email? label]]",
 };
 
 export const thanks = {
-  title: "Contact confirmation | Huston Logic",
-  description: "Confirmation page shown after a contact form submission.",
-  heading: "Got it, thanks.",
-  /** B7b, with the first name the form saved in sessionStorage. */
-  headingWithName: "Got it, thanks {firstName}.",
-  body: "That's step zero started. Your automatic reply is on its way (check spam the first time), and I'll write back myself within one business day. Want to skip the back-and-forth?",
-  /** B7b (Grant, Nov 15): replaces the auto-reply sentence when the automatic reply failed to send. */
-  bodyAutoReplyFailed: "That's step zero started. Your note reached me. The automatic reply didn't send, so don't wait for it. Want to skip the back-and-forth?",
-  pickTimeLabel: "Pick a time now →",
-  after: { lead: "Curious what happens after the call?", label: fw("{steps} →"), href: "/how-i-work" },
+  title: "[[Thank-you page title]]",
+  description: "[[Thank-you page description]]",
+  heading: "[[Thank-you heading]]",
+  /** With the first name the form saved in sessionStorage. */
+  headingWithName: "[[Thank-you heading for {firstName}]]",
+  body: "[[Thank-you text, mentioning the automatic reply]]",
+  /** Replaces `body` when the automatic reply failed to send but the note reached the owner. */
+  bodyAutoReplyFailed: "[[Thank-you text when the automatic reply did not send]]",
+  pickTimeLabel: "[[Pick a time button label]]",
+  after: { lead: "[[What happens after the call? lead]]", label: "[[Link label]]", href: "/services" },
   meanwhile: {
-    lead: "While you wait:",
+    lead: "[[While you wait lead]]",
     links: [
-      { label: "What's included in a website →", href: "/services#websites" },
-      { label: "How a Workflow Review works →", href: "/services#workflows" },
+      { label: "[[Link 1 label]]", href: "/services" },
+      { label: "[[Link 2 label]]", href: "/about" },
     ],
   },
 };
 
 export const notFound = {
-  title: "Page not found | Huston Logic",
-  heading: "Huston, we have a problem.",
-  body: "This page doesn't exist, or it moved without telling anyone. (Ironic, I know.)",
-  homeLabel: "Back to home →",
-  callLabel: "Book a free call →",
+  title: "Page not found | [[Business name]]",
+  heading: "Page not found",
+  body: "[[404 message]]",
+  homeLabel: "Back to home",
+  callLabel: "[[404 secondary link label]]",
 };

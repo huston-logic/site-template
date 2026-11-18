@@ -16,7 +16,7 @@ export default function NotFound() {
   return (
     <SiteChrome>
       <div className="relative overflow-x-clip">
-        <PageHero title={notFound.heading} intro={notFound.body} dotOut>
+        <PageHero title={notFound.heading} intro={notFound.body}>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <Button href="/">{notFound.homeLabel}</Button>
             <TextLink href={bookCallHref()}>{notFound.callLabel}</TextLink>

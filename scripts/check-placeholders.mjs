@@ -50,14 +50,12 @@ scanConfig(config, "");
 const requiredKeys = [
   "business.name", "business.tagline", "business.oneLiner",
   "owner.name", "owner.givenName", "owner.familyName", "owner.role", "owner.phone", "owner.regionLine",
-  "owner.vcardPath", "owner.vcardFileName",
   "domain.url", "domain.workerName", "domain.previewHostSuffix",
   "contact.siteEmail", "contact.fromName", "contact.replyFromName", "contact.schedulerUrl", "contact.bookingFallbackPath",
   "contact.linkedInUrl", "contact.turnstileSiteKey", "contact.sheetTabs.production", "contact.sheetTabs.preview",
   "contact.rateLimit.namespaceIds.production", "contact.rateLimit.namespaceIds.preview",
   ...Object.keys(config.theme.colors).map((k) => `theme.colors.${k}`),
   "theme.fonts.display.family", "theme.fonts.body.family", "theme.fonts.accent.family",
-  "brand.badge", "brand.wordmark", "brand.full", "brand.headshot",
 ];
 for (const key of requiredKeys) {
   const value = key.split(".").reduce((obj, part) => obj?.[part], config);
@@ -66,15 +64,9 @@ for (const key of requiredKeys) {
   else if (typeof value === "string" && value.trim() === "") problems.push(`site.config.ts  ${key} is empty`);
 }
 
-const site = readFileSync(join(srcDir, "content", "site.ts"), "utf8");
-
-const decisionLabels = {
-  lineArtStyle: "line-art style (geometric framework icons by default)",
-};
-for (const [key, label] of Object.entries(decisionLabels)) {
-  if (new RegExp(`${key}:\\s*false`).test(site)) {
-    problems.push(`src/content/site.ts  decisionsConfirmed.${key} is false: not yet confirmed by Grant (${label})`);
-  }
+// The starter ships with a valid stand-in URL so the build runs; a real client site must not launch on it.
+if (/^https?:\/\/(www\.)?example\.(com|org|net)(\/|$)/.test(config.domain.url)) {
+  problems.push("site.config.ts  domain.url is still the example.com stand-in");
 }
 
 if (problems.length > 0) {

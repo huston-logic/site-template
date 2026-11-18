@@ -4,7 +4,6 @@ import { Container } from "@/components/hl/Container";
 import { ContactForm } from "@/components/hl/ContactForm";
 import { PageHero } from "@/components/hl/PageHero";
 import { TextLink } from "@/components/hl/TextLink";
-import { ContactFlowArt } from "@/components/illustrations/BrandArt";
 import { Text } from "@/components/ui/Text";
 import { contactHero, contactMeta, scheduler, whatHappensNext } from "@/content/contact";
 import { siteConfig } from "@/content/site";
@@ -14,7 +13,7 @@ export const metadata: Metadata = pageMetadata({ ...contactMeta, path: "/contact
 
 const h2 = "font-ui text-[28px] font-bold leading-tight tracking-[-0.03em]";
 
-/** Contact (docs/website-plan.md B7, STYLE-GUIDE §7.32): the scheduler column, the note form, then what happens next. */
+/** Contact: the scheduler column, the note form, then what happens next. */
 export default function ContactPage() {
   return (
     <div className="relative overflow-x-clip">
@@ -23,8 +22,12 @@ export default function ContactPage() {
       <section className="pb-12 md:pb-16">
         <Container className="grid items-start gap-12 min-[900px]:grid-cols-[5fr_7fr] min-[900px]:gap-12">
           <div id="book" className="scroll-mt-24">
-            <h2 className={h2}>{scheduler.heading}</h2>
-            <p className="mt-4 max-w-[48ch] text-body">{scheduler.body}</p>
+            <h2 className={h2}>
+              <Text>{scheduler.heading}</Text>
+            </h2>
+            <p className="mt-4 max-w-[48ch] text-body">
+              <Text>{scheduler.body}</Text>
+            </p>
             <div className="mt-6">
               {siteConfig.schedulerUrl ? (
                 <Button href={siteConfig.schedulerUrl} fullWidthOnMobile>
@@ -45,8 +48,6 @@ export default function ContactPage() {
                 </>
               )}
             </div>
-            {/* The note's path, drawn: form → inbox, sheet row and reply. Beside the form only; on narrow screens the form comes first. */}
-            <ContactFlowArt draw className="mt-14 hidden max-w-[360px] min-[900px]:block" />
           </div>
           <ContactForm />
         </Container>
@@ -55,7 +56,7 @@ export default function ContactPage() {
       <section aria-labelledby="next-title" className="py-12 md:py-16">
         <Container>
           <h2 id="next-title" className="font-ui text-h2 font-bold">
-            {whatHappensNext.heading}
+            <Text>{whatHappensNext.heading}</Text>
           </h2>
           <ol className="mt-8 max-w-[64ch] space-y-5 text-[17px] leading-[1.55]">
             {whatHappensNext.steps.map((step, index) => (
@@ -64,13 +65,16 @@ export default function ContactPage() {
                   {index + 1}
                 </span>
                 <span>
-                  <strong>{step.lead}</strong> {step.body}
+                  <strong>
+                    <Text>{step.lead}</Text>
+                  </strong>{" "}
+                  <Text>{step.body}</Text>
                 </span>
               </li>
             ))}
           </ol>
           <p className="mt-8 flex flex-wrap items-center gap-x-2 text-[17px]">
-            {whatHappensNext.emailLabel}{" "}
+            <Text>{whatHappensNext.emailLabel}</Text>{" "}
             {siteConfig.email ? (
               <TextLink inline href={`mailto:${siteConfig.email}`}>
                 {siteConfig.email}

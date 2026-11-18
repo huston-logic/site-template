@@ -12,19 +12,9 @@ const size = { width: 1200, height: 630 };
 const { silver, ink, ink2, green, rust } = base.theme.colors;
 const color = { silver, ink, ink2, green, rust };
 
-/** Reads the badge geometry from public/brand so the mark is never redrawn here. */
-async function loadBadge() {
-  const svg = await readFile(path.join(process.cwd(), "public", base.brand.badge), "utf8");
-  const viewBox = /viewBox="([^"]+)"/.exec(svg)?.[1];
-  const d = /<path[^>]* d="([^"]+)"/.exec(svg)?.[1];
-  if (!viewBox || !d) throw new Error("Could not read the badge SVG in public/brand.");
-  return { viewBox, d };
-}
-
-/** Brand-styled social preview (style guide v3), generated at build time and served as /og.png. */
+/** Social preview card (CLIENT: replace the circle with the client's mark), generated at build time and served as /og.png. */
 export async function GET() {
-  const [badge, regular, semiBold] = await Promise.all([
-    loadBadge(),
+  const [regular, semiBold] = await Promise.all([
     readFile(path.join(process.cwd(), "src/assets/og/Outfit-Regular.ttf")),
     readFile(path.join(process.cwd(), "src/assets/og/Outfit-SemiBold.ttf")),
   ]);
@@ -44,9 +34,7 @@ export async function GET() {
           fontFamily: "Outfit",
         }}
       >
-        <svg width={360} height={360} viewBox={badge.viewBox} xmlns="http://www.w3.org/2000/svg">
-          <path d={badge.d} fill={color.green} fillRule="evenodd" />
-        </svg>
+        <div style={{ width: 280, height: 280, borderRadius: 140, background: color.green }} />
         <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
           <div style={{ fontSize: 112, fontWeight: 600, lineHeight: 1.05, letterSpacing: -2 }}>{siteConfig.name}</div>
           <div style={{ width: 96, height: 8, background: color.rust, margin: "32px 0" }} />
