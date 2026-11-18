@@ -96,7 +96,7 @@ after dropping the cached access token).
 | `development` | `localhost`, `127.0.0.1`, `[::1]` | development | Turnstile checked with Cloudflare's test keys (hostname and action not enforced), then nothing is emailed or written; one `dry_run` log line |
 | `development` | anything else | **null** (500) | A stray setting can never turn the live form into one that sends nothing |
 | `preview` | any | preview | Rows go to the `Preview` tab, every subject starts with `[Preview]`, the automatic reply goes to the site's own address with a subject naming who it would have gone to |
-| `production` | `*.workers.dev` other than `huston-site.*` | preview | A branch preview is a preview even if its vars say otherwise |
+| `production` | `*.workers.dev` other than `<worker-name>.*` | preview | A branch preview is a preview even if its vars say otherwise |
 | `production` | anything else | production | The live site |
 | anything else | any | **null** (500) | Fails closed |
 
@@ -163,7 +163,7 @@ npx wrangler secret put GOOGLE_SHEET_ID
 
 Each `secret put` creates a new production version (a row in Deployments). If it fails with "latest
 version of your Worker isn't currently deployed", use the dashboard instead: Workers & Pages,
-`huston-site`, Settings, Variables and Secrets (README).
+`<worker-name>`, Settings, Variables and Secrets (README).
 
 ### Preview base config (new previews)
 
@@ -227,7 +227,7 @@ The hooks and `settings.json` deny the agent any read of `.dev.vars`, `.env*` (e
 ## Turnstile
 
 - **Widget** (README; dashboard, **UNVERIFIED**): Cloudflare dashboard, Turnstile, widget named
-  `huston-site contact`, Managed mode. Hostnames: the apex (covers its subdomains, so `www.` too
+  `<worker-name> contact`, Managed mode. Hostnames: the apex (covers its subdomains, so `www.` too
   once added) and the account's `<account>.workers.dev` (meant to cover the production and preview
   workers.dev hosts; error 110200 on a preview means it does not).
 - **Site key** is public by design and lives in `src/content/providers.ts` (`turnstileSiteKey`). The
@@ -288,7 +288,7 @@ client domain that will use Workspace from the start, simply never enable Email 
 
 From the README and `worker/sheets.ts`:
 
-- **Google Cloud project** `huston-logic-site`, with the **Google Sheets API** enabled.
+- **Google Cloud project** `<gcp-project>`, with the **Google Sheets API** enabled.
 - **Service account** `contact-form-writer` with **no project roles**. Its JSON key is the secret
   `GOOGLE_SERVICE_ACCOUNT_KEY`. The Worker signs a JWT (`iss` = `client_email`, `scope` =
   `https://www.googleapis.com/auth/spreadsheets`, `aud` = `https://oauth2.googleapis.com/token`,
@@ -327,7 +327,7 @@ Only the one project is overridden; the organisation default stays on. See the
 - Domain verified through the Forge records above. The API key has "Sending access" for the one
   domain only (README).
 - The notification is **plain text** (`text` only, never `html`), from `<Business> <site address>`.
-  The automatic reply is multipart (`html` + `text`, same words), from `Grant Huston <site address>`
+  The automatic reply is multipart (`html` + `text`, same words), from `Business Name <site address>`
   with `Auto-Submitted: auto-replied` and `X-Auto-Response-Suppress: All`. Both go through
   `POST https://api.resend.com/emails` with an `idempotency-key` header (`email.ts`).
 - Notification: subject `New note: <need> from <name>` (capped at 120 characters, `[Preview] `
@@ -337,7 +337,7 @@ Only the one project is overridden; the organisation default stays on. See the
   first word is not 1 to 30 letters, hyphens and apostrophes (so a spammer cannot put text in it);
   the first name is the only visitor input in the email. The booking link comes only from
   `providers.schedulerUrl` (same in preview and production, never from the request origin),
-  falling back to the fixed `https://hustonlogic.com/contact#book` if it is null.
+  falling back to the fixed `https://<your-domain>/contact#book` if it is null.
 
 ## Failure behaviour
 

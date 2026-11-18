@@ -466,62 +466,13 @@ field error and sends nothing. Each state is also axe-scanned. Field labels and 
 
 ## The "Protect main" ruleset
 
-Read with `gh api repos/ghuston/huston-tech-website/rulesets/27075919` on 2026-11-15. Nothing in it
-is secret. The ruleset was created 2026-11-11 and last updated 2026-11-13 (Pacific).
+The full ruleset is saved in `docs/ruleset-protect-main.json` (the read-only export, with the ids and timestamps removed so it can be applied as is). Nothing in it is secret. To create the same ruleset in a new repo:
 
-```json
-{
-  "id": 27075919,
-  "name": "Protect main",
-  "target": "branch",
-  "source_type": "Repository",
-  "source": "ghuston/huston-tech-website",
-  "enforcement": "active",
-  "conditions": { "ref_name": { "exclude": [], "include": ["~DEFAULT_BRANCH"] } },
-  "rules": [
-    { "type": "deletion" },
-    { "type": "non_fast_forward" },
-    {
-      "type": "pull_request",
-      "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": false,
-        "required_reviewers": [],
-        "require_code_owner_review": false,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": false,
-        "require_extra_approval_for_unattributed_changes": true,
-        "allowed_merge_methods": ["merge", "squash", "rebase"]
-      }
-    },
-    {
-      "type": "required_status_checks",
-      "parameters": {
-        "strict_required_status_checks_policy": false,
-        "do_not_enforce_on_create": false,
-        "required_status_checks": [
-          { "context": "check", "integration_id": 15368 },
-          { "context": "a11y", "integration_id": 15368 },
-          { "context": "lighthouse", "integration_id": 15368 },
-          { "context": "dependency-review", "integration_id": 15368 }
-        ]
-      }
-    },
-    {
-      "type": "code_scanning",
-      "parameters": {
-        "code_scanning_tools": [
-          { "tool": "CodeQL", "security_alerts_threshold": "high_or_higher", "alerts_threshold": "errors" }
-        ]
-      }
-    }
-  ],
-  "bypass_actors": [],
-  "current_user_can_bypass": "never",
-  "created_at": "2026-11-11T14:49:39.064-08:00",
-  "updated_at": "2026-11-13T14:56:15.492-08:00"
-}
+```bash
+gh api -X POST repos/<owner>/<repo>/rulesets --input docs/ruleset-protect-main.json
 ```
+
+The `integration_id` 15368 is the GitHub Actions app and is the same in every repo. The status check names `check`, `a11y`, `lighthouse` and `dependency-review` must exist (a workflow must have run once) before applying.
 
 What each rule means in practice:
 
