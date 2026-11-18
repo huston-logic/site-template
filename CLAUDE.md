@@ -84,6 +84,34 @@ These can go stale if the ruleset is changed in Settings, so re-check before rel
 - Every PR description starts with a "Needs your eyes" line listing any change to AGENTS.md, CLAUDE.md, package.json or README, or "none".
 - Open the PR and stop. The owner enables auto-merge; never try to merge.
 
+## Autonomous runs
+Applies only when I start a task by saying it is an autonomous run. Then these rules replace, for that run only:
+"Plan first and wait for my approval", "Never merge it yourself; I merge", "The owner enables auto-merge; never try to
+merge" and the "Ask me only before: adding or upgrading a dependency" item. Everything else in this file still holds.
+The task list is `docs/PLAN.md` and the progress log is `docs/STATUS.md`. Update STATUS.md after every task; while PRs
+are still open and unmerged, update it only in the first PR and one closing PR so the PRs do not conflict.
+- Work through the whole list without asking questions. Make judgment calls yourself and list them in the final summary.
+  If a task is blocked, queue it in STATUS.md and move on.
+- One PR per task. Before each branch: `git switch main && git pull --ff-only`. No force pushes.
+- Run `superpowers:requesting-code-review` before each merge and `superpowers:verification-before-completion` before
+  calling anything done. If CI fails, use `superpowers:systematic-debugging`, fix the cause and push. Never weaken a
+  test, threshold or axe rule to make it pass.
+- When the review passes and the hook allows it, enable auto-merge with `gh pr merge <number> --auto --squash`. The
+  ruleset's required checks are the gate. Do not wait on CI: start the next task if it does not depend on the last one.
+  The owner-only hook `.claude/hooks/guard-bash.mjs` blocks every `gh pr merge` until the owner installs the proposed
+  change that allows exactly `--auto --squash` and `--auto --merge` (`--admin` and any merge without `--auto` stay
+  blocked). Until then do not work around it: leave the PR open, say "PR #N ready for auto-merge" the moment its review
+  passes, and record it in STATUS.md as "open, ready for auto-merge". Later tasks branch from `main` and must not depend
+  on an unmerged PR.
+- Stop, queue the item and continue with other tasks on: secrets or credentials, DNS, accounts or money, sending real
+  email, deleting user data, lowering any threshold or required check, or any owner-only path (`.claude/hooks`,
+  `.claude/agents`, `.claude/skills`, `.claude/settings*.json`, `.github/workflows`). For an owner-only change, write
+  `<file>.proposed` to the scratchpad and list it for hand-copying.
+- New dependencies: exact-pinned, at least 7 days old (`npm view <pkg> time`), and `dependency-review` must pass. Flag
+  each one in the summary.
+- The run ends with one summary: every PR link and whether it merged, anything flagged, the stop queue, and the exact
+  hand-copy commands for all proposals in one batch.
+
 ## Commands
 - `npm run dev`: dev server at http://localhost:4821 (port is fixed in package.json).
   If the port is busy, tell me what is using it instead of killing it.
