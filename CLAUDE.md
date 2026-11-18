@@ -73,8 +73,13 @@ These can go stale if the ruleset is changed in Settings, so re-check before rel
   You copy it into place in your own terminal and run `node .claude/hooks/selftest.mjs`
   (last line must say `All N passed`); then I stage, commit and open the PR. Details are
   in `.claude/hooks/README.md`.
-- `CLAUDE.md`, `AGENTS.md`, `package.json`, `wrangler.jsonc` and `.gitignore` still ask
-  for approval on each change.
+- `CLAUDE.md`, `AGENTS.md`, `package.json`, `wrangler.jsonc` and `.gitignore` are no longer
+  blocked or asked about by the hooks; edit them normally. The "Decision authority" and PR
+  description rules below still apply (for example, ask before adding a dependency, and list
+  changes to these files on the "Needs your eyes" line).
+- `gh pr merge` is blocked by `guard-bash.mjs` except exactly `gh pr merge <number> --auto --squash`
+  (or `--auto --merge`), which only queues a merge behind the required checks. `--admin` and any
+  merge without `--auto` stay blocked. Outside an autonomous run I still do not merge.
 
 ## Decision authority (fast lane)
 - Default for every task: plan, decide and build without asking me. Make implementation, layout, naming, refactor and test-placement decisions yourself, following AGENTS.md, docs/website-plan.md and docs/STYLE-GUIDE.md.

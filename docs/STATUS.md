@@ -56,12 +56,11 @@ transitive versions that were 1 to 6 days old (for example `@sentry/*` 11.14.0 a
 
 ## Stop queue
 
-- Auto-merge: needs the hook change in the hand-copy batch, or the owner merging by hand.
+- Auto-merge: unblocked (hook change installed in PR #16); use `gh pr merge <number> --auto --squash`.
 - Close Dependabot PR #3 with a comment linking #13, after #13 merges (owner confirmed Nov 18).
 - `npm run test:a11y` was not run locally for the T1c bump (it needs Chromium, a separate approval); CI runs it.
-- `package.json` description still says "Huston Tech" (needs approval to change).
-- CLAUDE.md "Protected folders" still says CLAUDE.md, AGENTS.md, package.json, wrangler.jsonc and .gitignore "ask for
-  approval on each change". That becomes wrong once the hook and settings changes below are installed.
+- Done (chore/template-cleanup): `package.json` description is generic and CLAUDE.md "Protected folders" matches the
+  installed hooks.
 
 ## Proposals for the owner (hand-copy)
 
