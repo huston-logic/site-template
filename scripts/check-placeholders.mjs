@@ -45,7 +45,8 @@ function scanConfig(value, path) {
 }
 scanConfig(config, "");
 
-// Optional on purpose: legalName (falls back to the business name), prices.website (empty means none published),
+// Optional on purpose: legalName (falls back to the business name), brand.logo (empty means no logo in the JSON-LD),
+// prices.website (empty means none published),
 // the csp.extra* lists and the analytics flag.
 const requiredKeys = [
   "business.name", "business.tagline", "business.oneLiner",
