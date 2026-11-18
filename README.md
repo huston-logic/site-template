@@ -9,10 +9,8 @@ Permanent architecture, security and content rules are in [`AGENTS.md`](./AGENTS
 | Route | Page |
 |---|---|
 | `/` | Home |
-| `/services` | Services (Start here, Common fixes, Systems work, FAQ) |
-| `/past-work` | Past Work and testimonials |
-| `/about` | About [[OWNER_NAME]] |
-| `/insights` | Insights ("coming soon" until the first article) |
+| `/services` | Services and FAQ |
+| `/about` | About |
 | `/contact` | Scheduler placeholder and the contact form (`?topic=partner` shows the Zoho partner variant) |
 | `/contact/thanks` | Form confirmation, reached only after a real send (noindex) |
 | `POST /api/contact` | The contact form Worker (`worker/contact.ts`), not a page |
@@ -266,7 +264,6 @@ If a production build itself fails, nothing is deployed and the old version stay
 - [ ] Privacy policy checked against the tools actually used
 - [ ] Screenshots supplied with names blurred (or placeholders removed)
 - [ ] Submit `sitemap.xml` to Google Search Console
-- [ ] Decisions confirmed in `decisionsConfirmed`: Review price (default: none), geometric framework icons
 - [ ] Framework wording matches everywhere: three steps (step zero is the call, not a fourth step), 20-minute call, reply within one business day, 14-day correction window, "5/5 handoff & training" and "3 of 3", 21 client accounts, Review fee credited toward the fix, the stop-point line on Home and Services
 - [ ] Final claims check: no prices (unless the Review price is published), no "Uncarved Dream", no real client data in images, no "we/our team"
 
@@ -276,10 +273,9 @@ If a production build itself fails, nothing is deployed and the old version stay
 src/
   app/            routes, metadata files (sitemap, robots, icon, og.png)
   components/
-    hl/           the v3 design: buttons, cards, doors, hero, steps, FAQ, contact form
-    layout/       header, nav, badge turn, footer
-    ui/           copy helpers (Text, Placeholder, JsonLd, InViewOnce, BookCallButton)
-    illustrations/ framework step icons
+    hl/           design primitives: buttons, cards, page hero, lists, FAQ, contact form
+    layout/       header, nav, footer
+    ui/           copy helpers (Text, Placeholder, JsonLd, BookCallButton)
   content/        typed copy and site settings (single source of truth)
   lib/            fonts, metadata, JSON-LD, routes and text-token helpers
 scripts/          placeholder gate, static preview server

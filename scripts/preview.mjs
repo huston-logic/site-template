@@ -22,7 +22,7 @@ const types = {
 };
 
 // Apply the site-wide `/*` block of _headers so CSP problems show up locally, not only on Cloudflare, plus blocks for
-// one exact path (such as /grant.vcf). Wildcard paths other than `/*` and absolute-URL blocks are skipped.
+// one exact path (such as a downloadable file). Wildcard paths other than `/*` and absolute-URL blocks are skipped.
 function loadHeaderBlocks() {
   const file = join(outDir, "_headers");
   const blocks = {};

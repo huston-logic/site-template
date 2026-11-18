@@ -4,12 +4,13 @@ import { siteConfig } from "@/content/site";
 import { inter, newsreader, outfit } from "@/lib/fonts";
 import { organizationJsonLd } from "@/lib/jsonld";
 import { OG_IMAGE_ALT, OG_IMAGE_PATH } from "@/lib/metadata";
+import { siteConfig as base } from "../../site.config";
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: `${siteConfig.name} | Custom Websites & Workflow Consulting for Small Businesses`,
+    default: "[[Default site title]]",
     template: `%s | ${siteConfig.name}`,
   },
   applicationName: siteConfig.name,
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#F3F5F4",
+  themeColor: base.theme.colors.silver,
   width: "device-width",
   initialScale: 1,
 };
@@ -42,7 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to main content
         </a>
-        {/* The header, main and footer come from app/(site)/layout.tsx (SiteChrome); /card renders its own main. */}
+        {/* The header, main and footer come from app/(site)/layout.tsx (SiteChrome). */}
         {children}
         <JsonLd data={organizationJsonLd()} />
       </body>

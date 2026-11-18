@@ -94,12 +94,6 @@ function headers() {
 /_next/static/*
   Cache-Control: public, max-age=31536000, immutable
 
-# ${c.owner.givenName}'s contact card (built by src/app/grant.vcf/route.ts), linked from /card. Phones open it as a contact to save.
-${c.owner.vcardPath}
-  Content-Type: text/vcard; charset=utf-8
-  Content-Disposition: attachment; filename="${c.owner.vcardFileName}"
-  X-Robots-Tag: noindex
-
 # Keep Cloudflare preview/production *.pages.dev URLs out of search results.
 https://:project.pages.dev/*
   X-Robots-Tag: noindex
