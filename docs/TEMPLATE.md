@@ -16,7 +16,7 @@ Line numbers are from the commit this document was written on and will drift; re
 | 2 (built) | Add `site.config.ts`, `sync:config`, `check:config`; route `src/content/site.ts`, `providers.ts` and `card.ts` through it |
 | 3 | Strip Huston-only content, copy, images and brand files from `src/`, `public/`, tests |
 | 4 (built) | Generic Worker (names, emails, Sheet tabs from config) and its tests; Apps Script Sheet writer as the default; `docs/SECRETS.md`; placeholders in `site.config.ts` |
-| 5 | Owner-only hand-copy PR (section D), pipeline docs pass, template README polish |
+| 5 (non-owner parts built) | Pipeline docs pass, `docs/ruleset-protect-main.json`, `docs/LAUNCH-CHECKLIST.md` stub. Still to do: the owner-only hand-copy (section D) and template README polish |
 
 ## A. File inventory
 
@@ -37,7 +37,7 @@ Legend: **G** = Generic (keep). **C** = Per-client (moves to the config file). *
 | `README.md` | G | Names replaced in PR 1; Contact form section still lists per-client setup as `[[...]]` |
 | `design-v3/` | H | Deleted in PR 1 |
 | `docs/STYLE-GUIDE.md`, `docs/website-plan.md` | C | Empty skeletons since PR 1 |
-| `docs/pipeline/*` | G (examples name Huston: H) | About 37 Huston mentions; clean in PR 5 |
+| `docs/pipeline/*` | G | First-client names replaced with placeholders (`<owner>/<repo>`, `<worker-name>`, ...) in PR 5 |
 | `eslint.config.mjs`, `tsconfig.json`, `playwright.config.ts` | G | |
 | `lighthouserc.cjs` | G | Gate 2 thresholds |
 | `next.config.ts` | G | |
@@ -116,12 +116,12 @@ Owner-only files are marked (owner).
 | Prices | "from $750" in `src/content/home.ts:11,15,37,142`; `src/content/services.ts:4,9,32,37,205`; `src/content/about.ts:29` |
 | Sheet ID | Not in the repo (Worker secret `GOOGLE_SHEET_ID`). Tab names `Submissions` / `Preview`: `worker/contact.ts:163`; Sheet title and header row: README "Contact form" section |
 | Turnstile site key | `src/content/providers.ts:11` (public by design). Widget name and hostnames: README, `docs/pipeline/contact-form.md:230` |
-| Worker name | `wrangler.jsonc:3`; `worker/env.ts:23,29`; `worker/contact.test.ts:260-381`; `docs/pipeline/gate3-deploy-ops.md:36,64`; `docs/pipeline/contact-form.md:99,166` |
+| Worker name | `domain.workerName` in `site.config.ts` (generated into `wrangler.jsonc`, read by `worker/config.ts`); the pipeline docs write `<worker-name>` |
 | workers.dev account name | Never written literally in tracked files (docs use `<account>`); `public/_headers:36` is generic. Per-client: set in Cloudflare. |
 | Rate-limit namespace ids | `wrangler.jsonc:17,24` (`1001`, `1002`; must be unique per Cloudflare account) |
 | Analytics | `public/_headers:8,13` (Cloudflare Web Analytics origins in CSP); `src/content/privacy.ts:9` (copy). No token in code; it is enabled in the dashboard. |
-| GitHub repo / ruleset ids | `docs/pipeline/README.md:35`; `docs/pipeline/gate2-ci.md:469,478` |
-| Google Cloud project | `docs/pipeline/contact-form.md:291`; `docs/pipeline/client-onboarding-checklist.md:143` |
+| GitHub repo / ruleset ids | The pipeline docs write `<owner>/<repo>` and `<ruleset-id>`; the ruleset itself is `docs/ruleset-protect-main.json` (apply with `gh api -X POST repos/<owner>/<repo>/rulesets --input docs/ruleset-protect-main.json`) |
+| Google Cloud project | The pipeline docs write `<gcp-project>` |
 
 ## C. `site.config.ts` (built in PR 2)
 
@@ -230,4 +230,4 @@ These paths are blocked for Claude. For each, the owner copies the new text into
 ## E. Open questions for the owner
 
 - `AGENTS.md` still describes the Huston content rules (voice, framework, testimonials, pricing) as the template rules. PR 3 should decide which stay as defaults.
-- `docs/pipeline/*` are kept as-is in this PR because they are Gate documentation; their client-specific examples are listed in table B and cleaned in PR 5.
+- `docs/pipeline/*` are kept as-is in this PR because they are Gate documentation; their client-specific examples were listed in table B and cleaned in PR 5.
