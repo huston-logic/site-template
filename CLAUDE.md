@@ -73,8 +73,13 @@ These can go stale if the ruleset is changed in Settings, so re-check before rel
   You copy it into place in your own terminal and run `node .claude/hooks/selftest.mjs`
   (last line must say `All N passed`); then I stage, commit and open the PR. Details are
   in `.claude/hooks/README.md`.
-- `CLAUDE.md`, `AGENTS.md`, `package.json`, `wrangler.jsonc` and `.gitignore` still ask
-  for approval on each change.
+- `CLAUDE.md`, `AGENTS.md`, `package.json`, `wrangler.jsonc` and `.gitignore` are no longer
+  blocked or asked about by the hooks; edit them normally. The "Decision authority" and PR
+  description rules below still apply (for example, ask before adding a dependency, and list
+  changes to these files on the "Needs your eyes" line).
+- `gh pr merge` is blocked by `guard-bash.mjs` except exactly `gh pr merge <number> --auto --squash`
+  (or `--auto --merge`), which only queues a merge behind the required checks. `--admin` and any
+  merge without `--auto` stay blocked. Outside an autonomous run I still do not merge.
 
 ## Decision authority (fast lane)
 - Default for every task: plan, decide and build without asking me. Make implementation, layout, naming, refactor and test-placement decisions yourself, following AGENTS.md, docs/website-plan.md and docs/STYLE-GUIDE.md.
@@ -98,11 +103,10 @@ are still open and unmerged, update it only in the first PR and one closing PR s
   test, threshold or axe rule to make it pass.
 - When the review passes and the hook allows it, enable auto-merge with `gh pr merge <number> --auto --squash`. The
   ruleset's required checks are the gate. Do not wait on CI: start the next task if it does not depend on the last one.
-  The owner-only hook `.claude/hooks/guard-bash.mjs` blocks every `gh pr merge` until the owner installs the proposed
-  change that allows exactly `--auto --squash` and `--auto --merge` (`--admin` and any merge without `--auto` stay
-  blocked). Until then do not work around it: leave the PR open, say "PR #N ready for auto-merge" the moment its review
-  passes, and record it in STATUS.md as "open, ready for auto-merge". Later tasks branch from `main` and must not depend
-  on an unmerged PR.
+  The owner-only hook `.claude/hooks/guard-bash.mjs` allows exactly `gh pr merge <number> --auto --squash` and
+  `--auto --merge`; `--admin` and any merge without `--auto` stay blocked. If the hook blocks even the allowed form, do
+  not work around it: leave the PR open, say "PR #N ready for auto-merge" the moment its review passes, and record it in
+  STATUS.md as "open, ready for auto-merge". Later tasks branch from `main` and must not depend on an unmerged PR.
 - Stop, queue the item and continue with other tasks on: secrets or credentials, DNS, accounts or money, sending real
   email, deleting user data, lowering any threshold or required check, or any owner-only path (`.claude/hooks`,
   `.claude/agents`, `.claude/skills`, `.claude/settings*.json`, `.github/workflows`). For an owner-only change, write

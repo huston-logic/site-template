@@ -14,7 +14,8 @@ Plan: `docs/PLAN.md`. Rules: CLAUDE.md, "Autonomous runs". Started 2026-11-18. U
 | - | STATUS update | [#12](https://github.com/huston-logic/site-template/pull/12) | merged |
 | 5 | T1c Dependabot fix: `@lhci/cli` 0.16.1, Playwright 1.65.0 | [#13](https://github.com/huston-logic/site-template/pull/13) | open. **Contains the one-time 7-day exception below.** After it merges, close Dependabot PR #3 with a comment linking #13. |
 | 6 | Mark repo as template | none (API call) | done (`is_template` is true) |
-| - | This STATUS and `docs/TEMPLATE.md` update | this PR | open |
+| - | Hand-copy batch installed by the owner | [#16](https://github.com/huston-logic/site-template/pull/16) | merged |
+| - | Cleanup: generic package description, CLAUDE.md matches hooks | [#17](https://github.com/huston-logic/site-template/pull/17) | open |
 
 ## One-time exception to the 7-day dependency rule (owner-approved Nov 18)
 
@@ -35,7 +36,7 @@ transitive versions that were 1 to 6 days old (for example `@sentry/*` 11.14.0 a
   through `gh api`). I did not work around it. Every PR was left open and announced as "ready for auto-merge" once its
   review passed ("review passed" is the author's record, not something GitHub shows); the owner merged them by hand.
   The owner approved (Nov 18) a hook change that allows exactly `gh pr merge <number> --auto --squash` and `--auto
-  --merge`; it is in the hand-copy batch.
+  --merge`; it was installed in #16.
 - Each task branched from `main` and no PR depended on another. After a PR merged, the other open branches were updated
   from `origin/main` (merge commits, no force pushes).
 - T3b: `@type` is `Organization` (was `ProfessionalService`). Founder `jobTitle` is built but not emitted, because the
@@ -50,22 +51,19 @@ transitive versions that were 1 to 6 days old (for example `@sentry/*` 11.14.0 a
   `docs/website-plan.md` was not updated.
 - T4: CodeQL flagged `js/incomplete-url-substring-sanitization` in `worker/contact.test.ts`. Fixed in the code (the test
   now compares whole lines); no dismissal and no suppression.
-- T5: the proposals for `.claude/agents/*.md` and the workflow comments are in the hand-copy batch, not in a PR.
+- T5: the proposals for `.claude/agents/*.md` and the workflow comments were hand-copied by the owner (#16).
 - T1c: Playwright 1.65.0, not 1.65.1 (1.65.1 was 5 days old). Dependabot's Tailwind 4.3.5 bump is not part of #13;
   Dependabot will propose it again.
 
 ## Stop queue
 
-- Auto-merge: needs the hook change in the hand-copy batch, or the owner merging by hand.
+- Auto-merge: unblocked (hook change installed in PR #16); use `gh pr merge <number> --auto --squash`.
 - Close Dependabot PR #3 with a comment linking #13, after #13 merges (owner confirmed Nov 18).
 - `npm run test:a11y` was not run locally for the T1c bump (it needs Chromium, a separate approval); CI runs it.
-- `package.json` description still says "Huston Tech" (needs approval to change).
-- CLAUDE.md "Protected folders" still says CLAUDE.md, AGENTS.md, package.json, wrangler.jsonc and .gitignore "ask for
-  approval on each change". That becomes wrong once the hook and settings changes below are installed.
 
 ## Proposals for the owner (hand-copy)
 
-Everything is in `handcopy-batch.sh` in the run's scratchpad; the commands are in the run summary. In order:
+All four were installed by the owner in #16 (kept here as a record). In order:
 
 1. `.claude/hooks/guard-bash.mjs` and `.claude/hooks/selftest.mjs`: allow exactly `gh pr merge <n> --auto --squash` and
    `--auto --merge` (`--admin` and any merge without `--auto` stay blocked), and Bash writes to the five files no longer ask.

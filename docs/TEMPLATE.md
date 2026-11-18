@@ -26,7 +26,7 @@ Legend: **G** = Generic (keep). **C** = Per-client (moves to the config file). *
 
 | Path | Class | Note |
 | --- | --- | --- |
-| `.claude/agents/*` | G (names: C) | Reviewer prompts say "Huston Tech site" (owner-only edit, section D) |
+| `.claude/agents/*` | G | Reviewer prompts are generic ("this site") |
 | `.claude/hooks/*` | G | Gate 1 hooks |
 | `.claude/settings.json` | G | |
 | `.claude/skills/*` | G | `human-touch-design` reads `docs/STYLE-GUIDE.md` |
@@ -217,9 +217,7 @@ These paths are blocked for Claude. For each, the owner copies the new text into
 
 | File | Old text | New text |
 | --- | --- | --- |
-| `.claude/agents/review-a11y.md:12` | `read-only accessibility reviewer for the Huston Tech site.` | `read-only accessibility reviewer for this site.` |
-| `.claude/agents/review-code.md:12` | `read-only code reviewer for the Huston Tech site.` | `read-only code reviewer for this site.` |
-| `.claude/agents/review-security.md:10` | `read-only security reviewer for the Huston Tech site, a static export on Cloudflare Workers.` | `read-only security reviewer for this site, a static export on Cloudflare Workers.` |
+| `.claude/agents/*.md` | Reviewer prompts | Done (PR #16): already say "this site" |
 | `.claude/hooks/scan-src.mjs:6,12,116`, `selftest.mjs:35` | References to `docs/STYLE-GUIDE.md` §13/§14 | No change needed: the skeleton keeps those section numbers. Only revisit if the style-guide numbering changes. |
 | `.github/workflows/*.yml` | No Huston strings found | None expected; re-check with `git grep -i huston .github` before PR 5 |
 | `.claude/settings*.json` | No Huston strings found | None |
