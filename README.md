@@ -106,9 +106,9 @@ Scheduled runs only happen on the default branch, and GitHub disables schedules 
 | Setting | Where | Notes |
 |---|---|---|
 | Site URL | `NEXT_PUBLIC_SITE_URL` (see `.env.example`), default `https://[[DOMAIN]]` in `src/content/site.ts` | Used for canonical URLs, Open Graph, sitemap, robots and JSON-LD. Public value, not a secret. |
-| Contact email, scheduler URL, LinkedIn URL, Turnstile site key | `src/content/providers.ts` (re-exported by `site.ts`) | `null` renders a visible placeholder. The Worker reads this file too. The Turnstile site key is public. |
+| Contact email, scheduler URL, LinkedIn URL, Turnstile site key, sender names, Worker name, Sheet writer and tabs, rate limit | `site.config.ts` (`contact.*`, `domain.workerName`), re-exported by `src/content/providers.ts` and `site.ts` | `null` or `[[placeholder]]` renders a visible marker and fails `build:launch`. The Worker reads this file too (`worker/config.ts`). The Turnstile site key is public. Run `npm run sync:config` after editing; secrets are in [docs/SECRETS.md](docs/SECRETS.md). |
 | Content-Security-Policy | `public/_headers` | `https://challenges.cloudflare.com` is allowed in `script-src` and `frame-src` for Turnstile on the contact form, and `https://static.cloudflareinsights.com` (`script-src`) and `https://cloudflareinsights.com` (`connect-src`) for Cloudflare Web Analytics. Nothing else is loaded from outside. `_headers` covers static files only; the Worker sets its own headers on `/api/*`. |
-| Worker settings | `wrangler.jsonc` | Secret **names** only, never values. After changing it, run `npx wrangler types worker/worker-configuration.d.ts`. |
+| Worker settings | `wrangler.jsonc` (generated from `site.config.ts` by `npm run sync:config`) | Secret **names** only, never values. After changing it, run `npx wrangler types worker/worker-configuration.d.ts` (wrangler rejects the `[[Worker name]]` placeholder, so do this once the real Worker name is set; the committed types still list the old secret names until then). |
 | Framework step names, numbers, one-liners | `framework.steps` in `src/content/site.ts` | The only place "Scope it / Shape it / Ship it" is defined. Content strings use `{scope}`, `{shape}`, `{ship}`, `{steps}` tokens via `fw()` (`src/lib/framework.ts`). Rename a step here and every page follows. |
 
 ## Motion
@@ -117,7 +117,7 @@ Animation is CSS only (no library), in `src/app/hl.css`, following `docs/STYLE-G
 
 ## Placeholders and launch gate
 
-Anything only [[OWNER_NAME]] can supply is written as `[[double brackets]]` in `src/content/*` and renders as a highlighted marker on the page. Provider-dependent values (`email`, `schedulerUrl`, `linkedInUrl`, `turnstileSiteKey`) stay `null` in `src/content/providers.ts` until set.
+Anything only [[OWNER_NAME]] can supply is written as `[[double brackets]]` in `src/content/*` and renders as a highlighted marker on the page. Provider-dependent values (`email`, `schedulerUrl`, `linkedInUrl`, `turnstileSiteKey`) stay `null` in `site.config.ts` until set.
 
 ```bash
 npm run check:placeholders   # lists every unresolved item, exits 1 while any remain
@@ -130,13 +130,24 @@ Normal builds (and CI) allow placeholders so the site can be previewed. **Use `n
 
 ### Scheduler and analytics are still placeholders
 
-The contact page shows a disabled "Pick a time" button, clearly marked, and every "Book a free call" button points at `/contact#book` until `schedulerUrl` is set in `src/content/providers.ts`. If the scheduler is embedded in an iframe, add its origin to `frame-src` in `public/_headers`. Analytics is Cloudflare Web Analytics, which is cookieless: its two origins are in the CSP and the privacy page says so. Turn it on in the Cloudflare dashboard (nothing is added to the site's code).
+The contact page shows a disabled "Pick a time" button, clearly marked, and every "Book a free call" button points at `/contact#book` until `contact.schedulerUrl` is set in `site.config.ts`. If the scheduler is embedded in an iframe, add its origin to `frame-src` in `public/_headers`. Analytics is Cloudflare Web Analytics, which is cookieless: its two origins are in the CSP and the privacy page says so. Turn it on in the Cloudflare dashboard (nothing is added to the site's code).
 
 ## Contact form
 
 The form on `/contact` (`src/components/hl/ContactForm.tsx`) posts JSON to `POST /api/contact`, handled by a small Worker script, `worker/contact.ts`. `wrangler.jsonc` runs the Worker **only for `/api/*`** (`run_worker_first`); every page and file is still the static export in `./out`.
 
-**What one submission does**, in order: same-origin check, JSON only, at most 16 KB; rate limit (5 per minute per IP, the `CONTACT_RATE_LIMIT` binding); spam-trap field (`company_fax`, refused with an honest error); the same validation as the form (`src/lib/contact-validation.ts`); Cloudflare Turnstile verified server-side (hostname and `action: "contact"` must match). Then it appends a row to [[OWNER_NAME]]'s Google Sheet, emails the submission to [[SITE_EMAIL]] (Reply-To = the visitor) with a line saying whether the Sheet row was saved, and sends the visitor the B7b automatic reply. The notification is **plain text only**, through Resend, from `[[CLIENT_NAME]] <[[SITE_EMAIL]]>`. The automatic reply is multipart (HTML + plain text, same words) from `[[OWNER_NAME]] <[[SITE_EMAIL]]>`, with `Auto-Submitted: auto-replied` and `X-Auto-Response-Suppress: All` headers. The Sheet is written with `valueInputOption=RAW`, and cells starting with `= + - @` get a leading `'`.
+**What one submission does**, in order: same-origin check, JSON only, at most 16 KB; rate limit (5 per minute per IP, the `CONTACT_RATE_LIMIT` binding); spam-trap field (`company_fax`, refused with an honest error); the same validation as the form (`src/lib/contact-validation.ts`); Cloudflare Turnstile verified server-side (hostname and `action: "contact"` must match). Then it appends a row to [[OWNER_NAME]]'s Google Sheet, emails the submission to [[SITE_EMAIL]] (Reply-To = the visitor) with a line saying whether the Sheet row was saved, and sends the visitor the B7b automatic reply. The notification is **plain text only**, through Resend, from `<contact.fromName> <contact.siteEmail>`. The automatic reply is multipart (HTML + plain text, same words) from `<contact.replyFromName> <contact.siteEmail>`, with `Auto-Submitted: auto-replied` and `X-Auto-Response-Suppress: All` headers. Cells starting with `= + - @` (or a tab or carriage return) get a leading `'` before they are written, with either Sheet writer.
+
+**Where the Worker gets its values.** Every client-specific value comes from `site.config.ts` through `worker/config.ts`: `business.name`, `owner.name` and `owner.role`, `domain.url`, `domain.workerName` and `domain.previewHostSuffix` (to tell the production host from branch previews), `contact.siteEmail`, `fromName`, `replyFromName`, `schedulerUrl` (the booking link in the automatic reply), `sheetTabs`, `sheetWriter`, and the colors and tagline in the reply's signature. The rate limit (`contact.rateLimit`) is generated into `wrangler.jsonc` as the `CONTACT_RATE_LIMIT` binding. While `siteEmail` or `schedulerUrl` is `null` (the starter template), the Worker answers 502 (logged as `config_incomplete`) before it writes a row or sends any mail. The tests build the Worker from a fixture config of obviously fake values (`createWorker` in `worker/contact.ts`), never the real one.
+
+**Sheet writers** (`contact.sheetWriter` in `site.config.ts`):
+
+| Writer | How it saves the row | Secrets (see [docs/SECRETS.md](docs/SECRETS.md)) |
+|---|---|---|
+| `"apps-script"` (default) | POSTs JSON `{ secret, tab, row }` to a Google Apps Script web app you own (`docs/apps-script/contact-sheet.gs`). Saved only when the answer is HTTP 200 with `{"ok":true}`. No Google Cloud project is needed. | `SHEET_WEBHOOK_URL`, `SHEET_WEBHOOK_SECRET` |
+| `"service-account"` | Signs a Google service-account JWT with Web Crypto and appends through the Sheets API (`valueInputOption=RAW`). | `GOOGLE_SERVICE_ACCOUNT_KEY`, `GOOGLE_SHEET_ID` |
+
+Both give up after 8 seconds and retry once on a rate limit, server error or network failure. Change the writer, then run `npm run sync:config` so `wrangler.jsonc` lists the right secret names.
 
 **What the visitor sees.** Success only when the note reached [[OWNER_NAME]] (the Sheet row or the email). Then the form saves the first name and whether the automatic reply went out in `sessionStorage` (never the URL) and moves to `/contact/thanks`, which says "Got it, thanks {name}." If the automatic reply failed, the thanks page says so. Every failure keeps the visitor's answers and shows one of the three B7 send errors. Without JavaScript nothing is sent.
 
@@ -160,27 +171,32 @@ The form on `/contact` (`src/components/hl/ContactForm.tsx`) posts JSON to `POST
 
 ### Secrets
 
-Four Worker secrets, set by [[OWNER_NAME]] in their own Terminal from the repo folder, never in the repo, chat or logs. `wrangler.jsonc` lists their names (`secrets.required`), and a deploy fails while one is missing. Each command asks for the value with hidden input.
+Four Worker secrets, set by [[OWNER_NAME]] in their own Terminal from the repo folder, never in the repo, chat or logs. `wrangler.jsonc` lists their names (`secrets.required`, generated from `contact.sheetWriter`), and a deploy fails while one is missing. Each command asks for the value with hidden input. **[docs/SECRETS.md](docs/SECRETS.md) is the full table** (every secret, which writer needs it, the production and preview commands, the Apps Script properties, the public settings and the "never commit" rules). In short:
 
-| Name | Value |
-|---|---|
-| `RESEND_API_KEY` | Resend API key, "Sending access" for [[DOMAIN]] only |
-| `TURNSTILE_SECRET_KEY` | The Turnstile widget's secret key |
-| `GOOGLE_SERVICE_ACCOUNT_KEY` | The whole service-account JSON key file |
-| `GOOGLE_SHEET_ID` | The Sheet ID (between `/d/` and `/edit` in its URL) |
+| Name | Value | Writer |
+|---|---|---|
+| `RESEND_API_KEY` | Resend API key, "Sending access" for [[DOMAIN]] only | both |
+| `TURNSTILE_SECRET_KEY` | The Turnstile widget's secret key | both |
+| `SHEET_WEBHOOK_URL` | The Apps Script web-app URL | `apps-script` (default) |
+| `SHEET_WEBHOOK_SECRET` | The shared secret the Apps Script checks | `apps-script` (default) |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | The whole service-account JSON key file | `service-account` |
+| `GOOGLE_SHEET_ID` | The Sheet ID (between `/d/` and `/edit` in its URL) | `service-account` |
 
 ```bash
 npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put TURNSTILE_SECRET_KEY
+npx wrangler secret put SHEET_WEBHOOK_URL
+npx wrangler secret put SHEET_WEBHOOK_SECRET
+# service-account writer instead of the two lines above:
 npx wrangler secret put GOOGLE_SERVICE_ACCOUNT_KEY < path/to/key.json
 npx wrangler secret put GOOGLE_SHEET_ID
 ```
 
-Previews do not share production secrets. Set the same four for all previews with `npx wrangler preview base-config secret put <NAME>` (same values). A preview copies the base secrets **when it is created**, so set them before pushing a branch; later changes don't reach existing previews. To fix an existing preview, also set the secret on it: `npx wrangler preview secret put <NAME> --name <branch-name>` (this creates a new deployment of that preview). Names only, never values: `npx wrangler secret list` (production), `npx wrangler preview base-config secret list` (new previews), `npx wrangler preview secret list --name <branch-name>` (one preview). Each `secret put` creates a new production version (a row in Deployments). If it fails with "latest version of your Worker isn't currently deployed", use the dashboard instead: Workers & Pages, [[WORKER_NAME]], Settings, Variables and Secrets.
+Previews do not share production secrets. Set the same ones for all previews with `npx wrangler preview base-config secret put <NAME>` (same values). A preview copies the base secrets **when it is created**, so set them before pushing a branch; later changes don't reach existing previews. To fix an existing preview, also set the secret on it: `npx wrangler preview secret put <NAME> --name <branch-name>` (this creates a new deployment of that preview). Names only, never values: `npx wrangler secret list` (production), `npx wrangler preview base-config secret list` (new previews), `npx wrangler preview secret list --name <branch-name>` (one preview). Each `secret put` creates a new production version (a row in Deployments). If it fails with "latest version of your Worker isn't currently deployed", use the dashboard instead: Workers & Pages, [[WORKER_NAME]], Settings, Variables and Secrets.
 
 ### Accounts and DNS
 
-- **Turnstile:** Cloudflare dashboard, Turnstile, widget `[[WORKER_NAME]] contact`, Managed mode. Hostnames: `[[DOMAIN]]` (covers its subdomains) and the account's `<account>.workers.dev` (meant to cover the production and preview workers.dev hosts, which are its subdomains; Cloudflare's docs don't mention workers.dev, so the first preview test confirms it, and error 110200 there means it doesn't). The site key goes in `src/content/providers.ts`; the secret key is the Worker secret.
+- **Turnstile:** Cloudflare dashboard, Turnstile, widget `[[WORKER_NAME]] contact`, Managed mode. Hostnames: `[[DOMAIN]]` (covers its subdomains) and the account's `<account>.workers.dev` (meant to cover the production and preview workers.dev hosts, which are its subdomains; Cloudflare's docs don't mention workers.dev, so the first preview test confirms it, and error 110200 there means it doesn't). The site key goes in `contact.turnstileSiteKey` in `site.config.ts`; the secret key is the Worker secret.
 - **Resend:** domain `[[DOMAIN]]`, set up by Resend with its Forge records (as added on 2026-11-15). They sit on their own names, so they never touch Google Workspace's. All "DNS only". Open and click tracking stay off.
 
   | Type | Name | Content |
@@ -191,16 +207,26 @@ Previews do not share production secrets. Set the same four for all previews wit
 
   There is **no MX and no SPF TXT on `send`**: a CNAME can't share its name with other records, and Resend serves the bounce (Return-Path) records through the CNAME target. Don't add any.
 - **Google Workspace** owns mail for the root domain ([[SITE_EMAIL]] must be a Workspace mailbox or alias): root MX, the root SPF `v=spf1 include:_spf.google.com ~all` (the only SPF record on the root; **never add Resend to it**) and DKIM at `google._domainkey`. DMARC (`_dmarc`) passes for Resend mail through the aligned DKIM signature on `[[DOMAIN]]`, and SPF passes on `send.[[DOMAIN]]` (aligned under relaxed alignment).
-- **Google Sheet** `[[CLIENT_NAME]] contact form`, tabs `Submissions` and `Preview`, header row `Received (UTC) | Need | Topic | Name | Email | Business | Message | Tools | Website | Source | Mode`, shared as Editor with the service account only. Google Cloud project `[[GCP_PROJECT]]`, Google Sheets API enabled, service account `contact-form-writer` with no project roles. The Worker signs the service-account JWT with Web Crypto (no library).
+- **Google Sheet** `[[CLIENT_NAME]] contact form`, tabs `Submissions` and `Preview` (`contact.sheetTabs`), header row `Received (UTC) | Need | Topic | Name | Email | Business | Message | Tools | Website | Source | Mode`. Set it up for the writer in `contact.sheetWriter`:
+  - **`apps-script` (default), the steps.** The script lives inside the Sheet, so nothing is shared with a service account and no Google Cloud project is needed.
+    1. Make the Sheet with the two tabs and the header row above in row 1 of each.
+    2. In the Sheet, open Extensions, then Apps Script. Replace the starter code with the contents of `docs/apps-script/contact-sheet.gs` (it contains no secret).
+    3. Open Project Settings, then Script properties, and add `SHEET_SECRET` with a long random value you make up. Add `TAB_PRODUCTION` and `TAB_PREVIEW` only if your tab names differ from `Submissions` and `Preview`.
+    4. Choose Deploy, then New deployment, type Web app. Execute as "Me", who has access "Anyone". Deploy, approve Google's permission prompt, and copy the web-app URL (it starts with `https://script.google.com/`).
+    5. In your Terminal, set the Worker secrets `SHEET_WEBHOOK_URL` (that URL) and `SHEET_WEBHOOK_SECRET` (the same value as `SHEET_SECRET`), for production and for previews (see [docs/SECRETS.md](docs/SECRETS.md)).
+    6. After any later change to the script, choose Deploy, then Manage deployments, edit the deployment and pick a new version; the URL stays the same.
+
+    The script accepts a request only when its secret matches, writes only to the two configured tabs, writes the cells as plain text, and answers `{"ok":true}` or `{"ok":false}` with no details. The "Anyone" access is what lets the Worker reach it; the secret is what keeps it private. The script was checked here only against stand-ins for Apps Script's services, not Google's own runtime, so test it with one real submission on a preview and delete the test row.
+  - **`service-account`.** The Sheet is shared as Editor with the service account only. Google Cloud project `[[GCP_PROJECT]]`, Google Sheets API enabled, a service account (for example `contact-form-writer`) with no project roles. The Worker signs the service-account JWT with Web Crypto (no library).
 
 ### Local test of the Worker
 
 ```bash
 npm run build
-npx wrangler dev --port 4823 --ip localhost --var SITE_ENV:development --var TURNSTILE_SECRET_KEY:1x0000000000000000000000000000000AA --var RESEND_API_KEY:x --var GOOGLE_SERVICE_ACCOUNT_KEY:x --var GOOGLE_SHEET_ID:x
+npx wrangler dev --port 4823 --ip localhost --var SITE_ENV:development --var TURNSTILE_SECRET_KEY:1x0000000000000000000000000000000AA --var RESEND_API_KEY:x --var SHEET_WEBHOOK_URL:x --var SHEET_WEBHOOK_SECRET:x
 ```
 
-This serves the built site and the Worker at http://localhost:4823 in development mode (also in `.claude/launch.json` as `worker`). On localhost the form uses Cloudflare's always-pass test site key. To see the "couldn't verify" error, use the always-fail secret `2x0000000000000000000000000000000AA`. These are Cloudflare's published test values, not secrets. A local `.dev.vars` file would also work and is git-ignored, but never put real keys in it.
+(With the `service-account` writer, use `--var GOOGLE_SERVICE_ACCOUNT_KEY:x --var GOOGLE_SHEET_ID:x` instead of the last two. In development mode nothing is sent or written, so the dummy values are never used.) This serves the built site and the Worker at http://localhost:4823 in development mode (also in `.claude/launch.json` as `worker`). On localhost the form uses Cloudflare's always-pass test site key. To see the "couldn't verify" error, use the always-fail secret `2x0000000000000000000000000000000AA`. These are Cloudflare's published test values, not secrets. A local `.dev.vars` file would also work and is git-ignored, but never put real keys in it.
 
 ## Deploy to Cloudflare Workers
 
@@ -257,7 +283,7 @@ If a production build itself fails, nothing is deployed and the old version stay
 ## Launch checklist
 
 - [ ] Domain, DNS and business email working; `NEXT_PUBLIC_SITE_URL` set to the final domain
-- [ ] `email`, `schedulerUrl`, `linkedInUrl`, `turnstileSiteKey` set in `src/content/providers.ts`
+- [ ] `email`, `schedulerUrl`, `linkedInUrl`, `turnstileSiteKey` set in `site.config.ts`
 - [ ] `npm run check:placeholders` passes (photos, screenshots, titles, location, background wording, musician line, certifications, privacy date)
 - [ ] Contact form tested end to end on desktop and phone on the live domain: the email to grant@, the automatic reply (SPF, DKIM and DMARC all PASS in "Show original"), the Sheet row; then delete the test row
 - [ ] Scheduler wired and its CSP origin added
