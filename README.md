@@ -128,6 +128,25 @@ The gate also fails while any flag in `decisionsConfirmed` (`src/content/site.ts
 
 Normal builds (and CI) allow placeholders so the site can be previewed. **Use `npm run build:launch` as the Cloudflare build command for the real launch** (see below) so a build with unresolved placeholders cannot go live.
 
+### Redirects from the old site
+
+`public/_redirects` is the place for old-site URLs that should send visitors (and search engines) to the new pages. It holds only a comment header today, so nothing redirects yet. At launch, add one rule per line, with the old path first, the new path second and the status 301 (permanent):
+
+```
+/old-about /about 301
+/blog/* /insights/:splat 301
+```
+
+List plain paths before any rule that uses `*` or `:name`. The header in the file lists the rest of the format and the limits. Next.js copies `public/_redirects` to `out/_redirects` on every build, and Cloudflare reads it on deploy.
+
+To test, make a text file (for example `old-urls.txt`, and keep it out of the repo) with one old URL per line. A path (`/old-about`) or a full URL (`https://old-site.com/old-about`) both work; blank lines and lines starting with `#` are ignored. Then run it against a preview URL, and again against production after launch:
+
+```bash
+node scripts/check-redirects.mjs old-urls.txt https://<site>
+```
+
+Each URL prints `PASS` or `FAIL` with the reason. A URL passes only when the first answer is a 301 with a `Location` header and following the redirects (at most 5) ends on a 200 page. The command exits with 1 if anything fails. Its own tests run with `node --test scripts/check-redirects.test.mjs` (they are not part of `npm run check`). The local `npm run preview` server does not apply `_redirects`, so test against a deployed URL.
+
 ### Scheduler and analytics are still placeholders
 
 The contact page shows a disabled "Pick a time" button, clearly marked, and every "Book a free call" button points at `/contact#book` until `schedulerUrl` is set in `src/content/providers.ts`. If the scheduler is embedded in an iframe, add its origin to `frame-src` in `public/_headers`. Analytics is Cloudflare Web Analytics, which is cookieless: its two origins are in the CSP and the privacy page says so. Turn it on in the Cloudflare dashboard (nothing is added to the site's code).
@@ -261,6 +280,7 @@ If a production build itself fails, nothing is deployed and the old version stay
 - [ ] `npm run check:placeholders` passes (photos, screenshots, titles, location, background wording, musician line, certifications, privacy date)
 - [ ] Contact form tested end to end on desktop and phone on the live domain: the email to grant@, the automatic reply (SPF, DKIM and DMARC all PASS in "Show original"), the Sheet row; then delete the test row
 - [ ] Scheduler wired and its CSP origin added
+- [ ] Old-site URLs added to `public/_redirects` and checked with `scripts/check-redirects.mjs` (see "Redirects from the old site")
 - [ ] Privacy policy checked against the tools actually used
 - [ ] Screenshots supplied with names blurred (or placeholders removed)
 - [ ] Submit `sitemap.xml` to Google Search Console
@@ -278,7 +298,8 @@ src/
     ui/           copy helpers (Text, Placeholder, JsonLd, BookCallButton)
   content/        typed copy and site settings (single source of truth)
   lib/            fonts, metadata, Organization JSON-LD (homepage only), routes and text-token helpers
-scripts/          placeholder gate, static preview server
+scripts/          placeholder gate, static preview server, redirect checker (check-redirects.mjs)
 worker/           contact form Worker (POST /api/contact) and its tests
 public/_headers   Cloudflare Workers security and cache headers (static files)
+public/_redirects Cloudflare Workers redirects from old-site URLs (empty until launch)
 ```
