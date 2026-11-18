@@ -105,7 +105,7 @@ Scheduled runs only happen on the default branch, and GitHub disables schedules 
 
 | Setting | Where | Notes |
 |---|---|---|
-| Site URL | `NEXT_PUBLIC_SITE_URL` (see `.env.example`), default `https://[[DOMAIN]]` in `src/content/site.ts` | Used for canonical URLs, Open Graph, sitemap, robots and JSON-LD. Public value, not a secret. |
+| Site URL | `NEXT_PUBLIC_SITE_URL` (see `.env.example`), default `https://[[DOMAIN]]` in `src/content/site.ts` | Used for canonical URLs, Open Graph, sitemap, robots and the homepage JSON-LD. Public value, not a secret. |
 | Contact email, scheduler URL, LinkedIn URL, Turnstile site key | `src/content/providers.ts` (re-exported by `site.ts`) | `null` renders a visible placeholder. The Worker reads this file too. The Turnstile site key is public. |
 | Content-Security-Policy | `public/_headers` | `https://challenges.cloudflare.com` is allowed in `script-src` and `frame-src` for Turnstile on the contact form, and `https://static.cloudflareinsights.com` (`script-src`) and `https://cloudflareinsights.com` (`connect-src`) for Cloudflare Web Analytics. Nothing else is loaded from outside. `_headers` covers static files only; the Worker sets its own headers on `/api/*`. |
 | Worker settings | `wrangler.jsonc` | Secret **names** only, never values. After changing it, run `npx wrangler types worker/worker-configuration.d.ts`. |
@@ -235,7 +235,7 @@ Current settings in the Cloudflare dashboard (read by the owner on 2026-11-12, s
 
 Before launch:
 
-1. Add the build variable `NEXT_PUBLIC_SITE_URL=https://<final domain>`. It is **not set yet**, so canonical URLs, Open Graph, sitemap, robots and JSON-LD use the default in `src/content/site.ts`.
+1. Add the build variable `NEXT_PUBLIC_SITE_URL=https://<final domain>`. It is **not set yet**, so canonical URLs, Open Graph, sitemap, robots and the homepage JSON-LD use the default in `src/content/site.ts`.
 2. Change the production build command to `npm run build:launch` so a build with unresolved placeholders cannot go live.
 3. Add the custom domain, then confirm DNS, HTTPS and (for email) SPF, DKIM and DMARC.
 
@@ -297,7 +297,7 @@ src/
     layout/       header, nav, footer
     ui/           copy helpers (Text, Placeholder, JsonLd, BookCallButton)
   content/        typed copy and site settings (single source of truth)
-  lib/            fonts, metadata, JSON-LD, routes and text-token helpers
+  lib/            fonts, metadata, Organization JSON-LD (homepage only), routes and text-token helpers
 scripts/          placeholder gate, static preview server, redirect checker (check-redirects.mjs)
 worker/           contact form Worker (POST /api/contact) and its tests
 public/_headers   Cloudflare Workers security and cache headers (static files)

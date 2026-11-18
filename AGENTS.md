@@ -26,7 +26,7 @@ Website for [[CLIENT_NAME]] ([[ONE_LINE_DESCRIPTION]]). Next.js App Router, stri
 - `src/app/` routes only: pages, `layout.tsx`, `sitemap.ts`, `robots.ts`, `not-found.tsx`, `og.png/route.tsx`, `icon.svg`. Route files compose components and content; they hold no copy. Every site page lives in the `(site)` route group, whose layout adds the header, `main#main` and footer (`SiteChrome`; the 404 wraps itself in it too).
 - `src/content/` holds **all copy and site settings** as typed TypeScript modules (`home.ts`, `services.ts`, `about.ts`, `contact.ts`, `contact-fields.ts`, `auto-reply.ts`, `privacy.ts`, `site.ts`, `providers.ts`, `nav.ts`). Edit copy here, never inline in JSX. Provider settings (`email`, `schedulerUrl`, `linkedInUrl`, `turnstileSiteKey`) live in `providers.ts`; `site.ts` re-exports them.
 - `src/components/hl/` the v3 design primitives and page sections; `src/components/layout/` header, footer and nav; `src/components/ui/` copy helpers (`Text`, `Placeholder`, `JsonLd`, `BookCallButton`). Prefer a new small reusable component over repeating markup. Server Components by default; add `"use client"` only for real interactivity (currently: `HeaderNav`, `ContactForm`, `ThanksText`). Keep client JS minimal.
-- `src/lib/` pure helpers (`metadata.ts`, `jsonld.ts`, `placeholders.ts`, `fonts.ts`, `routes.ts`, `contact-validation.ts`, `first-name.ts`, `contact-handoff.ts`).
+- `src/lib/` pure helpers (`metadata.ts`, `organization-jsonld.ts`, `site-organization.ts`, `serialize-jsonld.ts`, `placeholders.ts`, `fonts.ts`, `routes.ts`, `contact-validation.ts`, `first-name.ts`, `contact-handoff.ts`).
 - `scripts/` Node scripts: `check-placeholders.mjs` (launch gate), `preview.mjs` (static preview server that also applies the `/*` block of `public/_headers`), `check-redirects.mjs` (checks that old-site URLs listed in a file 301 to a 200 page on a given base URL; tests in `check-redirects.test.mjs`, run with `node --test`, not wired into `npm run`).
 - `tests/a11y/` Playwright + axe accessibility check (CI job `a11y`, run against the built site via `scripts/preview.mjs`); `playwright.config.ts`. `src/lib/routes.ts` is the single route list used by `sitemap.ts` and the accessibility test.
 - `lighthouserc.cjs` Lighthouse CI config (CI job `lighthouse`; pages come from `src/lib/routes.ts`); `scripts/lighthouse-summary.mjs` writes the score table to the job summary.
@@ -55,7 +55,7 @@ Website for [[CLIENT_NAME]] ([[ONE_LINE_DESCRIPTION]]). Next.js App Router, stri
 ## SEO, accessibility, performance
 
 - Every page exports metadata via `pageMetadata()` (`src/lib/metadata.ts`) using the exact SEO title and description from the copy doc, a canonical path, Open Graph and Twitter tags. The site origin comes from the single constant `siteConfig.url` in `src/content/site.ts` (override with `NEXT_PUBLIC_SITE_URL`). New indexable routes must be added to `src/app/sitemap.ts`. `/contact/thanks` and the 404 are `noindex` and stay out of the sitemap.
-- JSON-LD only states facts from the docs (name, URL, description, founder, job title). Do not add `areaServed`, addresses, ratings, reviews, prices, or social profiles until confirmed.
+- Organization JSON-LD is on the homepage only (`src/app/(site)/page.tsx`, one script), built from `site.config.ts` by `src/lib/organization-jsonld.ts` (a pure builder, tested in `src/lib/organization-jsonld.test.ts`; `site-organization.ts` feeds it). It states name, URL, description and founder; logo (`brand.logo`) and email only when the site shows them. A field that is empty or holds a `[[placeholder]]` is left out, and without a usable name and URL there is no script. Still no `areaServed`, address, geo, `priceRange`, rating, review or `sameAs` until confirmed.
 - One `<h1>` per page, logical heading order, landmarks (`header`, `nav` with labels, `main#main`, `footer`), skip link, visible `:focus-visible` outlines (a rust ring), 44px minimum tap targets, descriptive link text, alt text on every meaningful image (decorative SVG is `aria-hidden`). Respect `prefers-reduced-motion` (see Motion rules). No carousels, auto-play, parallax, pop-ups or auto-rotating quotes.
 - Color pairs must keep WCAG AA contrast (see tokens). Sticky or translucent bars over page content use at least a `/95` background so text keeps AA contrast over dark sections. Run the axe check described in the README after visual changes.
 - Images: use `next/image` with explicit `width`/`height` (or `fill` with a sized parent), real `alt`, and files sized for display. Screenshots of client work must have client, patient and employee names blurred, and be labeled "Demo data" if mocked.
@@ -83,7 +83,7 @@ The motion design is `docs/STYLE-GUIDE.md` §9. The rules below are the guardrai
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # tsc --noEmit (site), then tsc --noEmit -p worker
-npm run test:worker # contact Worker tests (node --test, no network)
+npm run test:worker # contact Worker tests and src/lib/*.test.ts (node --test, no network)
 npm run build       # static export to ./out
 npm run check       # lint, typecheck, test:worker, build, in order
 npm run check:placeholders   # launch gate; expected to fail until placeholders are resolved

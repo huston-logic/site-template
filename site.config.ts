@@ -81,6 +81,10 @@ export const siteConfig = {
       accent: { family: "Newsreader", style: "italic", axes: ["opsz"] },
     },
   },
+  brand: {
+    /** Optional. Site-relative path to the logo image, such as "/brand/logo.png". Empty means none (not a launch blocker). */
+    logo: "",
+  },
   /** Published price text. Empty means none is published (not a launch blocker). */
   prices: { website: "" },
   /** Extra origins appended to the CSP in public/_headers. */
