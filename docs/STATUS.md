@@ -46,7 +46,7 @@ transitive versions that were 1 to 6 days old (for example `@sentry/*` 11.14.0 a
 - T4: `sheetTabs` stay "Submissions" / "Preview" (generic names, not client-specific). `siteEmail` and `schedulerUrl`
   are `null` in the template, so the Worker answers 502 `config_incomplete` until they are set. The B7b automatic reply
   was genericized (dropped "(Consider this the demo!)", biography paragraph replaced by a `[[placeholder]]`, "Zoho
-  partner" label is now "Partner"); this is a change to approved copy and was flagged in the PR for confirmation.
+  partner" label is now "Partner"); this is a change to approved copy; the owner confirmed it on Nov 18 (the template is generic).
   `docs/website-plan.md` was not updated.
 - T4: CodeQL flagged `js/incomplete-url-substring-sanitization` in `worker/contact.test.ts`. Fixed in the code (the test
   now compares whole lines); no dismissal and no suppression.
@@ -57,7 +57,7 @@ transitive versions that were 1 to 6 days old (for example `@sentry/*` 11.14.0 a
 ## Stop queue
 
 - Auto-merge: needs the hook change in the hand-copy batch, or the owner merging by hand.
-- Close Dependabot PR #3 with a comment linking #13, after #13 merges.
+- Close Dependabot PR #3 with a comment linking #13, after #13 merges (owner confirmed Nov 18).
 - `npm run test:a11y` was not run locally for the T1c bump (it needs Chromium, a separate approval); CI runs it.
 - `package.json` description still says "Huston Tech" (needs approval to change).
 - CLAUDE.md "Protected folders" still says CLAUDE.md, AGENTS.md, package.json, wrangler.jsonc and .gitignore "ask for
