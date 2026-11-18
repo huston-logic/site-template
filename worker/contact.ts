@@ -1,6 +1,7 @@
 import { honeypot } from "../src/content/contact-fields.ts";
-import { providers } from "../src/content/providers.ts";
 import { contactKeys, validateContact, type ContactInput } from "../src/lib/contact-validation.ts";
+import { appendRowViaAppsScript } from "./apps-script.ts";
+import { workerConfig, type WorkerConfig } from "./config.ts";
 import { sendEmail } from "./email.ts";
 import { log, resolveMode, type ContactEnv } from "./env.ts";
 import { autoReplyEmail, notificationEmail, sheetRow } from "./messages.ts";
@@ -10,20 +11,17 @@ import { verifyTurnstile } from "./turnstile.ts";
 /**
  * The contact form Worker (docs/website-plan.md E6). wrangler.jsonc runs it only for /api/*; everything else is the
  * static export in ./out. POST /api/contact: same-origin JSON, rate limit, honeypot, the same validation as the form,
- * Turnstile, then the Sheet row, the email to Grant and the automatic reply. It never reports success unless the note
- * reached Grant (the Sheet or the email) and never sends HTML.
+ * Turnstile, then the Sheet row, the email to the site owner and the automatic reply. It never reports success unless
+ * the note reached the owner (the Sheet or the email) and never sends HTML except the fixed automatic-reply template.
+ * Every client-specific value (names, email, booking link, Worker name, Sheet tabs, Sheet writer) comes from
+ * site.config.ts through worker/config.ts; `createWorker` takes that config so the tests can pass a fixture.
  */
 
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_TOKEN_LENGTH = 2048;
 const TOKEN_KEY = "turnstileToken";
 const ALLOWED_KEYS = new Set<string>([...contactKeys, honeypot.name, TOKEN_KEY]);
-const SITE_EMAIL = providers.email ?? "grant@hustonlogic.com";
-const FROM = `Huston Logic <${SITE_EMAIL}>`;
-const REPLY_FROM = `Grant Huston <${SITE_EMAIL}>`;
 const REPLY_HEADERS = { "Auto-Submitted": "auto-replied", "X-Auto-Response-Suppress": "All" };
-// Used only if providers.schedulerUrl is null. A fixed address, never built from the request, so preview and production match.
-const BOOKING_FALLBACK = "https://hustonlogic.com/contact#book";
 
 /** What the form reads. `error` picks the message; `fields` lists the Rev 7.1 field errors. */
 type ApiBody = { ok: true; autoReply: boolean } | { ok: false; error: "invalid" | "rejected" | "rate_limited" | "failed"; fields?: string[] };
@@ -66,8 +64,15 @@ async function readBody(request: Request, limit: number): Promise<string | null>
   return new TextDecoder().decode(bytes);
 }
 
-async function handleContact(request: Request, env: ContactEnv, url: URL): Promise<Response> {
-  const mode = resolveMode(env.SITE_ENV, url.hostname);
+/** The one place the Sheet writer is chosen (`contact.sheetWriter` in site.config.ts). Both return true only when the row was saved. */
+function saveRow(config: WorkerConfig, env: ContactEnv, tab: string, row: string[]): Promise<boolean> {
+  return config.sheetWriter === "apps-script"
+    ? appendRowViaAppsScript(env.SHEET_WEBHOOK_URL, env.SHEET_WEBHOOK_SECRET, tab, row)
+    : appendRow(env.GOOGLE_SERVICE_ACCOUNT_KEY, env.GOOGLE_SHEET_ID, tab, row);
+}
+
+async function handleContact(config: WorkerConfig, request: Request, env: ContactEnv, url: URL): Promise<Response> {
+  const mode = resolveMode(env.SITE_ENV, url.hostname, config.workerName, config.previewHostSuffix);
   if (!mode) {
     log("config_invalid_mode");
     return json(500, { ok: false, error: "failed" });
@@ -158,11 +163,21 @@ async function handleContact(request: Request, env: ContactEnv, url: URL): Promi
     return json(200, { ok: true, autoReply: true });
   }
 
-  // The Sheet goes first so the email to Grant can say whether the row was saved.
+  // Fail closed while the site email or booking link is still unset (the starter template): no Sheet row, no mail.
+  const { siteEmail, bookingUrl } = config;
+  if (!siteEmail || !bookingUrl) {
+    log("config_incomplete");
+    return json(502, { ok: false, error: "failed" });
+  }
+  const from = `${config.fromName} <${siteEmail}>`;
+  const replyFrom = `${config.replyFromName} <${siteEmail}>`;
+
+  // The Sheet goes first so the email to the owner can say whether the row was saved.
   const id = crypto.randomUUID();
-  const sheetSaved = await appendRow(env.GOOGLE_SERVICE_ACCOUNT_KEY, env.GOOGLE_SHEET_ID, mode === "preview" ? "Preview" : "Submissions", sheetRow(submission, mode, receivedAt));
-  const notification = notificationEmail(submission, mode, receivedAt, sheetSaved);
-  const notified = await sendEmail(env.RESEND_API_KEY, { from: FROM, to: SITE_EMAIL, replyTo: submission.email, ...notification }, `${id}-notify`, "notify");
+  const tab = mode === "preview" ? config.sheetTabs.preview : config.sheetTabs.production;
+  const sheetSaved = await saveRow(config, env, tab, sheetRow(submission, mode, receivedAt));
+  const notification = notificationEmail(config, submission, mode, receivedAt, sheetSaved);
+  const notified = await sendEmail(env.RESEND_API_KEY, { from, to: siteEmail, replyTo: submission.email, ...notification }, `${id}-notify`, "notify");
 
   if (!sheetSaved && !notified) {
     log("capture_failed");
@@ -170,19 +185,24 @@ async function handleContact(request: Request, env: ContactEnv, url: URL): Promi
   }
   if (!notified) log("notify_failed_sheet_saved");
 
-  const reply = autoReplyEmail(submission, mode, providers.schedulerUrl ?? BOOKING_FALLBACK);
-  const recipient = mode === "production" ? submission.email : SITE_EMAIL;
-  const autoReplied = await sendEmail(env.RESEND_API_KEY, { from: REPLY_FROM, to: recipient, replyTo: SITE_EMAIL, headers: REPLY_HEADERS, ...reply }, `${id}-reply`, "auto_reply");
+  const reply = autoReplyEmail(config, submission, mode, bookingUrl);
+  const recipient = mode === "production" ? submission.email : siteEmail;
+  const autoReplied = await sendEmail(env.RESEND_API_KEY, { from: replyFrom, to: recipient, replyTo: siteEmail, headers: REPLY_HEADERS, ...reply }, `${id}-reply`, "auto_reply");
   if (!autoReplied) log("auto_reply_failed");
 
   return json(200, { ok: true, autoReply: autoReplied });
 }
 
-export default {
-  async fetch(request: Request, env: ContactEnv): Promise<Response> {
-    const url = new URL(request.url);
-    if (url.pathname !== "/api/contact") return json(404, { error: "not_found" });
-    if (request.method !== "POST") return json(405, { error: "method_not_allowed" }, { allow: "POST" });
-    return handleContact(request, env, url);
-  },
-} satisfies ExportedHandler<ContactEnv>;
+/** Builds the Worker from a config. The default export below uses the real site.config.ts; the tests pass a fixture. */
+export function createWorker(config: WorkerConfig) {
+  return {
+    async fetch(request: Request, env: ContactEnv): Promise<Response> {
+      const url = new URL(request.url);
+      if (url.pathname !== "/api/contact") return json(404, { error: "not_found" });
+      if (request.method !== "POST") return json(405, { error: "method_not_allowed" }, { allow: "POST" });
+      return handleContact(config, request, env, url);
+    },
+  } satisfies ExportedHandler<ContactEnv>;
+}
+
+export default createWorker(workerConfig);

@@ -29,31 +29,40 @@ export const siteConfig = {
   domain: {
     // CLIENT: replace. A real URL is required so the build can run; check:placeholders fails while it is example.com.
     url: "https://example.com",
-    // T4: still the first client's Worker name; the Worker (worker/env.ts) hard-codes it too.
-    workerName: "huston-site",
+    // CLIENT: replace. The Cloudflare Worker's name (wrangler.jsonc `name`). The contact Worker also uses it to tell the
+    // production workers.dev host from branch previews.
+    workerName: "[[Worker name]]",
     previewHostSuffix: ".workers.dev",
   },
   contact: {
-    // T4 (generic Worker): the five values below are still the first client's. The Worker code and its tests read
-    // them, so they stay until T4 makes the Worker generic.
-    /** From, notify To and Reply-To. */
-    siteEmail: "grant@hustonlogic.com" as string | null,
+    // CLIENT: replace. From, notify To and Reply-To. null means not set yet: check:placeholders fails, and the contact
+    // Worker refuses to send (502) until it is set.
+    siteEmail: null as string | null,
     /** Display name on the notification email. */
-    fromName: "Huston Logic",
+    fromName: "[[Notification sender name]]",
     /** Display name on the automatic reply. */
-    replyFromName: "Grant Huston",
-    schedulerUrl: "https://calendar.app.google/ZEcZAf9NdPn59i579" as string | null,
+    replyFromName: "[[Auto-reply sender name]]",
+    // CLIENT: replace. null means not chosen yet: check:placeholders fails, the contact page shows a placeholder, and the
+    // contact Worker refuses to send (502) because the automatic reply needs a booking link.
+    schedulerUrl: null as string | null,
     bookingFallbackPath: "/contact#book",
     // CLIENT: replace. null means not chosen yet; check:placeholders fails while it is null.
     linkedInUrl: null as string | null,
     /** Cloudflare Turnstile site key for the contact form. Public by design: it ships in the page. */
     turnstileSiteKey: null as string | null,
+    /**
+     * Which code saves each submission to the Google Sheet. "apps-script" (the default) posts to a Google Apps Script web
+     * app (docs/apps-script/contact-sheet.gs); "service-account" signs in as a Google service account. The choice sets
+     * which names wrangler.jsonc lists under secrets.required (see docs/SECRETS.md).
+     */
+    sheetWriter: "apps-script" as "apps-script" | "service-account",
+    /** The two tab names in the Sheet. Generic names; the Apps Script reads the same two names from its Script Properties. */
     sheetTabs: { production: "Submissions", preview: "Preview" },
     rateLimit: {
       limit: 5,
       periodSeconds: 60,
-      /** Must be unique per Cloudflare account. */
-      namespaceIds: { production: "1001", preview: "1002" },
+      // CLIENT: replace. Any integer string that is unique per Cloudflare account (for example "101" and "102").
+      namespaceIds: { production: "[[Rate limit namespace id (production)]]", preview: "[[Rate limit namespace id (preview)]]" },
     },
   },
   theme: {
