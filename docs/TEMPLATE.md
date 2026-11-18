@@ -15,7 +15,7 @@ Line numbers are from the commit this document was written on and will drift; re
 | 1 (this) | Generic identity, `docs/TEMPLATE.md`, empty input-doc skeletons |
 | 2 (built) | Add `site.config.ts`, `sync:config`, `check:config`; route `src/content/site.ts`, `providers.ts` and `card.ts` through it |
 | 3 | Strip Huston-only content, copy, images and brand files from `src/`, `public/`, tests |
-| 4 | Generic Worker (names, emails, Sheet tabs from config) and its tests |
+| 4 (built) | Generic Worker (names, emails, Sheet tabs from config) and its tests; Apps Script Sheet writer as the default; `docs/SECRETS.md`; placeholders in `site.config.ts` |
 | 5 | Owner-only hand-copy PR (section D), pipeline docs pass, template README polish |
 
 ## A. File inventory
@@ -90,7 +90,7 @@ Legend: **G** = Generic (keep). **C** = Per-client (moves to the config file). *
 | File | Class |
 | --- | --- |
 | `contact.ts`, `email.ts`, `env.ts`, `messages.ts`, `sheets.ts`, `turnstile.ts`, `tsconfig.json`, `worker-configuration.d.ts` | G logic, C values (table B) |
-| `contact.test.ts` | G logic; fixtures use Huston values (H) |
+| `contact.test.ts` | G (builds the Worker from a fixture config with fake values; no client literal) |
 | `turnstile-errors.test.ts` | G |
 
 ## B. Hard-coded client-specific values
@@ -126,7 +126,7 @@ Owner-only files are marked (owner).
 ## C. `site.config.ts` (built in PR 2)
 
 **Status.** `site.config.ts` exists at the repo root, holding the current Huston values, so the built site is
-unchanged (PR 3 swaps in placeholders). What is wired:
+unchanged (PR 3 swaps in placeholders; PR 4 did it for the Worker's values). What is wired:
 
 - `src/content/site.ts`, `providers.ts` and `card.ts` read it (existing imports still work); `layout.tsx` and
   `metadata.ts` build the default title and OG alt from the business name; `og.png/route.tsx` reads `theme.colors`
@@ -138,10 +138,16 @@ unchanged (PR 3 swaps in placeholders). What is wired:
   `npm run check` and in `build:launch`.
 - `npm run check:placeholders` (so `build:launch`) also reads `site.config.ts`: it fails on any `[[...]]` in it and on
   any empty required value, naming the key. `legalName`, `prices.website`, `csp.extra*` and `analytics` are optional.
-- Held in the config but **not yet read** by anything: `contact.fromName`, `replyFromName`, `bookingFallbackPath`,
-  `sheetTabs`, `domain.previewHostSuffix`, `brand.wordmark/full/headshot`, `prices.website`. The Worker (PR 4) and
-  `Marks.tsx`/`AboutTeaser.tsx` (PR 3) will take them. The Worker code is untouched; it still gets `providers` through
-  `providers.ts`, which now imports `site.config.ts` (listed in `worker/tsconfig.json`).
+- Held in the config but **not yet read** by anything: `contact.bookingFallbackPath` (the Worker no longer needs it: it
+  refuses to send while `schedulerUrl` is `null`; the page code still uses its own `/contact#book`),
+  `brand.wordmark/full/headshot`, `prices.website`. `Marks.tsx`/`AboutTeaser.tsx` (PR 3) will take the brand files.
+- Read by the Worker since PR 4 (`worker/config.ts`): `business.name`, `owner.name/role`, `domain.url`, `workerName`,
+  `previewHostSuffix`, `contact.siteEmail`, `fromName`, `replyFromName`, `schedulerUrl`, `sheetWriter`, `sheetTabs`, and
+  `business.tagline` plus `theme.colors` for the automatic reply's signature (`src/content/auto-reply.ts`). The rate
+  limit is generated into `wrangler.jsonc`. `contact.sheetWriter` (new in PR 4, default `"apps-script"`) picks the Sheet
+  writer and the `secrets.required` names; see `docs/SECRETS.md`.
+- Since PR 4 the first client's Worker name, sender names, email, booking link and rate-limit namespace ids are
+  `[[placeholders]]` or `null` in `site.config.ts`, so `build:launch` fails until they are filled in.
 - The four generated files carry no "generated" banner, because they had to stay byte-identical.
 
 The original proposal follows.

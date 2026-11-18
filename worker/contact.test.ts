@@ -1,9 +1,12 @@
 // Tests for the contact Worker, run with Node's built-in test runner (`npm run test:worker`). `fetch` is replaced by a
-// recorder, so nothing reaches Turnstile, Resend or Google. A throwaway RSA key stands in for the service-account key.
+// recorder, so nothing reaches Turnstile, Resend, Google or an Apps Script web app. The Worker is built from a fixture
+// config (obviously fake values), never the real site.config.ts. A throwaway RSA key stands in for the service-account key.
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, test } from "node:test";
-import worker from "./contact.ts";
-import { providers } from "../src/content/providers.ts";
+import { buildAutoReply } from "../src/content/auto-reply.ts";
+import { appendRowViaAppsScript } from "./apps-script.ts";
+import { buildWorkerConfig, type WorkerSiteConfig } from "./config.ts";
+import { createWorker } from "./contact.ts";
 import type { ContactEnv } from "./env.ts";
 import { resolveMode } from "./env.ts";
 import { resetTokenCache, safeCell, signAssertion } from "./sheets.ts";
@@ -12,7 +15,36 @@ import { validateContact } from "../src/lib/contact-validation.ts";
 
 type Call = { url: string; init: RequestInit; json: Record<string, unknown> | null };
 
-const ORIGIN = "https://hustonlogic.com";
+const FIXTURE: WorkerSiteConfig = {
+  business: { name: "Example Co", tagline: "Plain words for plain work" },
+  owner: { name: "Pat Example", role: "Founder" },
+  domain: { url: "https://example.test", workerName: "example-site", previewHostSuffix: ".workers.dev" },
+  contact: {
+    siteEmail: "hello@example.test",
+    fromName: "Example Co",
+    replyFromName: "Pat Example",
+    schedulerUrl: "https://example.test/book",
+    sheetWriter: "service-account",
+    sheetTabs: { production: "Submissions", preview: "Preview" },
+  },
+  theme: { colors: { green: "#112233", ink: "#223344", ink2: "#334455", rust: "#445566", line: "#556677" } },
+};
+
+function makeWorker(contact: Partial<WorkerSiteConfig["contact"]> = {}, domain: Partial<WorkerSiteConfig["domain"]> = {}) {
+  return createWorker(buildWorkerConfig({ ...FIXTURE, domain: { ...FIXTURE.domain, ...domain }, contact: { ...FIXTURE.contact, ...contact } }));
+}
+
+// Most tests use the service-account writer (the original Google Sheets API path); the apps-script suite further down
+// uses `appsWorker`.
+const worker = makeWorker();
+const appsWorker = makeWorker({ sheetWriter: "apps-script" });
+
+const SITE_EMAIL = "hello@example.test";
+const BOOKING = "https://example.test/book";
+const ORIGIN = "https://example.test";
+const PREVIEW_HOST = "feat-x-example-site.acct.workers.dev";
+const WEBHOOK_URL = "https://script.google.com/macros/s/EXAMPLE_DEPLOYMENT_ID/exec";
+const WEBHOOK_SECRET = "webhook-test-secret";
 const VISITOR = { name: "Ada Lovelace", email: "ada@example.org", message: "Inquiries get lost between three inboxes." };
 
 let calls: Call[] = [];
@@ -29,9 +61,10 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function defaultResponders(): Record<string, () => Response> {
   return {
-    siteverify: () => jsonResponse({ success: true, hostname: "hustonlogic.com", action: "contact" }),
+    siteverify: () => jsonResponse({ success: true, hostname: "example.test", action: "contact" }),
     token: () => jsonResponse({ access_token: "test-access-token", expires_in: 3600 }),
     sheets: () => jsonResponse({ updates: { updatedRows: 1 } }),
+    webhook: () => jsonResponse({ ok: true }),
     notify: () => jsonResponse({ id: "email-1" }),
     reply: () => jsonResponse({ id: "email-2" }),
   };
@@ -41,6 +74,7 @@ function route(url: string, init: RequestInit): string {
   if (url.includes("turnstile/v0/siteverify")) return "siteverify";
   if (url.startsWith("https://oauth2.googleapis.com/token")) return "token";
   if (url.startsWith("https://sheets.googleapis.com/")) return "sheets";
+  if (url.startsWith("https://script.google.com/")) return "webhook";
   if (url === "https://api.resend.com/emails") {
     return String((init.headers as Record<string, string>)["idempotency-key"]).endsWith("-notify") ? "notify" : "reply";
   }
@@ -59,6 +93,8 @@ function env(overrides: Partial<ContactEnv> = {}, allowed = true): ContactEnv {
     TURNSTILE_SECRET_KEY: "turnstile-test-secret",
     GOOGLE_SERVICE_ACCOUNT_KEY: serviceAccountKey,
     GOOGLE_SHEET_ID: "sheet-123",
+    SHEET_WEBHOOK_URL: WEBHOOK_URL,
+    SHEET_WEBHOOK_SECRET: WEBHOOK_SECRET,
     CONTACT_RATE_LIMIT: { limit: async () => ({ success: allowed }) },
     ...overrides,
   };
@@ -114,7 +150,7 @@ afterEach(() => {
   console.log = realLog;
   // No log line may ever hold what the visitor typed.
   for (const line of logs) {
-    for (const secret of [VISITOR.name, VISITOR.email, VISITOR.message, "203.0.113.9", "re_test", "turnstile-test-secret"]) {
+    for (const secret of [VISITOR.name, VISITOR.email, VISITOR.message, "203.0.113.9", "re_test", "turnstile-test-secret", WEBHOOK_SECRET, "EXAMPLE_DEPLOYMENT_ID", "script.google.com"]) {
       assert.ok(!line.includes(secret), `log line leaked "${secret}": ${line}`);
     }
   }
@@ -184,7 +220,7 @@ describe("Turnstile", () => {
   test("a token from another hostname or action is refused", async () => {
     responders.siteverify = () => jsonResponse({ success: true, hostname: "other.example", action: "contact" });
     assert.equal((await worker.fetch(post(valid), env())).status, 403);
-    responders.siteverify = () => jsonResponse({ success: true, hostname: "hustonlogic.com", action: "login" });
+    responders.siteverify = () => jsonResponse({ success: true, hostname: "example.test", action: "login" });
     assert.equal((await worker.fetch(post(valid), env())).status, 403);
     assert.ok(logs.some((l) => l.includes('"reason":"hostname_mismatch"')));
     assert.ok(logs.some((l) => l.includes('"reason":"action_mismatch"')));
@@ -219,7 +255,7 @@ describe("Turnstile", () => {
 });
 
 describe("a good submission in production", () => {
-  test("saves the row, emails Grant and sends the B7b auto-reply, all plain text", async () => {
+  test("saves the row, emails the site owner and sends the B7b auto-reply, all plain text", async () => {
     const response = await worker.fetch(post({ ...valid, business: "=HYPERLINK(\"x\")" }), env());
     assert.equal(response.status, 200);
     assert.deepEqual(await bodyOf(response), { ok: true, autoReply: true });
@@ -232,8 +268,8 @@ describe("a good submission in production", () => {
     assert.equal(row[10], "production");
 
     const [notify] = called("notify");
-    assert.deepEqual(notify.json?.to, ["grant@hustonlogic.com"]);
-    assert.equal(notify.json?.from, "Huston Logic <grant@hustonlogic.com>");
+    assert.deepEqual(notify.json?.to, [SITE_EMAIL]);
+    assert.equal(notify.json?.from, `Example Co <${SITE_EMAIL}>`);
     assert.equal(notify.json?.reply_to, VISITOR.email);
     assert.equal(notify.json?.subject, `New note: A website from ${VISITOR.name}`);
     assert.ok(String(notify.json?.text).includes("Sheet: saved"));
@@ -241,7 +277,7 @@ describe("a good submission in production", () => {
 
     const [reply] = called("reply");
     assert.deepEqual(reply.json?.to, [VISITOR.email]);
-    assert.equal(reply.json?.reply_to, "grant@hustonlogic.com");
+    assert.equal(reply.json?.reply_to, SITE_EMAIL);
     assert.equal(reply.json?.subject, "I got your note. Here's what happens next.");
     assert.ok(String(reply.json?.text).startsWith("Hi Ada,\n\nYou reached out!"));
 
@@ -252,12 +288,10 @@ describe("a good submission in production", () => {
   });
 
   describe("the automatic reply", () => {
-    const BOOKING = providers.schedulerUrl as string;
-
     async function reply(overrides: Record<string, unknown> = {}, previewHost = false) {
       calls = [];
       if (previewHost) {
-        const host = "feat-x-huston-site.acct.workers.dev";
+        const host = PREVIEW_HOST;
         responders.siteverify = () => jsonResponse({ success: true, hostname: host, action: "contact" });
         await worker.fetch(post({ ...valid, ...overrides }, { origin: `https://${host}`, url: `https://${host}/api/contact` }), env({ SITE_ENV: "preview" }));
       } else {
@@ -268,10 +302,10 @@ describe("a good submission in production", () => {
 
     test("From, Reply-To and the two auto-responder headers", async () => {
       const r = await reply();
-      assert.equal(r.from, "Grant Huston <grant@hustonlogic.com>");
-      assert.equal(r.reply_to, "grant@hustonlogic.com");
+      assert.equal(r.from, `Pat Example <${SITE_EMAIL}>`);
+      assert.equal(r.reply_to, SITE_EMAIL);
       assert.deepEqual(r.headers, { "Auto-Submitted": "auto-replied", "X-Auto-Response-Suppress": "All" });
-      assert.equal(called("notify")[0].json?.from, "Huston Logic <grant@hustonlogic.com>");
+      assert.equal(called("notify")[0].json?.from, `Example Co <${SITE_EMAIL}>`);
       assert.ok(!("headers" in (called("notify")[0].json ?? {})));
     });
 
@@ -280,7 +314,7 @@ describe("a good submission in production", () => {
       const text = String(r.text);
       const html = String(r.html);
       const stripped = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&rarr;/g, "→").replace(/&ldquo;|&rdquo;/g, '"').replace(/&rsquo;/g, "'").replace(/&#39;/g, "'").replace(/\s+/g, " ");
-      for (const phrase of ["Hi Ada,", "You reached out! That's the first step", "(Consider this the demo!)", "write back within one business day.", "Talk soon,", "Founder, Huston Logic", "Please leave out passwords and client details."]) {
+      for (const phrase of ["Hi Ada,", "You reached out! That's the first step", "This reply is automatic.", "write back within one business day.", "Talk soon,", "Founder, Example Co", "Please leave out passwords and client details."]) {
         assert.ok(text.includes(phrase), `text has: ${phrase}`);
         assert.ok(stripped.includes(phrase), `html has: ${phrase}`);
       }
@@ -298,8 +332,8 @@ describe("a good submission in production", () => {
       assert.equal(lines[at + 1], BOOKING);
       assert.ok(lines.includes(`Book a free 20-minute call: ${BOOKING}`));
       const html = String(r.html);
-      assert.ok(html.includes(`<a href="${BOOKING}" style="color:#2B6455;">pick a time for a free 20-minute call</a>`));
-      assert.ok(html.includes(`<a href="${BOOKING}" style="color:#2B6455;text-decoration:none;font-weight:bold;">Book a free 20-minute call &rarr;</a>`));
+      assert.ok(html.includes(`<a href="${BOOKING}" style="color:#112233;">pick a time for a free 20-minute call</a>`));
+      assert.ok(html.includes(`<a href="${BOOKING}" style="color:#112233;text-decoration:none;font-weight:bold;">Book a free 20-minute call &rarr;</a>`));
       assert.equal(html.split(BOOKING).length - 1, 2, "no bare URL in the HTML");
       assert.ok(!html.includes("{bookingUrl}") && !String(r.text).includes("{bookingUrl}"));
     });
@@ -334,7 +368,7 @@ describe("a good submission in production", () => {
   test("the partner variant needs no need field", async () => {
     const response = await worker.fetch(post({ ...valid, need: "", topic: "partner" }), env());
     assert.equal(response.status, 200);
-    assert.equal(called("notify")[0].json?.subject, `New note: Zoho partner from ${VISITOR.name}`);
+    assert.equal(called("notify")[0].json?.subject, `New note: Partner from ${VISITOR.name}`);
   });
 
   test("a name that isn't a name gets no greeting name", async () => {
@@ -362,27 +396,34 @@ describe("a good submission in production", () => {
 
 describe("preview mode", () => {
   test("mail goes only to the site's address and the row goes to the Preview tab", async () => {
-    const response = await worker.fetch(post(valid, { origin: "https://feat-x-huston-site.acct.workers.dev", url: "https://feat-x-huston-site.acct.workers.dev/api/contact" }), env({ SITE_ENV: "preview" }));
+    const response = await worker.fetch(post(valid, { origin: `https://${PREVIEW_HOST}`, url: `https://${PREVIEW_HOST}/api/contact` }), env({ SITE_ENV: "preview" }));
     assert.equal(response.status, 403, "the token's hostname must match the preview host");
 
-    responders.siteverify = () => jsonResponse({ success: true, hostname: "feat-x-huston-site.acct.workers.dev", action: "contact" });
+    responders.siteverify = () => jsonResponse({ success: true, hostname: PREVIEW_HOST, action: "contact" });
     calls = [];
-    const ok = await worker.fetch(post(valid, { origin: "https://feat-x-huston-site.acct.workers.dev", url: "https://feat-x-huston-site.acct.workers.dev/api/contact" }), env({ SITE_ENV: "preview" }));
+    const ok = await worker.fetch(post(valid, { origin: `https://${PREVIEW_HOST}`, url: `https://${PREVIEW_HOST}/api/contact` }), env({ SITE_ENV: "preview" }));
     assert.equal(ok.status, 200);
     assert.match(called("sheets")[0].url, /values\/Preview!A%3AK:append/);
     assert.ok(String(called("notify")[0].json?.subject).startsWith("[Preview] New note:"));
     const [reply] = called("reply");
-    assert.deepEqual(reply.json?.to, ["grant@hustonlogic.com"]);
+    assert.deepEqual(reply.json?.to, [SITE_EMAIL]);
     assert.equal(reply.json?.subject, `[Preview → would go to ${VISITOR.email}] I got your note. Here's what happens next.`);
   });
 
   test("a workers.dev branch host counts as a preview even if SITE_ENV says production", () => {
-    assert.equal(resolveMode("production", "feat-x-huston-site.acct.workers.dev"), "preview");
-    assert.equal(resolveMode("production", "huston-site.acct.workers.dev"), "production");
-    assert.equal(resolveMode("production", "hustonlogic.com"), "production");
-    assert.equal(resolveMode("development", "hustonlogic.com"), null);
-    assert.equal(resolveMode("development", "localhost"), "development");
-    assert.equal(resolveMode(undefined, "hustonlogic.com"), null);
+    const mode = (siteEnv: string | undefined, host: string, workerName = "example-site") => resolveMode(siteEnv, host, workerName, ".workers.dev");
+    assert.equal(mode("production", PREVIEW_HOST), "preview");
+    assert.equal(mode("production", "example-site.acct.workers.dev"), "production");
+    assert.equal(mode("production", "example.test"), "production");
+    assert.equal(mode("development", "example.test"), null);
+    assert.equal(mode("development", "localhost"), "development");
+    assert.equal(mode(undefined, "example.test"), null);
+  });
+
+  test("the production workers.dev host comes from the Worker name in config, and a placeholder name fails safe", () => {
+    assert.equal(resolveMode("production", "other-name.acct.workers.dev", "other-name", ".workers.dev"), "production");
+    assert.equal(resolveMode("production", "example-site.acct.workers.dev", "other-name", ".workers.dev"), "preview");
+    assert.equal(resolveMode("production", "any.acct.workers.dev", "[[Worker name]]", ".workers.dev"), "preview");
   });
 });
 
@@ -449,7 +490,7 @@ describe("failures", () => {
 
 describe("shared helpers", () => {
   test("firstName", () => {
-    assert.equal(firstName("  Grant Huston "), "Grant");
+    assert.equal(firstName("  Pat Example "), "Pat");
     assert.equal(firstName("Zoë"), "Zoë");
     assert.equal(firstName("O'Neil-Smith"), "O'Neil-Smith");
     assert.equal(firstName("J. Smith"), "J.");
@@ -474,5 +515,218 @@ describe("shared helpers", () => {
       assert.equal(result.value.email, "ada@example.org");
       assert.equal(result.value.message, "Line one\nLine two");
     }
+  });
+});
+
+describe("client values come from the config", () => {
+  test("the notification and the signature use the business, owner, email, domain and colors in config", async () => {
+    await worker.fetch(post(valid), env());
+    assert.ok(String(called("notify")[0].json?.text).includes("Heard about Example Co: Google"));
+    const html = String(called("reply")[0].json?.html);
+    const text = String(called("reply")[0].json?.text);
+    for (const part of ["Pat Example", "Founder, Example Co", "Plain words for plain work", `href="mailto:${SITE_EMAIL}"`, `href="https://example.test"`, ">example.test</a>", "border-left:3px solid #112233", "color:#223344", "color:#334455", "color:#445566", "color:#556677"]) {
+      assert.ok(html.includes(part), `html has: ${part}`);
+    }
+    assert.ok(text.includes(`${SITE_EMAIL} | example.test`));
+    assert.ok(text.includes("Founder, Example Co\nPlain words for plain work"));
+    const fixtureColors = new Set(["#112233", "#223344", "#334455", "#445566", "#556677"]);
+    const used = html.match(/#[0-9a-fA-F]{3,8}\b/g) ?? [];
+    assert.ok(used.length > 0 && used.every((color) => fixtureColors.has(color)), `only config colors appear: ${used.join(", ")}`);
+  });
+
+  test("another config gives another sender, sheet tab and reply", async () => {
+    const other = makeWorker({ siteEmail: "team@another.test", fromName: "Another Co", replyFromName: "Sam Other", schedulerUrl: "https://another.test/call", sheetTabs: { production: "Live", preview: "Draft" } });
+    await other.fetch(post(valid), env());
+    assert.match(called("sheets")[0].url, /values\/Live!A%3AK:append/);
+    assert.equal(called("notify")[0].json?.from, "Another Co <team@another.test>");
+    assert.deepEqual(called("notify")[0].json?.to, ["team@another.test"]);
+    assert.equal(called("reply")[0].json?.from, "Sam Other <team@another.test>");
+    const replyLines = String(called("reply")[0].json?.text).split("\n");
+    assert.ok(replyLines.some((line) => line === "https://another.test/call"), "the booking link is on its own line");
+    assert.ok(replyLines.some((line) => line === "Book a free 20-minute call: https://another.test/call"));
+  });
+
+  for (const [label, contact] of [
+    ["no site email", { siteEmail: null }],
+    ["no booking link", { schedulerUrl: null }],
+  ] as const) {
+    test(`fails closed with ${label}: 502, a fixed log event, no Sheet row and no mail`, async () => {
+      const response = await makeWorker(contact).fetch(post(valid), env());
+      assert.equal(response.status, 502);
+      assert.equal((await bodyOf(response)).error, "failed");
+      assert.deepEqual(calls.map((c) => route(c.url, c.init)), ["siteverify"]);
+      assert.ok(logs.some((l) => l.includes('"event":"config_incomplete"')));
+    });
+  }
+
+  test("a config full of placeholders and nulls builds the reply without throwing", () => {
+    const reply = buildAutoReply({
+      business: { name: "[[Business name]]", tagline: "[[Tagline]]" },
+      owner: { name: "[[Owner name]]", role: "[[Owner role]]" },
+      domain: { url: "https://example.com" },
+      contact: { siteEmail: null },
+      theme: { colors: { green: "#1e4fa3", ink: "#1c1917", ink2: "#44403c", rust: "#9a3412", line: "#d6d3d1" } },
+    });
+    assert.ok(reply.signatureHtml.includes("[[Owner name]]") && !reply.signatureHtml.includes("mailto:"));
+    assert.deepEqual(reply.signatureText.slice(0, 4), ["[[Owner name]]", "[[Owner role]], [[Business name]]", "[[Tagline]]", "example.com"]);
+  });
+
+  test("config text is escaped in the HTML signature", () => {
+    const reply = buildAutoReply({ ...FIXTURE, business: { name: "A & B <Co>", tagline: '"x"' } });
+    assert.ok(reply.signatureHtml.includes("Founder, A &amp; B &lt;Co&gt;"));
+    assert.ok(!reply.signatureHtml.includes("<Co>"));
+  });
+});
+
+describe("the Apps Script sheet writer", () => {
+  const rowCall = (): Call => called("webhook")[0];
+
+  test("posts { secret, tab, row } as JSON, once, and the note is saved", async () => {
+    const response = await appsWorker.fetch(post({ ...valid, business: '=HYPERLINK("x")' }), env());
+    assert.equal(response.status, 200);
+    assert.equal(called("webhook").length, 1);
+    assert.equal(called("sheets").length + called("token").length, 0, "no Google API call");
+    const call = rowCall();
+    assert.equal(call.url, WEBHOOK_URL);
+    assert.equal(call.init.method, "POST");
+    assert.equal((call.init.headers as Record<string, string>)["content-type"], "application/json");
+    assert.ok(call.init.signal instanceof AbortSignal, "has a timeout signal");
+    assert.deepEqual(Object.keys(call.json ?? {}).sort(), ["row", "secret", "tab"]);
+    assert.equal(call.json?.secret, WEBHOOK_SECRET);
+    assert.equal(call.json?.tab, "Submissions");
+    const row = call.json?.row as string[];
+    assert.equal(row.length, 11);
+    assert.deepEqual(row.slice(1, 6), ["A website", "", VISITOR.name, VISITOR.email, "'=HYPERLINK(\"x\")"]);
+    assert.equal(row[10], "production");
+    assert.ok(String(called("notify")[0].json?.text).includes("Sheet: saved"));
+  });
+
+  test("preview rows go to the Preview tab", async () => {
+    responders.siteverify = () => jsonResponse({ success: true, hostname: PREVIEW_HOST, action: "contact" });
+    const response = await appsWorker.fetch(post(valid, { origin: `https://${PREVIEW_HOST}`, url: `https://${PREVIEW_HOST}/api/contact` }), env({ SITE_ENV: "preview" }));
+    assert.equal(response.status, 200);
+    assert.equal(rowCall().json?.tab, "Preview");
+    assert.equal((rowCall().json?.row as string[])[10], "preview");
+  });
+
+  test("the formula guard covers every cell", async () => {
+    const saved = await appendRowViaAppsScript(WEBHOOK_URL, WEBHOOK_SECRET, "Submissions", ["=a", "+b", "-c", "@d", "\te", "\rf", "plain", ""]);
+    assert.ok(saved);
+    assert.deepEqual(rowCall().json?.row, ["'=a", "'+b", "'-c", "'@d", "'\te", "'\rf", "plain", ""]);
+  });
+
+  test("a missing, empty or non-Apps-Script URL or secret fails closed without any request", async () => {
+    for (const [url, secret] of [
+      [undefined, WEBHOOK_SECRET],
+      [WEBHOOK_URL, undefined],
+      ["", WEBHOOK_SECRET],
+      [WEBHOOK_URL, ""],
+      ["http://script.google.com/macros/s/x/exec", WEBHOOK_SECRET],
+      ["https://evil.example/macros/s/x/exec", WEBHOOK_SECRET],
+      ["not a url", WEBHOOK_SECRET],
+    ] as const) {
+      assert.equal(await appendRowViaAppsScript(url, secret, "Submissions", ["x"]), false);
+    }
+    assert.equal(calls.length, 0);
+    assert.equal(logs.filter((l) => l.includes('"event":"sheet_config_missing"')).length, 7);
+  });
+
+  test("with the secrets unset the note still reaches the owner by email, marked as not saved", async () => {
+    const response = await appsWorker.fetch(post(valid), env({ SHEET_WEBHOOK_URL: undefined, SHEET_WEBHOOK_SECRET: undefined }));
+    assert.equal(response.status, 200);
+    assert.equal(called("webhook").length, 0);
+    assert.ok(String(called("notify")[0].json?.text).includes("Sheet: NOT saved - add this one by hand"));
+  });
+
+  test("HTTP 403/404 fail without a retry", async () => {
+    for (const status of [403, 404]) {
+      calls = [];
+      responders.webhook = () => jsonResponse({ ok: true }, status);
+      assert.equal(await appendRowViaAppsScript(WEBHOOK_URL, WEBHOOK_SECRET, "Submissions", ["x"]), false);
+      assert.equal(called("webhook").length, 1);
+    }
+    assert.ok(logs.some((l) => l.includes('"event":"sheet_append_failed"') && l.includes('"status":403')));
+  });
+
+  test("ok:false, a non-JSON 200 and a missing ok all fail without a retry", async () => {
+    for (const make of [() => jsonResponse({ ok: false }), () => new Response("<html>Sign in</html>", { status: 200 }), () => jsonResponse({}), () => jsonResponse({ ok: "true" })]) {
+      calls = [];
+      responders.webhook = make;
+      assert.equal(await appendRowViaAppsScript(WEBHOOK_URL, WEBHOOK_SECRET, "Submissions", ["x"]), false);
+      assert.equal(called("webhook").length, 1);
+    }
+    assert.ok(logs.some((l) => l.includes('"event":"sheet_append_rejected"')));
+  });
+
+  test("a 500 is retried once: one more try can save the row, two failures cannot", async () => {
+    let first = true;
+    responders.webhook = () => {
+      const response = first ? jsonResponse({}, 500) : jsonResponse({ ok: true });
+      first = false;
+      return response;
+    };
+    assert.equal(await appendRowViaAppsScript(WEBHOOK_URL, WEBHOOK_SECRET, "Submissions", ["x"]), true);
+    assert.equal(called("webhook").length, 2);
+
+    calls = [];
+    responders.webhook = () => jsonResponse({}, 503);
+    assert.equal(await appendRowViaAppsScript(WEBHOOK_URL, WEBHOOK_SECRET, "Submissions", ["x"]), false);
+    assert.equal(called("webhook").length, 2, "never more than one retry");
+  });
+
+  test("an unreachable web app is retried once, then the note goes by email only", async () => {
+    responders.webhook = () => {
+      throw new Error("network down");
+    };
+    const response = await appsWorker.fetch(post(valid), env());
+    assert.equal(response.status, 200);
+    assert.equal(called("webhook").length, 2);
+    assert.ok(logs.some((l) => l.includes('"event":"sheet_unreachable"')));
+    assert.ok(String(called("notify")[0].json?.text).includes("Sheet: NOT saved"));
+  });
+
+  test("both writer and email failing is a 502", async () => {
+    responders.webhook = () => jsonResponse({ ok: false });
+    responders.notify = () => jsonResponse({}, 503);
+    const response = await appsWorker.fetch(post(valid), env());
+    assert.equal(response.status, 502);
+    assert.equal(called("reply").length, 0);
+  });
+
+  test("logs hold fixed event names and status codes only: never the URL, the secret or row data", async () => {
+    responders.webhook = () => jsonResponse({}, 500);
+    await appsWorker.fetch(post({ ...valid, business: "Acme Plumbing" }), env());
+    responders.webhook = () => jsonResponse({ ok: false });
+    await appsWorker.fetch(post(valid), env());
+    responders.webhook = () => {
+      throw new Error(`failed for ${WEBHOOK_URL} with ${WEBHOOK_SECRET}`);
+    };
+    await appsWorker.fetch(post(valid), env());
+    const sheetLogs = logs.filter((l) => l.includes('"event":"sheet_'));
+    assert.ok(sheetLogs.length >= 4);
+    for (const line of sheetLogs) {
+      assert.match(line, /^\{"event":"sheet_(append_failed|append_rejected|unreachable|config_missing)"(,"(status|attempt)":\d+)*\}$/);
+    }
+    for (const line of logs) {
+      for (const secret of [WEBHOOK_URL, WEBHOOK_SECRET, "EXAMPLE_DEPLOYMENT_ID", "Acme Plumbing", "network down"]) assert.ok(!line.includes(secret), `leaked ${secret}: ${line}`);
+    }
+  });
+
+  test("the writer follows contact.sheetWriter in config", async () => {
+    await appsWorker.fetch(post(valid), env());
+    assert.equal(called("webhook").length, 1);
+    assert.equal(called("sheets").length + called("token").length, 0);
+
+    calls = [];
+    await makeWorker({ sheetWriter: "service-account" }).fetch(post(valid), env());
+    assert.equal(called("webhook").length, 0, "the service-account writer never calls the web app");
+    assert.equal(called("sheets").length, 1);
+  });
+
+  test("the service-account writer needs its own secrets, not the web-app ones", async () => {
+    const response = await worker.fetch(post(valid), env({ GOOGLE_SERVICE_ACCOUNT_KEY: undefined, GOOGLE_SHEET_ID: undefined }));
+    assert.equal(response.status, 200);
+    assert.equal(called("webhook").length + called("sheets").length, 0);
+    assert.ok(String(called("notify")[0].json?.text).includes("Sheet: NOT saved"));
   });
 });

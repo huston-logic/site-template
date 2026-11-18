@@ -1,12 +1,12 @@
-import { autoReply } from "../src/content/auto-reply.ts";
 import { needOptions } from "../src/content/contact-fields.ts";
 import type { ContactSubmission } from "../src/lib/contact-validation.ts";
 import { autoReplyFirstName } from "../src/lib/first-name.ts";
+import type { WorkerConfig } from "./config.ts";
 import type { Mode } from "./env.ts";
 
-/** "A website", "Help with a workflow", ... or "Zoho partner" for the partner variant (it has no need field). */
+/** "A website", "Help with a workflow", ... or "Partner" for the partner variant (it has no need field). */
 export function needLabel(submission: ContactSubmission): string {
-  if (submission.topic === "partner") return "Zoho partner";
+  if (submission.topic === "partner") return "Partner";
   return needOptions.find((option) => option.value === submission.need)?.label ?? "";
 }
 
@@ -18,8 +18,8 @@ function previewPrefix(mode: Mode): string {
   return mode === "production" ? "" : "[Preview] ";
 }
 
-/** The internal email to Grant: plain text, every field labelled, plus whether the Sheet row was saved. */
-export function notificationEmail(s: ContactSubmission, mode: Mode, receivedAt: string, sheetSaved: boolean) {
+/** The internal email to the site owner: plain text, every field labelled, plus whether the Sheet row was saved. */
+export function notificationEmail(config: WorkerConfig, s: ContactSubmission, mode: Mode, receivedAt: string, sheetSaved: boolean) {
   const subject = cap(`${previewPrefix(mode)}New note: ${needLabel(s)} from ${s.name}`, 120);
   const lines = [
     `Need: ${needLabel(s)}`,
@@ -29,7 +29,7 @@ export function notificationEmail(s: ContactSubmission, mode: Mode, receivedAt: 
     `Business:${s.business || "(not given)"}`,
     `Uses today: ${s.tools || "(not given)"}`,
     `Current website: ${s.website || "(not given)"}`,
-    `Heard about Huston Logic: ${s.source || "(not given)"}`,
+    `Heard about ${config.businessName}: ${s.source || "(not given)"}`,
     "",
     "What's going on:",
     s.message,
@@ -41,8 +41,9 @@ export function notificationEmail(s: ContactSubmission, mode: Mode, receivedAt: 
   return { subject, text: lines.join("\n") };
 }
 
-/** The B7b automatic reply. In preview it goes to Grant instead, and the subject says who it would have gone to. */
-export function autoReplyEmail(s: ContactSubmission, mode: Mode, bookingUrl: string) {
+/** The B7b automatic reply. In preview it goes to the site owner instead, and the subject says who it would have gone to. */
+export function autoReplyEmail(config: WorkerConfig, s: ContactSubmission, mode: Mode, bookingUrl: string) {
+  const { autoReply } = config;
   const name = autoReplyFirstName(s.name);
   const { booking } = autoReply;
   const greeting = name ? autoReply.greeting.replace("{firstName}", name) : autoReply.greetingNoName;
@@ -55,10 +56,11 @@ export function autoReplyEmail(s: ContactSubmission, mode: Mode, bookingUrl: str
     autoReply.signatureText.join("\n").replace("{bookingUrl}", bookingUrl),
   ].join("\n\n");
 
+  const { ink, link: linkColor } = autoReply.colors;
   const p = (inner: string) => `<p style="margin:0 0 16px;">${inner}</p>`;
-  const link = `<a href="${escapeHtml(bookingUrl)}" style="color:#2B6455;">${escapeHtml(booking.linkText)}</a>`;
+  const link = `<a href="${escapeHtml(bookingUrl)}" style="color:${escapeHtml(linkColor)};">${escapeHtml(booking.linkText)}</a>`;
   const html = [
-    '<div style="max-width:560px;margin:0;text-align:left;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;color:#29332D;">',
+    `<div style="max-width:560px;margin:0;text-align:left;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;color:${escapeHtml(ink)};">`,
     p(escapeHtml(greeting)),
     ...autoReply.paragraphs.map((t) => p(escapeHtml(t))),
     p(`${escapeHtml(booking.before)}${link}${escapeHtml(booking.after)}`),

@@ -53,7 +53,7 @@ const requiredKeys = [
   "owner.name", "owner.givenName", "owner.familyName", "owner.role", "owner.phone", "owner.regionLine",
   "domain.url", "domain.workerName", "domain.previewHostSuffix",
   "contact.siteEmail", "contact.fromName", "contact.replyFromName", "contact.schedulerUrl", "contact.bookingFallbackPath",
-  "contact.linkedInUrl", "contact.turnstileSiteKey", "contact.sheetTabs.production", "contact.sheetTabs.preview",
+  "contact.linkedInUrl", "contact.turnstileSiteKey", "contact.sheetWriter", "contact.sheetTabs.production", "contact.sheetTabs.preview",
   "contact.rateLimit.namespaceIds.production", "contact.rateLimit.namespaceIds.preview",
   ...Object.keys(config.theme.colors).map((k) => `theme.colors.${k}`),
   "theme.fonts.display.family", "theme.fonts.body.family", "theme.fonts.accent.family",
@@ -63,6 +63,10 @@ for (const key of requiredKeys) {
   if (value === undefined) problems.push(`site.config.ts  ${key} is missing`);
   else if (value === null) problems.push(`site.config.ts  ${key} is still null (provider/value not chosen)`);
   else if (typeof value === "string" && value.trim() === "") problems.push(`site.config.ts  ${key} is empty`);
+}
+
+if (!["apps-script", "service-account"].includes(config.contact.sheetWriter)) {
+  problems.push(`site.config.ts  contact.sheetWriter must be "apps-script" or "service-account", not ${JSON.stringify(config.contact.sheetWriter)}`);
 }
 
 // The starter ships with a valid stand-in URL so the build runs; a real client site must not launch on it.

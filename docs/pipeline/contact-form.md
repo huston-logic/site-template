@@ -126,10 +126,15 @@ never names, emails, messages, IP addresses or keys. The full set of event names
 `honeypot_filled`, `turnstile_config_missing`, `turnstile_token_missing`, `turnstile_unavailable`,
 `turnstile_failed`, `turnstile_http_error`, `turnstile_unreachable`, `dry_run`,
 `sheet_config_missing`, `sheet_token_failed`, `sheet_token_unreachable`, `sheet_append_failed`,
-`sheet_unreachable`, `email_config_missing`, `email_failed`, `email_unreachable`, `capture_failed`,
+`sheet_unreachable`, `sheet_append_rejected` (Apps Script writer), `config_incomplete`, `email_config_missing`, `email_failed`, `email_unreachable`, `capture_failed`,
 `notify_failed_sheet_saved`, `auto_reply_failed`.
 
 ## Secrets by name
+
+> **Template note.** This page describes the service-account Sheet writer, which is now the optional one. The default writer
+> is a Google Apps Script web app (`contact.sheetWriter` in `site.config.ts`), and the Worker reads its names, email and
+> booking link from `site.config.ts`. The current secret list, with the production and preview commands for both writers, is
+> in [../SECRETS.md](../SECRETS.md); the rest of this page is updated in the pipeline-docs pass (template PR 5).
 
 Four Worker secrets. `wrangler.jsonc` lists the names under `secrets.required`, so a deploy fails
 while one is missing. Values exist only in Cloudflare, set by the owner from their own terminal in

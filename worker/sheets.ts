@@ -1,8 +1,10 @@
 import { log, retryable, TIMEOUT_MS } from "./env.ts";
 
 /**
- * Appends one row to Grant's Google Sheet as a service account, with no library: the OAuth JWT is signed with Web
- * Crypto (RS256) and exchanged for an access token, then the row goes in through the Sheets API.
+ * The optional "service-account" Sheet writer (`contact.sheetWriter` in site.config.ts; the default is the Apps Script
+ * writer in apps-script.ts). Appends one row to the owner's Google Sheet as a service account, with no library: the
+ * OAuth JWT is signed with Web Crypto (RS256) and exchanged for an access token, then the row goes in through the
+ * Sheets API.
  * https://developers.google.com/identity/protocols/oauth2/service-account
  */
 

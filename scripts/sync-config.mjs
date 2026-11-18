@@ -12,8 +12,18 @@ const { siteConfig: c } = await import(pathToFileURL(join(root, "site.config.ts"
 const unique = (list) => [...new Set(list)];
 const kebab = (key) => key.replace(/([a-z0-9])([A-Z0-9])/g, "$1-$2").toLowerCase();
 
+// Secret names the contact Worker needs, by Sheet writer (docs/SECRETS.md). Names only, never values.
+const secretsByWriter = {
+  "apps-script": ["RESEND_API_KEY", "TURNSTILE_SECRET_KEY", "SHEET_WEBHOOK_URL", "SHEET_WEBHOOK_SECRET"],
+  "service-account": ["RESEND_API_KEY", "TURNSTILE_SECRET_KEY", "GOOGLE_SERVICE_ACCOUNT_KEY", "GOOGLE_SHEET_ID"],
+};
+
 function wrangler() {
   const { limit, periodSeconds, namespaceIds } = c.contact.rateLimit;
+  const secrets = secretsByWriter[c.contact.sheetWriter];
+  if (!secrets) {
+    throw new Error(`site.config.ts contact.sheetWriter must be "apps-script" or "service-account", not ${JSON.stringify(c.contact.sheetWriter)}`);
+  }
   const rate = (id) =>
     `[{ "name": "CONTACT_RATE_LIMIT", "namespace_id": "${id}", "simple": { "limit": ${limit}, "period": ${periodSeconds} } }]`;
   return `{
@@ -30,7 +40,7 @@ function wrangler() {
   "vars": { "SITE_ENV": "production" },
   // Names only. Values are set with \`wrangler secret put\` (README, "Contact form").
   "secrets": {
-    "required": ["RESEND_API_KEY", "TURNSTILE_SECRET_KEY", "GOOGLE_SERVICE_ACCOUNT_KEY", "GOOGLE_SHEET_ID"]
+    "required": [${secrets.map((name) => `"${name}"`).join(", ")}]
   },
   "ratelimits": ${rate(namespaceIds.production)},
   // Invocation logs would store request metadata; the Worker's own log lines hold no personal data.
