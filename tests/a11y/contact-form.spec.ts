@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { noteForm, thanks } from "../../src/content/contact";
+import { needOptions } from "../../src/content/contact-fields";
 
 // The contact form against the static preview. The Worker isn't running here, so /api/contact is answered by
 // page.route, and the Turnstile script is replaced by a stub that hands back a token (and, like the real widget, a
@@ -35,7 +36,9 @@ async function setUp(page: Page, answer: Answer) {
 }
 
 async function fillValid(page: Page) {
-  await page.getByText("A website", { exact: true }).click();
+  const website = needOptions.find((option) => option.value === "website");
+  if (!website) throw new Error("contact-fields.ts has no website option");
+  await page.getByText(website.label, { exact: true }).click();
   await page.getByLabel(noteForm.name.label).fill("Ada Lovelace");
   await page.getByLabel(noteForm.email.label).fill("ada@example.org");
   await page.getByLabel(noteForm.message.label).fill("Inquiries get lost between three inboxes.");
@@ -52,7 +55,7 @@ test("a valid note goes to /contact/thanks with the first name, and nothing pers
   await page.getByRole("button", { name: noteForm.submitLabel }).click();
 
   await expect(page).toHaveURL(/\/contact\/thanks$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Got it, thanks Ada.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(thanks.headingWithName.replace("{firstName}", "Ada"));
   await expect(page.getByText(thanks.body)).toBeVisible();
   expect(page.url()).not.toMatch(/Ada|example\.org/);
 
