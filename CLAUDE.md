@@ -103,11 +103,10 @@ are still open and unmerged, update it only in the first PR and one closing PR s
   test, threshold or axe rule to make it pass.
 - When the review passes and the hook allows it, enable auto-merge with `gh pr merge <number> --auto --squash`. The
   ruleset's required checks are the gate. Do not wait on CI: start the next task if it does not depend on the last one.
-  The owner-only hook `.claude/hooks/guard-bash.mjs` blocks every `gh pr merge` until the owner installs the proposed
-  change that allows exactly `--auto --squash` and `--auto --merge` (`--admin` and any merge without `--auto` stay
-  blocked). Until then do not work around it: leave the PR open, say "PR #N ready for auto-merge" the moment its review
-  passes, and record it in STATUS.md as "open, ready for auto-merge". Later tasks branch from `main` and must not depend
-  on an unmerged PR.
+  The owner-only hook `.claude/hooks/guard-bash.mjs` allows exactly `gh pr merge <number> --auto --squash` and
+  `--auto --merge`; `--admin` and any merge without `--auto` stay blocked. If the hook blocks even the allowed form, do
+  not work around it: leave the PR open, say "PR #N ready for auto-merge" the moment its review passes, and record it in
+  STATUS.md as "open, ready for auto-merge". Later tasks branch from `main` and must not depend on an unmerged PR.
 - Stop, queue the item and continue with other tasks on: secrets or credentials, DNS, accounts or money, sending real
   email, deleting user data, lowering any threshold or required check, or any owner-only path (`.claude/hooks`,
   `.claude/agents`, `.claude/skills`, `.claude/settings*.json`, `.github/workflows`). For an owner-only change, write
