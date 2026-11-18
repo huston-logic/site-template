@@ -20,7 +20,9 @@ Plan: `docs/PLAN.md`. Rules: CLAUDE.md, "Autonomous runs". Started 2026-11-18. U
   fresh `main`.
 - PR 0 (docs only) was written directly, not through an implementer subagent.
 - `gh pr merge --auto --squash` is blocked by the owner-only hook `.claude/hooks/guard-bash.mjs` (line 235; it also
-  blocks merging through `gh api`). I did not work around it. Every PR is opened and left for the owner to merge.
+  blocks merging through `gh api`). I did not work around it. Every PR is opened and left open as "ready for
+  auto-merge" once its review passes. The owner approved (Nov 18) a hook change that allows exactly
+  `gh pr merge <number> --auto --squash` and `--auto --merge`; it is in the hand-copy proposals below.
 - Because PRs stay open, each task branches from `main` and no PR depends on another. To avoid merge conflicts,
   STATUS.md is updated in this PR and in one closing PR, not in every task PR.
 

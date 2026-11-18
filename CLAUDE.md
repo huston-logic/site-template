@@ -88,19 +88,21 @@ These can go stale if the ruleset is changed in Settings, so re-check before rel
 Applies only when I start a task by saying it is an autonomous run. Then these rules replace, for that run only:
 "Plan first and wait for my approval", "Never merge it yourself; I merge", "The owner enables auto-merge; never try to
 merge" and the "Ask me only before: adding or upgrading a dependency" item. Everything else in this file still holds.
-The task list is `docs/PLAN.md` and the progress log is `docs/STATUS.md`; update STATUS.md after every task.
+The task list is `docs/PLAN.md` and the progress log is `docs/STATUS.md`. Update STATUS.md after every task; while PRs
+are still open and unmerged, update it only in the first PR and one closing PR so the PRs do not conflict.
 - Work through the whole list without asking questions. Make judgment calls yourself and list them in the final summary.
   If a task is blocked, queue it in STATUS.md and move on.
 - One PR per task. Before each branch: `git switch main && git pull --ff-only`. No force pushes.
 - Run `superpowers:requesting-code-review` before each merge and `superpowers:verification-before-completion` before
   calling anything done. If CI fails, use `superpowers:systematic-debugging`, fix the cause and push. Never weaken a
   test, threshold or axe rule to make it pass.
-- When the review passes, enable auto-merge with `gh pr merge --auto --squash`. The ruleset's required checks are the
-  gate. Do not wait on CI: start the next task if it does not depend on the last one.
-  The owner-only hook `.claude/hooks/guard-bash.mjs` currently blocks every `gh pr merge` (and merging through
-  `gh api`). While it does, do not work around it: open the PR, record it in STATUS.md as "open, ready to merge", and
-  list it for the owner. Queue a hook change as a proposal. Later tasks branch from `main` and must not depend on an
-  unmerged PR.
+- When the review passes and the hook allows it, enable auto-merge with `gh pr merge <number> --auto --squash`. The
+  ruleset's required checks are the gate. Do not wait on CI: start the next task if it does not depend on the last one.
+  The owner-only hook `.claude/hooks/guard-bash.mjs` blocks every `gh pr merge` until the owner installs the proposed
+  change that allows exactly `--auto --squash` and `--auto --merge` (`--admin` and any merge without `--auto` stay
+  blocked). Until then do not work around it: leave the PR open, say "PR #N ready for auto-merge" the moment its review
+  passes, and record it in STATUS.md as "open, ready for auto-merge". Later tasks branch from `main` and must not depend
+  on an unmerged PR.
 - Stop, queue the item and continue with other tasks on: secrets or credentials, DNS, accounts or money, sending real
   email, deleting user data, lowering any threshold or required check, or any owner-only path (`.claude/hooks`,
   `.claude/agents`, `.claude/skills`, `.claude/settings*.json`, `.github/workflows`). For an owner-only change, write
