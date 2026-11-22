@@ -219,8 +219,14 @@ export function formatReport(result, { mode = "strict", base, head } = {}) {
     lines.push(...list(result.outside.map((o) => `  - ${o.path} (${o.reason})`)));
   }
   if (result.flags.length > 0) {
-    lines.push("", `Flagged for Grant (${plural(result.flags.length, "flag")}; the change still passes, but look at it before the client does):`);
-    lines.push(...list(result.flags.map((f) => `  - ${f.path ? `${f.path}: ` : ""}${f.detail}`)));
+    // Repeats of one kind in one file are shown once, with a count, so a big diff stays readable.
+    const groups = new Map();
+    for (const f of result.flags) {
+      const key = `${f.kind}\0${f.path}`;
+      groups.set(key, groups.has(key) ? { ...groups.get(key), extra: groups.get(key).extra + 1 } : { ...f, extra: 0 });
+    }
+    lines.push("", `Flagged for Grant (${plural(groups.size, "flag")}; the change still passes, but look at it before the client does):`);
+    lines.push(...list([...groups.values()].map((f) => `  - ${f.path ? `${f.path}: ` : ""}${f.detail}${f.extra > 0 ? ` (and ${f.extra} more like it)` : ""}`)));
   }
   if (result.imageProblems.length > 0) {
     lines.push("", "Image problems (blocking on client change branches):");

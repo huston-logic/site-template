@@ -428,3 +428,9 @@ test("main appends the report to the GitHub job summary when one is set", () => 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("repeated flags in one file are shown once with a count", () => {
+  const report = formatReport(run([file("src/content/home.ts", "M", { added: ['a: "$1"', 'b: "$2"', 'c: "$3"'] })]), { mode: "strict" });
+  assert.match(report, /Flagged for Grant \(1 flag;/);
+  assert.match(report, /\(and 2 more like it\)/);
+});
