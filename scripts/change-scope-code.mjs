@@ -51,7 +51,7 @@ function dataProblem(node, rules) {
     case K.PrefixUnaryExpression:
       return dataProblem(node.operand, rules);
     case K.PropertyAccessExpression:
-      return rules.denyProperties.includes(node.name.text) ? `uses .${node.name.text}` : dataProblem(node.expression, rules);
+      return rules.denyProperties.includes(node.name.text) || rules.denyMethodReads.includes(node.name.text) ? `uses .${node.name.text}` : dataProblem(node.expression, rules);
     case K.BinaryExpression:
       return node.operatorToken.kind === K.PlusToken ? firstProblem([node.left, node.right], (n) => dataProblem(n, rules)) : `uses an operator (${kindName(node.operatorToken)})`;
     case K.ObjectLiteralExpression:
@@ -136,7 +136,7 @@ function pageImportProblem(spec, existsAtBase, rules, typeOnly) {
 
 function pageNodeProblem(node, rules) {
   if (ts.isIdentifier(node) && rules.denyIdentifiers.includes(node.text)) return `a new page may not use ${node.text}`;
-  if (ts.isPropertyAccessExpression(node) && rules.denyProperties.includes(node.name.text)) return `a new page may not use .${node.name.text}`;
+  if (ts.isPropertyAccessExpression(node) && (rules.denyProperties.includes(node.name.text) || rules.denyMethodReads.includes(node.name.text))) return `a new page may not use .${node.name.text}`;
   if (ts.isElementAccessExpression(node)) {
     const key = node.argumentExpression;
     if ((ts.isStringLiteral(key) || ts.isNoSubstitutionTemplateLiteral(key)) && (rules.denyProperties.includes(key.text) || rules.denyIdentifiers.includes(key.text))) {
@@ -186,11 +186,16 @@ function bindingProblem(name, rules) {
     if (element.initializer) return "a new page may not use default values when taking values apart";
     if (element.propertyName && !ts.isIdentifier(element.propertyName)) return "a new page may not use a computed name when taking values apart";
     const picked = element.propertyName ?? element.name;
-    if (ts.isIdentifier(picked) && (rules.denyProperties.includes(picked.text) || rules.denyIdentifiers.includes(picked.text)) && !ts.isArrayBindingPattern(name)) {
+    if (ts.isIdentifier(picked) && (rules.denyProperties.includes(picked.text) || rules.denyMethodReads.includes(picked.text) || ARRAY_METHODS.has(picked.text) || rules.denyIdentifiers.includes(picked.text)) && !ts.isArrayBindingPattern(name)) {
       return `a new page may not take ${picked.text} out of a value`;
     }
     return bindingProblem(element.name, rules);
   });
+}
+
+/** An object key named like an allowed array method would make `const o = { concat: fn }; o.concat(...)` a call primitive. */
+function arrayMethodKey(name) {
+  return (ts.isIdentifier(name) || ts.isStringLiteral(name)) && ARRAY_METHODS.has(name.text) ? `a new page may not use ${name.text} as an object key` : null;
 }
 
 /** The value a .map/.filter/... call is made on: an array, a name, a property or element read, or another call. Never an object literal. */
@@ -237,10 +242,10 @@ function pageGrammarProblem(source, rules) {
         return firstProblem(node.elements, (element) => expr(ts.isSpreadElement(element) ? element.expression : element));
       case K.ObjectLiteralExpression:
         return firstProblem(node.properties, (prop) => {
-          if (ts.isShorthandPropertyAssignment(prop)) return keyProblem(prop.name, rules) ?? expr(prop.name);
+          if (ts.isShorthandPropertyAssignment(prop)) return keyProblem(prop.name, rules) ?? arrayMethodKey(prop.name) ?? expr(prop.name);
           if (ts.isSpreadAssignment(prop)) return expr(prop.expression);
           if (!ts.isPropertyAssignment(prop)) return bad("a method or accessor in an object");
-          return keyProblem(prop.name, rules) ?? expr(prop.initializer);
+          return keyProblem(prop.name, rules) ?? arrayMethodKey(prop.name) ?? expr(prop.initializer);
         });
       case K.ParenthesizedExpression: case K.AsExpression: case K.SatisfiesExpression: case K.NonNullExpression: case K.TypeAssertionExpression:
         return expr(node.expression);
@@ -261,6 +266,9 @@ function pageGrammarProblem(source, rules) {
           allowCallbacks = CALLBACK_METHODS.has(callee.name.text);
           // .map/.filter/.flatMap take exactly one inline arrow function; .slice/.join/.concat take plain values.
           if (allowCallbacks && !(node.arguments.length === 1 && ts.isArrowFunction(node.arguments[0]))) return bad(`.${callee.name.text}() with anything but one inline arrow function`);
+          if (callee.name.text === "concat" && !node.arguments.every((a) => ts.isIdentifier(a) || ts.isArrayLiteralExpression(a) || ts.isStringLiteral(a) || ts.isNumericLiteral(a))) {
+            return bad(".concat() with anything but names, arrays or plain values");
+          }
           if (!allowCallbacks && callee.name.text !== "concat" && !node.arguments.every((a) => ts.isNumericLiteral(a) || ts.isStringLiteral(a) || (ts.isPrefixUnaryExpression(a) && ts.isNumericLiteral(a.operand)))) {
             return bad(`.${callee.name.text}() with anything but plain numbers or text`);
           }

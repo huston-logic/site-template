@@ -45,7 +45,8 @@ passes both a text check and the parser:
   property access, indexing by a number, arrays and objects with fixed keys,
   `+ - && || ?? ===` style operators and `?:`; calls only to **imported or same-page helpers** and to `.map`, `.filter`,
   `.flatMap` (exactly one inline arrow function as the argument), `.slice` and `.join` (plain numbers or text) and `.concat`, never on an
-  object literal; `import type` is the only way to import from `next`; destructuring may not pull out `constructor` or `prototype`; JSX tags only from a list of
+  object literal; `import type` is the only way to import from `next`; destructuring may not pull out `constructor`, `prototype`, `call`, `apply`, `bind` or an array method name, and an object key may not be
+  named like an array method (so a plain object cannot be turned into a way to call arbitrary functions); JSX tags only from a list of
   safe HTML tags or components the page imports; attribute values that are strings or plain expressions (a link attribute
   may not be built with `+` or a template); no spread attributes, no computed keys, no `new`, no templates with `${}`, no
   `async`, no `if` or loops, no assignment. The readable banned-word reasons (`require`, `process`, `globalThis`, `fetch`,
@@ -130,6 +131,8 @@ extra page-building file that should stay off limits, and the size limits. Name 
   image and also carries a hidden payload could still pass; the site's CSP and `nosniff` header limit what it could do.
 - **A new page could still hang or crash the build** (for example an endless recursion). That is a denial of service, not code
   execution; the CI timeout and the preview Grant looks at are what stop it.
+- **A link built from text pieces** (`"java".concat("script:...")` in a `href`) is not caught by the check; React 19 refuses to render
+  `javascript:` links, and browsers block `data:` navigation, which is what stops it.
 - **Spelled-out prices** ("five hundred dollars") and other currencies are not flagged.
 - **The report's "after" is whatever is in `out/`**; rebuild before running it.
 

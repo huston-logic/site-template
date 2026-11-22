@@ -618,6 +618,34 @@ for (const [name, body] of c3Bypasses) {
   });
 }
 
+const callPrimitives = [
+  ["a const object holding a function under an array method name", "const o = { concat: Container };\nconst r = o.concat(1, 2);\nexport default function P() { return <Container />; }"],
+  ["a shorthand key named like an array method", "const slice = Container;\nconst o = { slice };\nexport default function P() { return <Container />; }"],
+  ["a quoted key named like an array method", 'const o = { "join": Container };\nexport default function P() { return <Container />; }'],
+  ["a destructured array method name", "const { concat } = Container;\nexport default function P() { return <Container />; }"],
+  ["reading .call", "const c = Container.call;\nexport default function P() { return <Container />; }"],
+  ["reading .bind", "const c = Container.bind;\nexport default function P() { return <Container />; }"],
+  ["reading .apply", "const c = Container.apply;\nexport default function P() { return <Container />; }"],
+  ["reading __lookupGetter__", "const c = Container.__lookupGetter__;\nexport default function P() { return <Container />; }"],
+  ["reading __defineGetter__", "const c = Container.__defineGetter__;\nexport default function P() { return <Container />; }"],
+  ["a property read passed to .concat", "const x = [1].concat(Container.name);\nexport default function P() { return <Container />; }"],
+  ["a call passed to .concat", "const x = [1].concat(Container());\nexport default function P() { return <Container />; }"],
+];
+for (const [name, body] of callPrimitives) {
+  test(`a new page with ${name} is tier 3`, () => {
+    assert.equal(run([newPage(pageWith(body))], components).tier, 3, body);
+  });
+}
+
+test("a content file can still use call, bind or join as ordinary data keys, but not read them as methods", () => {
+  assert.equal(run([file("src/content/home.ts", "M", { content: 'export const cta = { call: "Book a call", join: "Join", slice: "x" };\n' })]).tier, 1);
+  assert.equal(run([file("src/content/home.ts", "M", { content: "export const a = b.call;\n" })]).tier, 3);
+});
+
+test("concat with names, arrays and plain values is fine", () => {
+  assert.equal(run([newPage(pageWith("const a = [1];\nconst b = a.concat(a, [2], 3, \"x\");\nexport default function P() { return <Container>{b}</Container>; }"))], components).tier, 1);
+});
+
 test("the type-only next import and a plain link with an ampersand are still fine", () => {
   const body = 'import type { Metadata } from "next";\nexport default function P() { return <Container><a href="/a?b=1&amp;c=2">x</a></Container>; }';
   assert.equal(run([newPage(pageWith(body))], components).tier, 1);

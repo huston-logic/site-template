@@ -35,6 +35,8 @@ export const rules = {
   ],
   /** Property names that reach the Function constructor or the prototype chain. */
   denyProperties: ["constructor", "__proto__", "prototype"],
+  /** Method names that turn any function value into a generic call primitive. Denied when READ (x.call) or destructured, not as data keys. */
+  denyMethodReads: ["call", "apply", "bind", "__lookupGetter__", "__lookupSetter__", "__defineGetter__", "__defineSetter__"],
   /** JSX tags a new page may not use. */
   denyJsxTags: ["script", "Script", "iframe", "object", "embed", "style", "base", "link", "meta", "form"],
   /** A new page must use the shared metadata helper... */
