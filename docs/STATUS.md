@@ -14,7 +14,7 @@ Last verified with `gh` on 2026-11-22.
   generic contact Worker with Apps Script writer and `docs/SECRETS.md` (#10), Organization JSON-LD (#8), the redirect
   slot (#9), the pipeline docs, ruleset export and launch checklist stub (#11), the dependency bumps (#13, #15), the
   installed hook and settings changes that allow `gh pr merge --auto --squash` (#16), the CLAUDE.md cleanup (#17, #18), and the STATUS.md format with the CLAUDE.md "Status and source of truth" rules (#19).
-- **Open:** this PR, steps 1 and 2 of the client change requests plan (change scope check and change report). No other open PRs.
+- **Open:** #20, steps 1 and 2 of the client change requests plan (change scope check and change report). No other open PRs.
 - **Still open per `docs/TEMPLATE.md`** (that file's PR table may lag the merged PRs): template README polish, and
   deciding which Huston content rules in AGENTS.md stay as template defaults.
 
@@ -30,7 +30,7 @@ Last verified with `gh` on 2026-11-22.
 - 2026-11-18, owner install and cleanup: #16 hook, settings, agent and workflow changes hand-copied by Grant; #17 generic
   package description and CLAUDE.md matches the installed hooks; #18 note that new repos need "Allow auto-merge".
 - 2026-11-21: #19 STATUS.md rewritten into four sections, CLAUDE.md gets the "Status and source of truth" rules.
-- 2026-11-22: this PR, `scripts/change-scope-rules.mjs`, `check-change-scope.mjs` (`npm run check:scope`) and `change-report.mjs`
+- 2026-11-22: #20 `scripts/change-scope-rules.mjs`, `check-change-scope.mjs` (`npm run check:scope`) and `change-report.mjs`
   (`npm run report:changes`) with tests (`npm run test:scripts`), `docs/CHANGE-SCOPE.md`. No new dependencies.
 
 ## Needs Grant
