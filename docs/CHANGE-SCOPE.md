@@ -41,9 +41,11 @@ passes both a text check and the parser:
 - fits a strict **allowlist grammar**, not a list of banned words (a banned-word list can never be complete: a property name
   built at run time reaches the `Function` constructor without containing any banned word). A new page is JSX plus content
   values: only imports, `const` values, functions and type declarations at the top level; inside functions only `const` and
-  `return`; expressions made of literals, names, property access, indexing by a number, arrays and objects with fixed keys,
+  `return`; expressions made of literals, **names declared or imported in the page** (so no ambient globals such as `Object`, `JSON` or `parseInt`),
+  property access, indexing by a number, arrays and objects with fixed keys,
   `+ - && || ?? ===` style operators and `?:`; calls only to **imported or same-page helpers** and to `.map`, `.filter`,
-  `.flatMap`, `.slice`, `.join` and `.concat` (arrow functions only as `.map`/`.filter` callbacks); JSX tags only from a list of
+  `.flatMap` (exactly one inline arrow function as the argument), `.slice` and `.join` (plain numbers or text) and `.concat`, never on an
+  object literal; `import type` is the only way to import from `next`; destructuring may not pull out `constructor` or `prototype`; JSX tags only from a list of
   safe HTML tags or components the page imports; attribute values that are strings or plain expressions (a link attribute
   may not be built with `+` or a template); no spread attributes, no computed keys, no `new`, no templates with `${}`, no
   `async`, no `if` or loops, no assignment. The readable banned-word reasons (`require`, `process`, `globalThis`, `fetch`,
@@ -126,6 +128,8 @@ extra page-building file that should stay off limits, and the size limits. Name 
   layers are the required checks (including CodeQL), the preview Grant looks at, and the rule that Claude cannot merge.
 - **Images are checked by their first bytes, their size and a scan for markup**, not decoded. A hostile file that is a valid
   image and also carries a hidden payload could still pass; the site's CSP and `nosniff` header limit what it could do.
+- **A new page could still hang or crash the build** (for example an endless recursion). That is a denial of service, not code
+  execution; the CI timeout and the preview Grant looks at are what stop it.
 - **Spelled-out prices** ("five hundred dollars") and other currencies are not flagged.
 - **The report's "after" is whatever is in `out/`**; rebuild before running it.
 

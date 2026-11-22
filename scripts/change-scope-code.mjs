@@ -117,11 +117,13 @@ export function contentModuleProblem(text, rules = defaultRules) {
 
 // ---- new pages --------------------------------------------------------------------------------------------------
 
+const URL_ATTRIBUTES = new Set(["href", "src", "action", "formAction", "srcSet", "poster", "data", "xlinkHref"]);
 const PAGE_STATEMENTS = [ts.isVariableStatement, ts.isFunctionDeclaration, ts.isTypeAliasDeclaration, ts.isInterfaceDeclaration, ts.isExportAssignment];
 
-function pageImportProblem(spec, existsAtBase, rules) {
+function pageImportProblem(spec, existsAtBase, rules, typeOnly) {
   const { exact, contentPrefix, componentPrefix } = rules.pageImports;
-  if (exact.includes(spec)) return null;
+  // `next` is only allowed for its types (import type { Metadata }): its default export is a server factory.
+  if (exact.includes(spec) && (spec !== "next" || typeOnly)) return null;
   if (spec.startsWith(contentPrefix)) {
     const target = `src/content/${spec.slice(contentPrefix.length)}.ts`;
     if (rules.contentFile.test(target) && !rules.contentWiring.includes(target)) return null;
@@ -150,6 +152,10 @@ function pageNodeProblem(node, rules) {
   if (ts.isJsxAttribute(node) && node.initializer && ts.isStringLiteral(node.initializer) && /^\s*(?:javascript|data):/i.test(node.initializer.text)) {
     return `a new page may not use a ${node.initializer.text.split(":")[0]}: link`;
   }
+  // HTML entities decode after this check (&#106;avascript:), so a link attribute may not contain any.
+  if (ts.isJsxAttribute(node) && node.initializer && ts.isStringLiteral(node.initializer) && URL_ATTRIBUTES.has(node.name.getText()) && /&#|&(?:colon|tab|newline);/i.test(node.initializer.text)) {
+    return "a new page may not use an HTML character reference in a link attribute";
+  }
   return undefined;
 }
 
@@ -163,7 +169,6 @@ const SAFE_TAGS = new Set([
 ]);
 const ARRAY_METHODS = new Set(["map", "filter", "flatMap", "slice", "join", "concat"]);
 const CALLBACK_METHODS = new Set(["map", "filter", "flatMap"]);
-const URL_ATTRIBUTES = new Set(["href", "src", "action", "formAction", "srcSet", "poster", "data", "xlinkHref"]);
 const OPERATORS = new Set([K.PlusToken, K.MinusToken, K.AmpersandAmpersandToken, K.BarBarToken, K.QuestionQuestionToken, K.EqualsEqualsEqualsToken, K.ExclamationEqualsEqualsToken, K.LessThanToken, K.GreaterThanToken, K.LessThanEqualsToken, K.GreaterThanEqualsToken]);
 
 function bindingNames(node, names = []) {
@@ -180,8 +185,20 @@ function bindingProblem(name, rules) {
   return firstProblem(name.elements.filter(ts.isBindingElement), (element) => {
     if (element.initializer) return "a new page may not use default values when taking values apart";
     if (element.propertyName && !ts.isIdentifier(element.propertyName)) return "a new page may not use a computed name when taking values apart";
+    const picked = element.propertyName ?? element.name;
+    if (ts.isIdentifier(picked) && (rules.denyProperties.includes(picked.text) || rules.denyIdentifiers.includes(picked.text)) && !ts.isArrayBindingPattern(name)) {
+      return `a new page may not take ${picked.text} out of a value`;
+    }
     return bindingProblem(element.name, rules);
   });
+}
+
+/** The value a .map/.filter/... call is made on: an array, a name, a property or element read, or another call. Never an object literal. */
+function receiverProblem(node) {
+  let inner = node;
+  while (ts.isParenthesizedExpression(inner) || ts.isAsExpression(inner) || ts.isNonNullExpression(inner) || ts.isSatisfiesExpression(inner)) inner = inner.expression;
+  const ok = ts.isArrayLiteralExpression(inner) || ts.isIdentifier(inner) || ts.isPropertyAccessExpression(inner) || ts.isElementAccessExpression(inner) || ts.isCallExpression(inner) || ts.isStringLiteral(inner);
+  return ok ? null : `a new page may not call .map/.filter/.join and similar on ${kindName(inner)}`;
 }
 
 function pageGrammarProblem(source, rules) {
@@ -195,10 +212,15 @@ function pageGrammarProblem(source, rules) {
     } else if (ts.isFunctionDeclaration(statement) && statement.name) names.add(statement.name.text);
   }
   const imported = new Set(names);
-  for (const statement of source.statements) {
-    if (ts.isImportDeclaration(statement)) continue;
-    for (const declared of ts.isVariableStatement(statement) ? statement.declarationList.declarations.flatMap((d) => bindingNames(d.name)) : []) names.add(declared);
-  }
+  // Every name the page declares anywhere (imports, consts, functions, parameters, destructured bindings). An identifier that
+  // is not one of these is an ambient global (Object, parseInt, Array ...), and globals are how a denylist gets walked around.
+  const declared = new Set(names);
+  const collect = (node) => {
+    if (ts.isVariableDeclaration(node) || ts.isParameter(node)) for (const name of bindingNames(node.name)) declared.add(name);
+    if (ts.isFunctionDeclaration(node) && node.name) declared.add(node.name.text);
+    ts.forEachChild(node, collect);
+  };
+  collect(source);
 
   const bad = (what) => `a new page may not use ${what}`;
   const expr = (node, callbackOk = false) => {
@@ -206,7 +228,7 @@ function pageGrammarProblem(source, rules) {
       case K.StringLiteral: case K.NoSubstitutionTemplateLiteral: case K.NumericLiteral: case K.BigIntLiteral: case K.TrueKeyword: case K.FalseKeyword: case K.NullKeyword:
         return null;
       case K.Identifier:
-        return null;
+        return node.text === "undefined" || declared.has(node.text) ? null : bad(`the name ${node.text} (it is not declared or imported in this page)`);
       case K.PropertyAccessExpression:
         return expr(node.expression);
       case K.ElementAccessExpression:
@@ -215,7 +237,7 @@ function pageGrammarProblem(source, rules) {
         return firstProblem(node.elements, (element) => expr(ts.isSpreadElement(element) ? element.expression : element));
       case K.ObjectLiteralExpression:
         return firstProblem(node.properties, (prop) => {
-          if (ts.isShorthandPropertyAssignment(prop)) return null;
+          if (ts.isShorthandPropertyAssignment(prop)) return keyProblem(prop.name, rules) ?? expr(prop.name);
           if (ts.isSpreadAssignment(prop)) return expr(prop.expression);
           if (!ts.isPropertyAssignment(prop)) return bad("a method or accessor in an object");
           return keyProblem(prop.name, rules) ?? expr(prop.initializer);
@@ -234,9 +256,14 @@ function pageGrammarProblem(source, rules) {
         if (ts.isIdentifier(callee)) {
           if (!imported.has(callee.text)) return bad(`a call to ${callee.text} (pages may call only imported or local helpers and ${[...ARRAY_METHODS].join("/")})`);
         } else if (ts.isPropertyAccessExpression(callee) && ARRAY_METHODS.has(callee.name.text)) {
-          const receiver = expr(callee.expression);
+          const receiver = receiverProblem(callee.expression) ?? expr(callee.expression);
           if (receiver) return receiver;
           allowCallbacks = CALLBACK_METHODS.has(callee.name.text);
+          // .map/.filter/.flatMap take exactly one inline arrow function; .slice/.join/.concat take plain values.
+          if (allowCallbacks && !(node.arguments.length === 1 && ts.isArrowFunction(node.arguments[0]))) return bad(`.${callee.name.text}() with anything but one inline arrow function`);
+          if (!allowCallbacks && callee.name.text !== "concat" && !node.arguments.every((a) => ts.isNumericLiteral(a) || ts.isStringLiteral(a) || (ts.isPrefixUnaryExpression(a) && ts.isNumericLiteral(a.operand)))) {
+            return bad(`.${callee.name.text}() with anything but plain numbers or text`);
+          }
         } else return bad("that kind of call");
         return firstProblem(node.arguments, (argument) => expr(argument, allowCallbacks));
       }
@@ -315,7 +342,7 @@ export function pageProblem(text, existsAtBase, rules = defaultRules) {
   if (syntax) return `a new page ${syntax}`;
   for (const statement of source.statements) {
     if (ts.isImportDeclaration(statement)) {
-      const problem = pageImportProblem(specifierOf(statement), existsAtBase, rules);
+      const problem = pageImportProblem(specifierOf(statement), existsAtBase, rules, isTypeOnlyImport(statement));
       if (problem) return problem;
     } else if ((ts.isExportDeclaration(statement) && !statement.moduleSpecifier) || ts.isEmptyStatement(statement)) {
       continue;

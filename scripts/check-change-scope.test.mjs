@@ -586,6 +586,43 @@ for (const [name, body] of grammarBypasses) {
   });
 }
 
+// Re-review round 3 (C3): the grammar also bans ambient globals, object receivers and function-valued arguments.
+const c3Bypasses = [
+  [
+    "the reviewer's exact build-time code execution page",
+    `const fp = [parseInt].map(Object.getPrototypeOf);
+const d = fp.map(Object.getOwnPropertyDescriptors);
+const vals = d.map(Object.values);
+const F = vals[0][4].value;
+const G = { slice: F }.slice("return process.version");
+const out = { slice: G }.slice(0);
+export default function P() { return <Container>{out}</Container>; }`,
+  ],
+  ["an ambient global (Object)", "const x = Object;\nexport default function P() { return <Container />; }"],
+  ["an ambient global (JSON)", "const x = JSON;\nexport default function P() { return <Container />; }"],
+  ["an object literal as the receiver", "const x = { slice: Container }.slice(0);\nexport default function P() { return <Container />; }"],
+  ["a function value passed to .map", "const x = [1].map(Container);\nexport default function P() { return <Container />; }"],
+  ["a second argument to .map", "const x = [1].map((a) => a, Container);\nexport default function P() { return <Container />; }"],
+  ["a name passed to .slice", "const x = [1].slice(Container);\nexport default function P() { return <Container />; }"],
+  ["constructor taken out by destructuring", "const { constructor: C } = [].map;\nexport default function P() { return <Container />; }"],
+  ["constructor taken out by shorthand destructuring", "const { constructor } = [].map;\nexport default function P() { return <Container />; }"],
+  ["prototype taken out by destructuring", "const { prototype: C } = [].map;\nexport default function P() { return <Container />; }"],
+  ["a shorthand property naming a global", "const o = { process };\nexport default function P() { return <Container />; }"],
+  ["a value import of next", 'import next from "next";\nexport default function P() { return <Container />; }'],
+  ["an HTML character reference in an href", 'export default function P() { return <Container><a href="&#106;avascript:alert(1)">x</a></Container>; }'],
+  ["a named character reference in an href", 'export default function P() { return <Container><a href="java&Tab;script:alert(1)">x</a></Container>; }'],
+];
+for (const [name, body] of c3Bypasses) {
+  test(`a new page with ${name} is tier 3`, () => {
+    assert.equal(run([newPage(pageWith(body))], components).tier, 3, body);
+  });
+}
+
+test("the type-only next import and a plain link with an ampersand are still fine", () => {
+  const body = 'import type { Metadata } from "next";\nexport default function P() { return <Container><a href="/a?b=1&amp;c=2">x</a></Container>; }';
+  assert.equal(run([newPage(pageWith(body))], components).tier, 1);
+});
+
 test("a new page built from JSX, content values, imported helpers and callbacks is tier 1", () => {
   const body = `import { faqHero, faqItems } from "@/content/faq";
 import { bookCallHref } from "@/components/hl/Container";
