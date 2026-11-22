@@ -80,3 +80,37 @@ test("a file that does not parse cleanly is still read, and a bad alt in it is s
   const result = check(content(`export const x = { src: "${URL_A}", alt: "" \n`));
   assert.equal(result.problems.length, 1);
 });
+
+// ---- the reviewer's findings: alt text that passes without meaning anything --------------------------------------
+
+test("meaningless alt text of every kind fails: punctuation, one letter, entities, invisible characters, camera names, generic words", () => {
+  for (const alt of ["-", "...", "x", "ab", "&nbsp;", "&#32;", "&#x20;", "​", "﻿", "IMG_1234", "DSC00123", "img 7", "Photos", "a photo", "The picture", "Image of", "photo of", "Pictures of"]) {
+    const result = check(content(`export const x = { src: "${URL_A}", alt: ${JSON.stringify(alt)} };\n`));
+    assert.equal(result.problems.length, 1, `alt=${JSON.stringify(alt)}`);
+  }
+});
+
+test("short but real alt text passes", () => {
+  for (const alt of ["Sam", "Our team", "Dog on a sofa", "Me at 40", "The shop front on Main Street"]) {
+    assert.deepEqual(check(content(`export const x = { src: "${URL_A}", alt: ${JSON.stringify(alt)} };\n`)).problems, [], alt);
+  }
+});
+
+test("an object that spreads another object after alt could replace it, so it fails", () => {
+  const result = check(content(`const o = { alt: "" };\nexport const x = { src: "${URL_A}", alt: "Sam at the desk", ...o };\n`));
+  assert.equal(result.problems.length, 1);
+  assert.match(result.problems[0], /spread/);
+});
+
+test("alt text on an element hidden from screen readers does not count", () => {
+  const page = (attrs) => source("src/app/(site)/a/page.tsx", `export default () => <img src="${URL_A}" alt="Sam at the desk" ${attrs} />;\n`);
+  for (const attrs of ['aria-hidden="true"', "aria-hidden", "aria-hidden={true}", 'role="presentation"', 'role="none"']) {
+    assert.equal(check(page(attrs)).problems.length, 1, attrs);
+  }
+  for (const attrs of ['aria-hidden="false"', "aria-hidden={false}", 'role="img"']) assert.deepEqual(check(page(attrs)).problems, [], attrs);
+});
+
+test("a choice between two images in src still finds the alt text", () => {
+  const page = source("src/app/(site)/a/page.tsx", `export default ({ wide }) => <img src={wide ? "${URL_A}" : "/images/other.jpg"} alt="Sam at the desk" />;\n`);
+  assert.deepEqual(check(page).problems, []);
+});

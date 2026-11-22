@@ -4,12 +4,21 @@
 // (`npm run strip:images`, which fixes files) and scripts/check-change-scope.mjs (which refuses a change that still has
 // such data). Explanation: docs/CHANGE-SCOPE.md.
 //
+// How it decides what to keep. A file is read as a list of segments (JPEG), chunks (PNG) or chunks (WebP). Only an
+// ALLOW-LIST of kinds is kept, and each kept kind must have exactly the size and structure its format defines, so a segment
+// cannot be kept because of its name and then carry text in its payload. Everything else is dropped (unknown kinds) or the
+// file is refused as damaged (a known kind with the wrong shape, where dropping it would break the picture).
+//
 // Kept on purpose, because dropping it changes how the picture looks:
 //   - the colour profile (JPEG ICC_PROFILE and Adobe segments, PNG iCCP, WebP ICCP);
 //   - a rotation flag. Phone photos are stored sideways with a flag saying "turn me". Without the flag they show on
 //     their side, and fixing that needs the picture re-encoded. So when a JPEG says it is rotated, one EXIF block holding
 //     only that flag (big-endian, 32 bytes of data) is kept. It names no camera, place or time.
-// Everything else that can carry data is dropped, including unknown vendor segments and bytes after the end of the picture.
+//
+// What it cannot see (documented in docs/CHANGE-SCOPE.md, "Known limits"): text hidden inside the compressed picture data
+// itself, and the free-text fields inside a colour profile. Neither is something a camera or an editor writes by accident;
+// finding them would mean decoding the picture.
+import { inflateSync } from "node:zlib";
 
 const MARKER_SOI = 0xd8;
 const MARKER_EOI = 0xd9;
@@ -65,6 +74,42 @@ function rotationOnlyPayload(orientation) {
   return tiff;
 }
 
+const SOF_MARKERS = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
+const SEGMENT_NAMES = { 0xc4: "Huffman table", 0xcc: "arithmetic coding", 0xda: "scan header", 0xdb: "quantisation table", 0xdc: "line count", 0xdd: "restart interval", 0xdf: "expand" };
+
+/** True when the payload of a picture-structure segment has exactly the shape its format defines. */
+function wellFormed(marker, p) {
+  if (SOF_MARKERS.has(marker)) return p.length >= 6 && p.length === 6 + 3 * p[5];
+  switch (marker) {
+    case 0xc4: {
+      let at = 0;
+      while (at < p.length) {
+        if (at + 17 > p.length) return false;
+        let symbols = 0;
+        for (let n = 1; n <= 16; n += 1) symbols += p[at + n];
+        at += 17 + symbols;
+      }
+      return p.length > 0 && at === p.length;
+    }
+    case 0xdb: {
+      let at = 0;
+      while (at < p.length) at += 1 + (p[at] >> 4 ? 128 : 64);
+      return p.length > 0 && at === p.length;
+    }
+    case 0xcc:
+      return p.length > 0 && p.length % 2 === 0;
+    case 0xda:
+      return p.length >= 4 && p.length === 4 + 2 * p[0];
+    case 0xdc:
+    case 0xdd:
+      return p.length === 2;
+    case 0xdf:
+      return p.length === 1;
+    default:
+      return false;
+  }
+}
+
 /**
  * What to do with one JPEG segment: { keep: Buffer } to write these bytes instead, or { label } to drop it and say what it was.
  * `state.rotationKept` makes sure at most one rotation-only EXIF block is written.
@@ -89,11 +134,16 @@ function judgeJpegSegment(marker, payload, whole, state) {
     return { label: XMP_PREFIXES.some((prefix) => startsWithText(payload, prefix)) ? "XMP (editing history, author, location)" : "unknown APP1 data" };
   }
   if (marker === 0xe2) return startsWithText(payload, "ICC_PROFILE\0") ? { keep: whole } : { label: "unknown APP2 data (such as a second embedded picture)" };
-  if (marker === 0xee) return startsWithText(payload, "Adobe") ? { keep: whole } : { label: "unknown APP14 data" };
+  if (marker === 0xee) return startsWithText(payload, "Adobe") && payload.length === 12 ? { keep: whole } : { label: "unknown APP14 data" };
   if (marker === 0xed) return { label: "IPTC/Photoshop data (captions, credits, location)" };
   if (marker === 0xfe) return { label: "comment" };
   if (marker >= 0xe3 && marker <= 0xef) return { label: `unknown APP${marker - 0xe0} data` };
-  return { keep: whole };
+  if (SOF_MARKERS.has(marker) || Object.hasOwn(SEGMENT_NAMES, marker)) {
+    if (wellFormed(marker, payload)) return { keep: whole };
+    throw damaged("JPEG", `a ${SEGMENT_NAMES[marker] ?? "frame header"} segment has unexpected extra data or the wrong size`);
+  }
+  // Reserved markers, JPG0-JPG13, extensions and anything else: nothing a picture needs.
+  return { label: `unknown data segment (marker 0x${marker.toString(16)})` };
 }
 
 function stripJpeg(buf) {
@@ -155,33 +205,83 @@ function stripJpeg(buf) {
 // ---- PNG ---------------------------------------------------------------------------------------------------------
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-/** Ancillary chunks that only describe how to draw the picture. Critical chunks (first letter capital) are always kept. */
-const PNG_KEEP = new Set(["tRNS", "gAMA", "cHRM", "sRGB", "iCCP", "sBIT", "pHYs", "bKGD", "hIST", "sPLT", "acTL", "fcTL", "fdAT", "cICP", "mDCV", "cLLI"]);
+/** Ancillary chunks that only describe how to draw the picture, and the exact data sizes each may have. */
+const PNG_SIZES = { gAMA: [4], cHRM: [32], sRGB: [1], sBIT: [1, 2, 3, 4], pHYs: [9], bKGD: [1, 2, 6], acTL: [8], fcTL: [26], cICP: [4], mDCV: [24], cLLI: [8] };
+const PNG_CRITICAL = new Set(["IHDR", "PLTE", "IDAT", "IEND"]);
 
 function pngLabel(type, data) {
   if (type === "tEXt" || type === "zTXt") return "text notes";
   if (type === "iTXt") return startsWithText(data, "XML:com.adobe.xmp") ? "XMP (editing history, author, location)" : "text notes";
   if (type === "eXIf") return "EXIF (camera and location data)";
   if (type === "tIME") return "last-changed timestamp";
+  if (type === "sPLT") return "suggested palette (sPLT)";
   return `unknown private chunk ${type}`;
+}
+
+/** True when `data` is exactly one complete zlib stream, with nothing after it. */
+function isWholeZlibStream(data) {
+  try {
+    return inflateSync(data, { info: true }).engine.bytesWritten === data.length;
+  } catch {
+    return false;
+  }
+}
+
+/** Throws unless a kept chunk has exactly the shape its format defines. */
+function checkPngChunk(type, data) {
+  const unexpected = () => damaged("PNG", `a ${type} chunk has an unexpected size or content`);
+  if (type === "IHDR") {
+    if (data.length !== 13) throw unexpected();
+  } else if (type === "PLTE") {
+    if (data.length < 3 || data.length > 768 || data.length % 3 !== 0) throw unexpected();
+  } else if (type === "IEND") {
+    if (data.length !== 0) throw damaged("PNG", "the IEND chunk has data in it");
+  } else if (Object.hasOwn(PNG_SIZES, type)) {
+    if (!PNG_SIZES[type].includes(data.length)) throw unexpected();
+  } else if (type === "tRNS") {
+    if (data.length > 256) throw unexpected();
+  } else if (type === "hIST") {
+    if (data.length % 2 !== 0 || data.length > 512) throw unexpected();
+  } else if (type === "fdAT") {
+    if (data.length < 4) throw unexpected();
+  } else if (type === "iCCP") {
+    const end = data.indexOf(0);
+    const name = end > 0 ? data.toString("latin1", 0, end) : "";
+    if (end < 1 || end > 79 || !/^[\x20-\x7e\xa1-\xff]+$/.test(name) || data[end + 1] !== 0 || !isWholeZlibStream(data.subarray(end + 2))) {
+      throw damaged("PNG", "the iCCP colour profile chunk is not valid (a name, then one complete compressed profile)");
+    }
+  }
 }
 
 function stripPng(buf) {
   if (buf.length < 8 || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) throw damaged("PNG", "it does not start with the PNG signature");
   const out = [buf.subarray(0, 8)];
   const removed = [];
+  const idat = [];
   let i = 8;
+  let first = true;
   while (i < buf.length) {
     if (i + 12 > buf.length) throw damaged("PNG", "a chunk is cut short (truncated or damaged)");
     const length = buf.readUInt32BE(i);
     if (i + 12 + length > buf.length) throw damaged("PNG", "a chunk runs past the end of the file (truncated or damaged)");
     const type = buf.toString("latin1", i + 4, i + 8);
     const whole = buf.subarray(i, i + 12 + length);
+    const data = whole.subarray(8, 8 + length);
+    if (first && type !== "IHDR") throw damaged("PNG", "the first chunk is not IHDR");
+    first = false;
     const critical = (buf[i + 4] & 0x20) === 0;
-    if (critical || PNG_KEEP.has(type)) out.push(whole);
-    else removed.push(pngLabel(type, whole.subarray(8, 8 + length)));
+    if (critical && !PNG_CRITICAL.has(type)) throw damaged("PNG", `it has a critical chunk (${type}) that this tool does not know, so it cannot tell what it holds`);
+    const known = critical || Object.hasOwn(PNG_SIZES, type) || ["tRNS", "hIST", "fdAT", "iCCP"].includes(type);
+    if (known) {
+      checkPngChunk(type, data);
+      out.push(whole);
+      if (type === "IDAT") idat.push(data);
+    } else {
+      removed.push(pngLabel(type, data));
+    }
     i += 12 + length;
     if (type === "IEND") {
+      if (!isWholeZlibStream(Buffer.concat(idat))) throw damaged("PNG", "the picture data (IDAT) is not one complete compressed stream (extra bytes or damage)");
       if (i < buf.length) removed.push("data after the end of the picture");
       return finish(buf, out, removed);
     }
@@ -191,46 +291,73 @@ function stripPng(buf) {
 
 // ---- WebP --------------------------------------------------------------------------------------------------------
 
-function stripWebp(buf) {
-  if (buf.length < 12 || buf.toString("latin1", 0, 4) !== "RIFF" || buf.toString("latin1", 8, 12) !== "WEBP") throw damaged("WebP", "it is not a RIFF/WEBP file");
-  const total = buf.readUInt32LE(4) + 8;
-  if (total > buf.length || total < 12) throw damaged("WebP", "the file is shorter than it says (truncated or damaged)");
-  const chunks = [];
-  const removed = [];
-  let clear = 0;
-  let i = 12;
-  while (i < total) {
-    if (i + 8 > total) throw damaged("WebP", "a chunk is cut short (truncated or damaged)");
-    const id = buf.toString("latin1", i, i + 4);
-    const size = buf.readUInt32LE(i + 4);
-    if (i + 8 + size > total) throw damaged("WebP", "a chunk runs past the end of the file (truncated or damaged)");
-    const padded = Math.min(size + (size % 2), total - i - 8);
-    const data = buf.subarray(i + 8, i + 8 + size);
-    if (id === "EXIF") {
-      removed.push("EXIF (camera and location data)");
-      clear |= 0x08;
-    } else if (id === "XMP ") {
-      removed.push("XMP (editing history, author, location)");
-      clear |= 0x04;
-    } else {
-      const pad = size % 2 ? Buffer.alloc(1) : Buffer.alloc(0);
-      chunks.push({ id, data: Buffer.from(data), pad });
-    }
-    i += 8 + padded;
-  }
-  if (total < buf.length) removed.push("data after the end of the picture");
-  if (removed.length === 0) return { bytes: buf, removed };
-  const head = chunks.find((c) => c.id === "VP8X");
-  if (head && head.data.length > 0) head.data[0] &= ~clear;
-  const body = Buffer.concat([Buffer.from("WEBP"), ...chunks.flatMap((c) => [Buffer.from(c.id, "latin1"), uint32le(c.data.length), c.data, c.pad])]);
-  return { bytes: Buffer.concat([Buffer.from("RIFF"), uint32le(body.length), body]), removed };
-}
+const WEBP_PICTURE = new Set(["VP8 ", "VP8L", "ALPH"]);
 
 const uint32le = (n) => {
   const b = Buffer.alloc(4);
   b.writeUInt32LE(n);
   return b;
 };
+
+/** Reads RIFF chunks between `start` and `end`: [{ id, data }]. Throws if one runs past `end`. */
+function readRiffChunks(buf, start, end) {
+  const chunks = [];
+  let i = start;
+  while (i < end) {
+    if (i + 8 > end) throw damaged("WebP", "a chunk is cut short (truncated or damaged)");
+    const size = buf.readUInt32LE(i + 4);
+    if (i + 8 + size > end) throw damaged("WebP", "a chunk runs past the end of the file (truncated or damaged)");
+    chunks.push({ id: buf.toString("latin1", i, i + 4), data: buf.subarray(i + 8, i + 8 + size) });
+    i += 8 + size + (size % 2);
+  }
+  return chunks;
+}
+
+function stripWebp(buf) {
+  if (buf.length < 12 || buf.toString("latin1", 0, 4) !== "RIFF" || buf.toString("latin1", 8, 12) !== "WEBP") throw damaged("WebP", "it is not a RIFF/WEBP file");
+  const total = buf.readUInt32LE(4) + 8;
+  if (total > buf.length || total < 12) throw damaged("WebP", "the file is shorter than it says (truncated or damaged)");
+  const kept = [];
+  const removed = [];
+  let clear = 0;
+  for (const chunk of readRiffChunks(buf, 12, total)) {
+    const { id, data } = chunk;
+    if (id === "EXIF") {
+      removed.push("EXIF (camera and location data)");
+      clear |= 0x08;
+    } else if (id === "XMP ") {
+      removed.push("XMP (editing history, author, location)");
+      clear |= 0x04;
+    } else if (id === "VP8X") {
+      if (data.length !== 10) throw damaged("WebP", "the VP8X header has an unexpected size");
+      kept.push({ id, data: Buffer.from(data) });
+    } else if (id === "ANIM") {
+      if (data.length !== 6) throw damaged("WebP", "the ANIM chunk has an unexpected size");
+      kept.push({ id, data });
+    } else if (id === "ANMF") {
+      if (data.length < 16 || readRiffChunks(data, 16, data.length).some((nested) => !WEBP_PICTURE.has(nested.id))) {
+        throw damaged("WebP", "an animation frame (ANMF) holds something unexpected");
+      }
+      kept.push({ id, data });
+    } else if (id === "ICCP" || WEBP_PICTURE.has(id)) {
+      kept.push({ id, data });
+    } else {
+      removed.push(`unknown chunk ${JSON.stringify(id)}`);
+    }
+  }
+  const header = kept.find((c) => c.id === "VP8X");
+  if (header) {
+    const before = Buffer.from(header.data);
+    header.data[0] &= ~(clear | 0xc1); // the flags for removed chunks and the reserved bits
+    header.data.fill(0, 1, 4); // the reserved bytes
+    if (header.data[0] !== before[0] && !clear) removed.push("unused header bits");
+    else if (!header.data.subarray(1, 4).equals(before.subarray(1, 4))) removed.push("unused header bytes");
+  }
+  if (total < buf.length) removed.push("data after the end of the picture");
+  if (removed.length === 0) return { bytes: buf, removed };
+  const body = Buffer.concat([Buffer.from("WEBP"), ...kept.flatMap((c) => [Buffer.from(c.id, "latin1"), uint32le(c.data.length), c.data, c.data.length % 2 ? Buffer.alloc(1) : Buffer.alloc(0)])]);
+  return { bytes: Buffer.concat([Buffer.from("RIFF"), uint32le(body.length), body]), removed };
+}
 
 // ---- public API --------------------------------------------------------------------------------------------------
 

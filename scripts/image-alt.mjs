@@ -13,6 +13,8 @@ import { rules as defaultRules } from "./change-scope-rules.mjs";
 
 const isText = (node) => ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node);
 const WRAPPERS = (node) => ts.isParenthesizedExpression(node) || ts.isJsxExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node);
+/** True when `parent` only passes `node` through (brackets, {}, `as`, or one branch of a ?: choice), so the use is really the parent's. */
+const passesThrough = (node, parent) => WRAPPERS(parent) || (ts.isConditionalExpression(parent) && (parent.whenTrue === node || parent.whenFalse === node));
 const nameOf = (name) => (ts.isIdentifier(name) || ts.isStringLiteral(name) ? name.text : undefined);
 
 /** The text of an expression written out as plain text, or undefined when it is anything else (a variable, a call, ${}...). */
@@ -28,30 +30,57 @@ function plainText(node) {
   return undefined;
 }
 
-const normalise = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+/** Lower case, with HTML entities (&nbsp;), invisible characters and punctuation taken out, and spaces collapsed. */
+const normalise = (text) =>
+  text
+    .replace(/&(?:#x?[0-9a-f]+|[a-z]+);/gi, " ")
+    .replace(/[​-‏⁠­﻿]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const GENERIC_PHRASE = /^(?:images?|photos?|pictures?|photographs?|graphics?|icons?|logos?)(?: of)?$/;
+const CAMERA_NAME = /^(?:img|dsc|dscn|dscf|pxl|image|photo|pic|picture|screenshot) ?\d[\d ]*$/;
 
 /** Why this alt text is not acceptable, or null. */
 function altTextProblem(text, rules) {
   const trimmed = text.trim();
-  if (trimmed === "") return "the alt text is empty";
+  const words = normalise(text);
+  if (trimmed === "" || (words === "" && /^[\s​-‏⁠­﻿]*$/.test(trimmed))) return "the alt text is empty";
   if (trimmed.includes("[[")) return "the alt text is still a [[placeholder]]";
-  if (rules.genericAltText.includes(normalise(trimmed))) return `the alt text "${trimmed}" says nothing about the picture`;
+  const core = words.replace(/^(?:a|an|the) /, "");
+  if (rules.genericAltText.includes(words) || rules.genericAltText.includes(core) || GENERIC_PHRASE.test(core)) return `the alt text "${trimmed}" says nothing about the picture`;
+  if (CAMERA_NAME.test(words)) return `the alt text "${trimmed}" looks like a camera file name, not a description`;
   if (!/\s/.test(trimmed) && /\.(jpe?g|png|webp)$/i.test(trimmed)) return `the alt text "${trimmed}" is a file name, not a description`;
+  if (words.replace(/ /g, "").length < 3) return `the alt text "${trimmed}" is too short to describe a picture`;
   return null;
+}
+
+/** True when an attribute hides its element from screen readers: aria-hidden (anything but "false") or a presentation role. */
+function hidesFromScreenReaders(attributes) {
+  return attributes.some((attribute) => {
+    if (!ts.isJsxAttribute(attribute)) return false;
+    const name = attribute.name.getText();
+    const value = attribute.initializer ? plainText(attribute.initializer) ?? attribute.initializer.getText().replace(/[{}\s]/g, "") : "true";
+    if (name === "aria-hidden") return value !== "false";
+    return name === "role" && ["presentation", "none"].includes(String(value).trim());
+  });
 }
 
 /** Finds the alt value next to the node that holds the image URL. Returns { found: true, node } or { found: false, why }. */
 function altBeside(literal) {
   let node = literal;
-  while (node.parent && WRAPPERS(node.parent)) node = node.parent;
+  while (node.parent && passesThrough(node, node.parent)) node = node.parent;
   const parent = node.parent;
   if (parent && ts.isJsxAttribute(parent)) {
     const attributes = parent.parent.properties;
     if (attributes.some((a) => ts.isJsxSpreadAttribute(a))) return { found: false, why: "the element spreads props, so its alt text cannot be checked. Write src and alt out as plain attributes" };
+    if (hidesFromScreenReaders(attributes)) return { found: false, why: "the element is hidden from screen readers (aria-hidden or a presentation role), so its alt text is never read" };
     const alt = attributes.find((a) => ts.isJsxAttribute(a) && a.name.getText() === "alt");
     return alt ? { found: true, node: alt.initializer } : { found: false, why: "there is no alt attribute on this element" };
   }
   if (parent && ts.isPropertyAssignment(parent) && parent.initializer === node) {
+    if (parent.parent.properties.some((p) => ts.isSpreadAssignment(p))) return { found: false, why: "the object spreads another object, which could replace the alt text. Write src and alt out directly" };
     const alt = parent.parent.properties.find((p) => ts.isPropertyAssignment(p) && nameOf(p.name) === "alt");
     return alt ? { found: true, node: alt.initializer } : { found: false, why: 'there is no alt next to it. Write it as { src: "...", alt: "what the picture shows" }' };
   }

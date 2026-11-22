@@ -7,8 +7,8 @@
 // not yet added. --all handles every image under public/images/. --check changes nothing and exits 1 if any image still
 // carries hidden data. Only the metadata is cut out; the picture itself is never re-encoded (see scripts/image-metadata.mjs,
 // which also says what is kept). Exit codes: 0 done, 1 an image still has data (--check) or could not be read, 2 could not run.
-import { lstatSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { lstatSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { rules } from "./change-scope-rules.mjs";
 import { realGit, safe } from "./check-change-scope.mjs";
@@ -81,6 +81,12 @@ export function main({ argv, git = realGit, out = console.log }) {
     if (!stat.isFile()) {
       count.skipped += 1;
       out(`  ${name}: skipped (not a regular file, such as a link; the change scope check will refuse it)`);
+      continue;
+    }
+    // lstat only looks at the last part of the path. A folder swapped for a link would send the write somewhere else.
+    if (!realpathSync(full).startsWith(join(realpathSync(join(top, rules.imageDir)), sep))) {
+      count.skipped += 1;
+      out(`  ${name}: skipped (it is reached through a link and is not really inside ${rules.imageDir}; the change scope check will refuse it)`);
       continue;
     }
     if (!Object.hasOwn(rules.imageTypes, extensionOf(path))) {

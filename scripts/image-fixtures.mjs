@@ -58,18 +58,21 @@ export const app2Icc = () => jpegSegment(0xe2, Buffer.from("ICC_PROFILE\0\x01\x0
 export const app2Mpf = () => jpegSegment(0xe2, Buffer.from("MPF\0multi-picture-data"));
 export const app5Other = () => jpegSegment(0xe5, Buffer.from("vendor-private-data"));
 export const app13Iptc = () => jpegSegment(0xed, Buffer.from(`Photoshop 3.0\0${SECRET.iptc}`));
-export const app14Adobe = () => jpegSegment(0xee, Buffer.from("Adobe\0\x64\x80\x00\x00\x00\x00\x00"));
+/** A real Adobe marker: "Adobe", version (2), two flag words (4), colour transform (1) = 12 bytes. */
+export const app14Adobe = () => jpegSegment(0xee, Buffer.concat([Buffer.from("Adobe"), Buffer.from([0, 100, 0, 0, 0, 0, 1])]));
 export const comment = () => jpegSegment(0xfe, Buffer.from(SECRET.comment));
 
 export const SCAN_ONE = Buffer.from([0x12, 0xff, 0x00, 0x34, 0xff, 0xd0, 0x56]); // includes a stuffed FF00 and a restart marker
 export const SCAN_TWO = Buffer.from([0x78, 0xff, 0x00, 0x9a]);
 const SOS_HEADER = Buffer.from([1, 1, 0, 0, 63, 0]);
+/** A well-formed Huffman table segment: class/id byte, 16 code counts (one code of length 1), one symbol. */
+export const DHT_SEGMENT = jpegSegment(0xc4, Buffer.concat([Buffer.from([0x00, 1]), Buffer.alloc(15), Buffer.from([0x05])]));
 const SOF0 = jpegSegment(0xc0, Buffer.from([8, 0, 1, 0, 1, 1, 1, 0x11, 0]));
 
 /** SOI, JFIF header, the given segments, a frame header, one (or two) scans, EOI, then optional trailing bytes. */
 export function jpeg(segments = [], { twoScans = false, trailing = EMPTY, noJfif = false } = {}) {
   const parts = [Buffer.from([0xff, 0xd8]), ...(noJfif ? [] : [app0Jfif()]), ...segments, SOF0, jpegSegment(0xda, SOS_HEADER), SCAN_ONE];
-  if (twoScans) parts.push(jpegSegment(0xc4, Buffer.from([0, 1, 2, 3])), jpegSegment(0xda, SOS_HEADER), SCAN_TWO);
+  if (twoScans) parts.push(DHT_SEGMENT, jpegSegment(0xda, SOS_HEADER), SCAN_TWO);
   parts.push(Buffer.from([0xff, 0xd9]), trailing);
   return Buffer.concat(parts);
 }
@@ -139,11 +142,12 @@ export const riffChunk = (id, data) => Buffer.concat([Buffer.from(id, "latin1"),
 const IMAGE_DATA = Buffer.from("odd-sized-image-data!"); // 21 bytes: forces a padding byte
 
 /** An extended WebP (VP8X) with optional hidden EXIF and XMP chunks, an optional colour profile and optional trailing bytes. */
-export function webp({ exif = false, xmp = false, icc = false, trailing = EMPTY } = {}) {
-  const flags = (icc ? 0x20 : 0) | (exif ? 0x08 : 0) | (xmp ? 0x04 : 0);
-  const chunks = [riffChunk("VP8X", Buffer.from([flags, 0, 0, 0, 0, 0, 0, 0, 0, 0]))];
+export function webp({ exif = false, xmp = false, icc = false, trailing = EMPTY, extra = [], reserved = false } = {}) {
+  const flags = (icc ? 0x20 : 0) | (exif ? 0x08 : 0) | (xmp ? 0x04 : 0) | (reserved ? 0xc1 : 0);
+  const unused = reserved ? Buffer.from("GPS") : Buffer.alloc(3);
+  const chunks = [riffChunk("VP8X", Buffer.concat([Buffer.from([flags]), unused, Buffer.alloc(6)]))];
   if (icc) chunks.push(riffChunk("ICCP", Buffer.from("FAKE-COLOUR-PROFILE")));
-  chunks.push(riffChunk("VP8L", IMAGE_DATA));
+  chunks.push(riffChunk("VP8L", IMAGE_DATA), ...extra);
   if (exif) chunks.push(riffChunk("EXIF", Buffer.from(`Exif\0\0${SECRET.exifChunk}`)));
   if (xmp) chunks.push(riffChunk("XMP ", Buffer.from(`<x:xmpmeta>${SECRET.xmp}</x:xmpmeta>`)));
   const body = Buffer.concat([Buffer.from("WEBP"), ...chunks]);

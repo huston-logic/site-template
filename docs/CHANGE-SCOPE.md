@@ -82,13 +82,17 @@ A phone photo usually carries the GPS position it was taken at, the phone's make
 add captions, authors and thumbnails. On a client's website that can show where someone lives or works. Every added or
 changed image must be free of it, and the check fails with the exact fix: run `npm run strip:images`, then commit.
 
-What `npm run strip:images` removes, without decoding or re-encoding the picture (the picture bytes are copied unchanged):
+What `npm run strip:images` removes, without decoding or re-encoding the picture (the picture bytes are copied unchanged).
+It works from an **allow-list**: only the kinds of segment or chunk a picture needs are kept, and each one must have exactly
+the size and structure its format defines, so something cannot be kept because of its name and then carry text in its
+payload. Anything else is dropped. A known kind with the wrong shape (a header with extra bytes, a corrupt colour profile,
+extra bytes after the picture stream) makes the file "damaged", because dropping it would break the picture.
 
-| Type | Removed | Kept |
+| Type | Removed | Kept (and checked) |
 | --- | --- | --- |
-| jpg | EXIF (camera, GPS, time), XMP, IPTC/Photoshop, comments, an embedded thumbnail, unknown vendor segments, anything after the end of the picture | the colour profile and Adobe colour marker; **one EXIF block holding only the rotation flag**, so a sideways phone photo still shows upright |
-| png | text notes, XMP, EXIF, the last-changed timestamp, unknown private chunks, anything after the end of the picture | colour and drawing chunks (gamma, colour profile, transparency, physical size, animation) |
-| webp | EXIF and XMP chunks (and their flags), anything after the end of the picture | the colour profile and the picture |
+| jpg | EXIF (camera, GPS, time), XMP, IPTC/Photoshop, comments, an embedded thumbnail, every other application, reserved or unknown segment, anything after the end of the picture | the picture's own tables and headers (exact sizes checked), the colour profile and a 12-byte Adobe colour marker; **one EXIF block holding only the rotation flag**, so a sideways phone photo still shows upright |
+| png | text notes, XMP, EXIF, the last-changed timestamp, suggested palettes, unknown private chunks, anything after the end of the picture | the drawing and colour chunks (gamma, colour profile, transparency, physical size, animation), each with its exact size; the picture data must be one complete compressed stream |
+| webp | EXIF and XMP chunks (and their flags), unknown chunks whatever their name, unused header bits and bytes, anything after the end of the picture | the header, colour profile, animation and picture chunks |
 
 By default it handles the images that differ from the point where the branch split from `origin/main`, whether committed,
 staged or not yet added. `--all` handles every image under `public/images/`; `--check` changes nothing and exits 1 if any
@@ -110,10 +114,15 @@ accepts only these two shapes:
 ```
 
 It fails when the image is used nowhere, when a use has no `alt`, when the alt text is empty, a `[[placeholder]]`, a file
-name or a word that says nothing (`image`, `photo`, `picture`, `graphic`, `icon`, `logo`, `alt text`, `todo`, `tbd`,
-`untitled`, `placeholder`; the list is `genericAltText` in the rules file), and when the alt text is not written out as
+name or camera name (`IMG_1234`, `DSC00123`), a word that says nothing (`image`, `photo`, `picture`, `graphic`, `icon`, `logo`,
+`alt text`, `todo`, `tbd`, `untitled`, `placeholder`, with or without "a", "the", "of" or a plural; the list is
+`genericAltText` in the rules file), something too short to describe a picture (under 3 letters or digits after punctuation,
+HTML entities such as `&nbsp;` and invisible characters are taken out), and when the alt text is not written out as
 plain text (a variable, a function call, a template with `${}` or a spread of props cannot be checked). Alt text may be a
-string, a template without `${}`, or two strings joined with `+`. Every use is checked, not just the first. The change
+string, a template without `${}`, or two strings joined with `+`. Every use is checked, not just the first. An element with
+`aria-hidden` (anything but `"false"`) or `role="presentation"`/`"none"` fails, because its alt text is never read, and an
+object that spreads another object (`{ src, alt, ...more }`) fails, because the spread could replace the alt text. A `?:`
+choice between two images in `src` is fine. The change
 report lists each image with its alt text, so Grant can read it and judge whether it actually describes the picture.
 
 A purely decorative image (one that should have empty alt text) cannot pass this check on purpose: it stops for Grant,
@@ -188,6 +197,12 @@ extra page-building file that should stay off limits, and the size limits. Name 
   layers are the required checks (including CodeQL), the preview Grant looks at, and the rule that Claude cannot merge.
 - **Images are checked by their first bytes, their size and a scan for markup**, not decoded. A hostile file that is a valid
   image and also carries a hidden payload could still pass; the site's CSP and `nosniff` header limit what it could do.
+- **Two places stay unchecked, because looking inside them means decoding the picture.** Text hidden *inside* the compressed
+  picture data (appended inside a JPEG scan, a WebP picture chunk or a PNG's compressed stream) and the free-text fields
+  inside a colour profile (the ICC profile in a JPEG, PNG or WebP) pass through. Neither is something a camera, a phone or
+  an editor writes by accident, and the checks above are aimed at that: the location and camera data real devices write.
+  Someone who sets out to smuggle text into the pixels or the profile is a different problem, and Grant's own look at the
+  preview and the report is the layer for it.
 - **Stripping removes the known places a file can hold data, not everything.** It does not touch the picture itself, so a
   visible street sign, a name tag, a screen or a blurred-but-readable face stays. It does not change a file's name (a name
   such as `home-at-12-oak-street.jpg` stays), and it keeps a colour profile and the rotation flag on purpose. A PNG's rotation
@@ -197,7 +212,11 @@ extra page-building file that should stay off limits, and the size limits. Name 
 - **Alt text is checked for being there and for saying something, not for being true.** `"A smiling woman"` passes for any
   photo. Grant reads the alt text in the change report. Only uses in `.ts` and `.tsx` files under `src/` count (an image used
   only as a CSS background has nowhere to hold alt text, so it fails as "not used"). A use whose alt text sits in a variable,
-  or in another file than the one holding the path, fails and has to be written out beside the image.
+  or in another file than the one holding the path, fails and has to be written out beside the image. The path must be
+  written exactly (`"/images/a.jpg"`), with no query string such as `?v=2`.
+- **Any string equal to the image's path counts as a use, rendered or not.** A real `<img>` whose `src` is built from pieces
+  (`"/images/" + name`) and has empty alt, next to an unused object that holds the right path and good alt text, would pass.
+  That is deliberate cleverness, not a slip, so it is left to Grant's look at the report and the preview.
 - **Marker-level parsing, not full decoding.** The three file readers walk a file's segments or chunks and refuse a file whose
   structure is damaged (a cut-short upload, a length that runs off the end). They do not check that the compressed picture
   inside is valid; the browser does that.

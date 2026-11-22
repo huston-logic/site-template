@@ -154,6 +154,26 @@ test("files that are not jpg, png or webp, and symbolic links, are skipped and n
   );
 });
 
+test("a folder that has been swapped for a link to somewhere else is never written through", async () => {
+  const outside = dirtyJpeg();
+  await inRepo(
+    ({ dir, write, git }) => {
+      write("public/images/a/x.jpg", dirtyJpeg());
+      git(["add", "-A"]);
+      git([...COMMIT, "folder"]);
+      rmSync(join(dir, "public/images/a"), { recursive: true });
+      write("elsewhere/x.jpg", outside);
+      symlinkSync(join(dir, "elsewhere"), join(dir, "public/images/a"));
+    },
+    ["--base", "main", "--all"],
+    ({ read }, code, text) => {
+      assert.equal(code, 0, text);
+      assert.ok(read("elsewhere/x.jpg").equals(outside), "the file outside the images folder is untouched");
+      assert.match(text, /a\/x\.jpg.*skipped/);
+    },
+  );
+});
+
 test("a damaged image is reported with the reason, left exactly as it was, and the others are still cleaned", async () => {
   const damaged = jpeg().subarray(0, 40);
   await inRepo(

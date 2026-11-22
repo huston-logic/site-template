@@ -3,7 +3,9 @@
 //   node --test scripts/image-metadata.test.mjs   (or `npm run test:scripts`)
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { deflateSync } from "node:zlib";
 import {
+  DHT_SEGMENT,
   SCAN_ONE,
   SCAN_TWO,
   SECRET,
@@ -24,6 +26,7 @@ import {
   listRiffChunks,
   png,
   pngChunk,
+  riffChunk,
   pngExif,
   pngText,
   pngXmp,
@@ -32,6 +35,7 @@ import {
 } from "./image-fixtures.mjs";
 import { inspectMetadata, stripMetadata } from "./image-metadata.mjs";
 
+const SEC = "GPS 40.7128N 74.0060W Canon EOS";
 const leaks = (bytes) => Object.values(SECRET).filter((text) => bytes.includes(Buffer.from(text)));
 const markers = (bytes) => listJpegSegments(bytes).map((s) => s.marker);
 /** The only EXIF block a stripped photo may keep: the rotation flag, big-endian, and nothing else. */
@@ -112,7 +116,7 @@ test("jpg: a picture stored in two scans keeps both scans and the table between 
   const { bytes } = stripMetadata(input, ".jpg");
   assert.deepEqual(leaks(bytes), []);
   assert.ok(bytes.includes(SCAN_ONE) && bytes.includes(SCAN_TWO));
-  assert.ok(bytes.includes(jpegSegment(0xc4, Buffer.from([0, 1, 2, 3]))));
+  assert.ok(bytes.includes(DHT_SEGMENT));
 });
 
 test("jpg: a file with nothing to remove comes back byte for byte, and stripping twice changes nothing more", () => {
@@ -144,7 +148,7 @@ test("jpg: a damaged file is refused with a reason, never half-processed", () =>
 // ---- PNG ---------------------------------------------------------------------------------------------------------
 
 test("png: text, XMP, EXIF and timestamp chunks are removed; the picture and colour chunks stay with valid checksums", () => {
-  const keep = [pngChunk("gAMA", Buffer.from([0, 1, 0, 0])), pngChunk("iCCP", Buffer.from("profile\0\0data")), pngChunk("pHYs", Buffer.alloc(9)), pngChunk("tRNS", Buffer.from([0]))];
+  const keep = [pngChunk("gAMA", Buffer.from([0, 1, 0, 0])), pngChunk("iCCP", Buffer.concat([Buffer.from("profile\0\0"), deflateSync(Buffer.from("fake-profile"))])), pngChunk("pHYs", Buffer.alloc(9)), pngChunk("tRNS", Buffer.from([0]))];
   const input = png([pngText("Author", SECRET.comment), pngXmp(), pngExif(), pngChunk("tIME", Buffer.alloc(7)), ...keep]);
   assert.ok(leaks(input).length >= 2);
   const { bytes, removed } = stripMetadata(input, ".png");
@@ -157,10 +161,11 @@ test("png: text, XMP, EXIF and timestamp chunks are removed; the picture and col
   assert.match(removed.join(" "), /XMP/);
 });
 
-test("png: unknown private ancillary chunks are removed, unknown critical chunks are kept", () => {
-  const { bytes, removed } = stripMetadata(png([pngChunk("prVt", Buffer.from("private")), pngChunk("CrIt", Buffer.from("critical"))]), ".png");
-  assert.deepEqual(listPngChunks(bytes).map((c) => c.type), ["IHDR", "CrIt", "IDAT", "IEND"]);
-  assert.equal(removed.length, 1);
+test("png: unknown private ancillary chunks and suggested palettes are removed; an unknown critical chunk means a damaged file", () => {
+  const { bytes, removed } = stripMetadata(png([pngChunk("prVt", Buffer.from("private")), pngChunk("sPLT", Buffer.from(`${SEC}\0\x08`))]), ".png");
+  assert.deepEqual(listPngChunks(bytes).map((c) => c.type), ["IHDR", "IDAT", "IEND"]);
+  assert.equal(removed.length, 2);
+  assert.throws(() => stripMetadata(png([pngChunk("CrIt", Buffer.from("critical"))]), ".png"), /critical/);
 });
 
 test("png: bytes after IEND are removed, and a clean file is returned unchanged and unchanged again on a second pass", () => {
@@ -240,4 +245,87 @@ test("a photo whose only EXIF is the bare rotation flag counts as clean", () => 
   const result = stripMetadata(already, ".jpg");
   assert.ok(result.bytes.equals(already));
   assert.deepEqual(result.removed, []);
+});
+
+// ---- the reviewer's bypasses: kept data must be exactly what it claims to be ----------------------------------------
+
+const hides = (bytes) => bytes.includes(Buffer.from(SEC));
+const withSegment = (marker, payload) => {
+  const base = jpeg();
+  return Buffer.concat([base.subarray(0, 2), jpegSegment(marker, Buffer.from(payload)), base.subarray(2)]);
+};
+
+test("jpg: an Adobe marker with extra text after its 12 bytes is not kept", () => {
+  const { bytes, removed } = stripMetadata(withSegment(0xee, `Adobe\0\x64\x80\x00\x00\x00\x00\x00${SEC}`), ".jpg");
+  assert.ok(!hides(bytes));
+  assert.equal(removed.length, 1);
+});
+
+test("jpg: reserved and application-specific markers (JPG0, reserved, 0x00) are removed with their text", () => {
+  for (const marker of [0xf0, 0xfd, 0x02, 0xbf, 0x00, 0xc8]) {
+    const { bytes, removed } = stripMetadata(withSegment(marker, SEC), ".jpg");
+    assert.ok(!hides(bytes), `marker ${marker.toString(16)}`);
+    assert.equal(removed.length, 1, `marker ${marker.toString(16)}`);
+  }
+});
+
+test("jpg: a table or header segment with extra bytes is a damaged file, not something to keep", () => {
+  for (const marker of [0xdc, 0xdd, 0xdf, 0xdb, 0xc4, 0xcc, 0xc0]) {
+    assert.throws(() => stripMetadata(withSegment(marker, SEC), ".jpg"), /unexpected|damaged|not a valid/i, `marker ${marker.toString(16)}`);
+  }
+});
+
+test("jpg: text between segments, where only a marker may be, is a damaged file", () => {
+  const base = jpeg();
+  const sneaky = Buffer.concat([base.subarray(0, 2), Buffer.from(SEC), base.subarray(2)]);
+  assert.throws(() => stripMetadata(sneaky, ".jpg"), /JPEG/);
+});
+
+test("png: fixed-size chunks with extra bytes, a stuffed IEND, a bad iCCP and trailing IDAT bytes are damaged files", () => {
+  const extra = Buffer.from(SEC);
+  for (const [type, size] of [["pHYs", 9], ["gAMA", 4], ["sRGB", 1], ["cHRM", 32], ["bKGD", 1]]) {
+    const data = Buffer.concat([Buffer.alloc(size), extra]);
+    assert.throws(() => stripMetadata(png([pngChunk(type, data)]), ".png"), /unexpected size|not a valid/, type);
+  }
+  assert.throws(() => stripMetadata(png([pngChunk("iCCP", Buffer.concat([Buffer.from("p\0\0"), extra]))]), ".png"), /iCCP/);
+  const ihdr = pngChunk("IHDR", Buffer.from([0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 0, 0, 0]));
+  const idat = pngChunk("IDAT", deflateSync(Buffer.from([0, 0])));
+  const dataInIend = Buffer.concat([png().subarray(0, 8), ihdr, idat, pngChunk("IEND", extra)]);
+  assert.throws(() => stripMetadata(dataInIend, ".png"), /IEND/);
+  const extraIdat = Buffer.concat([png().subarray(0, 8), ihdr, idat, pngChunk("IDAT", extra), pngChunk("IEND")]);
+  assert.throws(() => stripMetadata(extraIdat, ".png"), /picture data|IDAT/);
+  const appended = Buffer.concat([png().subarray(0, 8), ihdr, pngChunk("IDAT", Buffer.concat([deflateSync(Buffer.from([0, 0])), extra])), pngChunk("IEND")]);
+  assert.throws(() => stripMetadata(appended, ".png"), /picture data|IDAT/);
+});
+
+test("png: a valid colour profile chunk is kept", () => {
+  const profile = pngChunk("iCCP", Buffer.concat([Buffer.from("sRGB-profile\0\0"), deflateSync(Buffer.from("fake-profile"))]));
+  const { bytes, removed } = stripMetadata(png([profile]), ".png");
+  assert.deepEqual(removed, []);
+  assert.ok(bytes.includes(profile));
+});
+
+test("webp: unknown chunks, whatever their name or case, are removed together with their text", () => {
+  const extra = [riffChunk("JUNK", Buffer.from(SEC)), riffChunk("ICMT", Buffer.from(SEC)), riffChunk("exif", Buffer.from(SEC))];
+  const { bytes, removed } = stripMetadata(webp({ extra, exif: true }), ".webp");
+  assert.ok(!hides(bytes));
+  assert.deepEqual(listRiffChunks(bytes).chunks.map((c) => c.id), ["VP8X", "VP8L"]);
+  assert.equal(removed.length, 4);
+  assert.ok(listRiffChunks(bytes).riffSize === bytes.length - 8);
+});
+
+test("webp: text in the unused header bytes is cleared, and a header of the wrong size is a damaged file", () => {
+  const { bytes, removed } = stripMetadata(webp({ reserved: true }), ".webp");
+  assert.ok(!hides(bytes));
+  assert.equal(removed.length, 1);
+  const bad = webp();
+  const wrongSize = Buffer.concat([bad.subarray(0, 12), riffChunk("VP8X", Buffer.from(`${SEC}`)), bad.subarray(12 + 18)]);
+  wrongSize.writeUInt32LE(wrongSize.length - 8, 4);
+  assert.throws(() => stripMetadata(wrongSize, ".webp"), /VP8X|unexpected/);
+});
+
+test("webp: an animation header of the wrong size is a damaged file, and a valid one is kept", () => {
+  const anim = riffChunk("ANIM", Buffer.alloc(6));
+  assert.ok(stripMetadata(webp({ extra: [anim] }), ".webp").bytes.includes(anim));
+  assert.throws(() => stripMetadata(webp({ extra: [riffChunk("ANIM", Buffer.from(SEC))] }), ".webp"), /ANIM|unexpected/);
 });
