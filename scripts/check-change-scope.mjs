@@ -13,6 +13,8 @@ import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { rules as defaultRules } from "./change-scope-rules.mjs";
 import { contentModuleProblem, pageProblem } from "./change-scope-code.mjs";
+import { imageAltCheck } from "./image-alt.mjs";
+import { inspectMetadata } from "./image-metadata.mjs";
 
 // ---- small helpers ----------------------------------------------------------------------------------------------
 
@@ -59,12 +61,39 @@ export function parseHunkLines(patch) {
 
 const isCodeFile = (path, rules) => (rules.contentFile.test(path) && !rules.contentWiring.includes(path)) || rules.tier1Files.includes(path);
 
+const extensionOf = (path) => {
+  const dot = path.lastIndexOf(".");
+  return dot > path.lastIndexOf("/") ? path.slice(dot).toLowerCase() : "";
+};
+
+/** The address of an image on the site: "public/images/team/sam.jpg" is served as "/images/team/sam.jpg". */
+const urlOf = (path) => path.slice("public".length);
+
+/** The .ts and .tsx files under src/ at `head` that mention the image's address, with their text. `git grep` exits 1 for "none". */
+function readReferences(path, head, git, rules) {
+  let found;
+  try {
+    found = git(["grep", "-l", "-I", "-F", "-z", "-e", urlOf(path), head, "--", rules.imageReferenceDir]);
+  } catch (error) {
+    if (error.status === 1) return [];
+    throw error;
+  }
+  return String(found)
+    .split("\0")
+    .filter(Boolean)
+    .map((line) => line.slice(line.indexOf(":") + 1))
+    .filter((referencePath) => /\.tsx?$/.test(referencePath))
+    .map((referencePath) => ({ path: referencePath, content: String(git(["show", `${head}:${referencePath}`])) }));
+}
+
 /**
  * Reads a change from git. `git` is a function taking an argument array and returning a Buffer, so tests can fake it.
- * Returns { files, existsAtBase } for evaluateChange.
+ * Returns { files, existsAtBase, imageRefs } for evaluateChange. `imageRefs` maps each added or changed image to the source
+ * files that use it, so evaluateChange can look for the alt text.
  */
 export function gatherChange({ base, head, git, rules = defaultRules }) {
   const range = `${base}...${head}`;
+  const imageRefs = {};
   const files = parseRawDiff(git(["diff", "--raw", "-z", "--no-renames", range])).map(({ status, path, newMode }) => {
     const file = { path, status: ["A", "D", "T"].includes(status) ? status : "M", mode: newMode, added: [], removed: [] };
     // A symlink or submodule is rejected by classify; its "content" (a link target or a commit) is never read.
@@ -75,6 +104,8 @@ export function gatherChange({ base, head, git, rules = defaultRules }) {
         file.size = bytes.length;
         file.head = bytes.subarray(0, 12);
         file.hasMarkup = /<script|<svg|<html|<iframe/i.test(bytes.toString("latin1"));
+        if (Object.hasOwn(rules.imageTypes, extensionOf(path))) file.metadata = inspectMetadata(bytes, extensionOf(path));
+        imageRefs[path] = readReferences(path, head, git, rules);
       }
       return file;
     }
@@ -94,7 +125,7 @@ export function gatherChange({ base, head, git, rules = defaultRules }) {
       return false;
     }
   };
-  return { files, existsAtBase };
+  return { files, existsAtBase, imageRefs };
 }
 
 // ---- the rules, applied to a change ---------------------------------------------------------------------------
@@ -146,8 +177,7 @@ const routeStrings = (lines) => new Set(lines.flatMap((line) => [...line.matchAl
 const LINK_PATTERN = /\bhttps?:\/\/\S+|\bjavascript:|\bdata:[a-z]+\/[a-z]/i;
 
 function imageProblems(file, rules) {
-  const dot = file.path.lastIndexOf(".");
-  const extension = dot > file.path.lastIndexOf("/") ? file.path.slice(dot).toLowerCase() : "";
+  const extension = extensionOf(file.path);
   if (extension === ".svg") return ["SVG files are not allowed (they can carry code). Use jpg, png or webp."];
   if (!Object.hasOwn(rules.imageTypes, extension)) return [`${extension || "a file with no extension"} is not allowed. Use jpg, png or webp.`];
   const problems = [];
@@ -158,6 +188,12 @@ function imageProblems(file, rules) {
     (type === "png" && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) ||
     (type === "webp" && bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP");
   if (!matches) problems.push(`the file's contents are not really a ${extension.slice(1)} image (renamed file?)`);
+  else if (file.metadata?.error) problems.push(`hidden camera and location data could not be checked: ${file.metadata.error}`);
+  else if (file.metadata?.removed.length > 0) {
+    problems.push(
+      `it carries hidden data that can reveal where, when and with what it was taken (${file.metadata.removed.join("; ")}). Run \`npm run strip:images\`, then commit the result`,
+    );
+  }
   if (file.hasMarkup) problems.push("the file contains HTML or SVG markup (a script hidden in an image?)");
   if ((file.size ?? 0) > rules.maxImageBytes) {
     problems.push(`${Math.round(file.size / 1024)} KB is over the ${Math.round(rules.maxImageBytes / 1024)} KB limit`);
@@ -166,8 +202,8 @@ function imageProblems(file, rules) {
 }
 
 /** The pure core: takes { files, existsAtBase } and returns the verdict. No git, no disk. */
-export function evaluateChange({ files, existsAtBase }, rules = defaultRules) {
-  const result = { tier: 1, outside: [], flags: [], imageProblems: [], placeholders: [], fileCount: files.length, lineCount: 0 };
+export function evaluateChange({ files, existsAtBase, imageRefs = {} }, rules = defaultRules) {
+  const result = { tier: 1, outside: [], flags: [], imageProblems: [], altProblems: [], images: [], placeholders: [], fileCount: files.length, lineCount: 0 };
   const flag = (kind, path, detail) => result.flags.push({ kind, path: safe(path), detail: safe(detail) });
   const schedulerPattern = new RegExp(`(?<![\\w.-])(?:https?:\\/\\/|\\/\\/)?(?:[\\w-]+\\.)*(?:${rules.schedulerHosts.map(escapeRegExp).join("|")})\\b`, "i");
   const addedRoutes = routeStrings(files.find((f) => f.path === "src/lib/routes.ts")?.added ?? []);
@@ -189,7 +225,12 @@ export function evaluateChange({ files, existsAtBase }, rules = defaultRules) {
     if (rules.sensitiveFiles.includes(file.path)) flag("sensitive-file", file.path, "legal text or the contact form's questions changed");
 
     if (file.path.startsWith(rules.imageDir)) {
-      if (file.status !== "D") for (const reason of imageProblems(file, rules)) result.imageProblems.push({ path: safe(file.path), reason });
+      if (file.status !== "D") {
+        for (const reason of imageProblems(file, rules)) result.imageProblems.push({ path: safe(file.path), reason: safe(reason) });
+        const { problems, alts } = imageAltCheck(urlOf(file.path), imageRefs[file.path] ?? [], rules);
+        result.images.push({ path: safe(file.path), alts: alts.map(safe) });
+        for (const reason of problems) result.altProblems.push({ path: safe(file.path), reason: safe(reason) });
+      }
       continue;
     }
     result.lineCount += file.added.length + file.removed.length;
@@ -230,6 +271,7 @@ export function decide(result, mode) {
   const reasons = [];
   if (result.outside.length > 0) reasons.push("files outside tier 1");
   if (result.imageProblems.length > 0) reasons.push("image rule broken");
+  if (result.altProblems.length > 0) reasons.push("image alt text missing");
   if (result.placeholders.length > 0) reasons.push("leftover [[placeholder]] text");
   return { ok: mode !== "strict" || reasons.length === 0, reasons };
 }
@@ -258,9 +300,17 @@ export function formatReport(result, { mode = "strict", base, head } = {}) {
     lines.push("", `Flagged for Grant (${plural(groups.size, "flag")}; the change still passes, but look at it before the client does):`);
     lines.push(...list([...groups.values()].map((f) => `  - ${f.path ? `${f.path}: ` : ""}${f.detail}${f.extra > 0 ? ` (and ${f.extra} more like it)` : ""}`)));
   }
+  if (result.images.length > 0) {
+    lines.push("", "Images in this change (read the alt text: does it say what the picture shows?):");
+    lines.push(...list(result.images.map((image) => `  - ${image.path}: ${image.alts.length > 0 ? `alt ${image.alts.map((alt) => JSON.stringify(alt)).join(", ")}` : "no usable alt text"}`)));
+  }
   if (result.imageProblems.length > 0) {
     lines.push("", "Image problems (blocking on client change branches):");
     lines.push(...list(result.imageProblems.map((p) => `  - ${p.path}: ${p.reason}`)));
+  }
+  if (result.altProblems.length > 0) {
+    lines.push("", "Alt text problems (blocking on client change branches):");
+    lines.push(...list(result.altProblems.map((p) => `  - ${p.path}: ${p.reason}`)));
   }
   if (result.placeholders.length > 0) {
     lines.push("", "Leftover [[placeholder]] text added by this change (blocking on client change branches):");

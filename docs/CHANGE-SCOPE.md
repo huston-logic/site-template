@@ -4,9 +4,11 @@ Clients will ask for website changes in plain words, and an AI will make each ch
 judge the **files** a branch changed, not what anyone says they did. They are plain Node scripts with no new dependencies.
 
 - **Change scope check** (`npm run check:scope`): sorts a change into tier 1 or tier 3, flags risky tier 1 changes, and
-  enforces the image and placeholder rules.
+  enforces the image (type, size, hidden data, alt text) and placeholder rules.
+- **Strip images** (`npm run strip:images`): removes hidden camera and location data from the images a branch adds or
+  changes, so the image rules can pass.
 - **Change report** (`npm run report:changes`): before and after screenshots of the pages a change touches, at phone and
-  desktop width, with the scope result on top.
+  desktop width, with the scope result on top (which lists each image with its alt text).
 
 The rules live in one file: [`scripts/change-scope-rules.mjs`](../scripts/change-scope-rules.mjs). Editing it is itself tier 3.
 
@@ -74,6 +76,49 @@ match its extension (a renamed SVG fails), and at most **500 KB** (512,000 bytes
 carry code. A file with `<script`, `<svg`, `<html` or `<iframe` inside it fails even when its first bytes are right. Deleted
 images are not checked.
 
+### Hidden camera and location data (blocking on change branches)
+
+A phone photo usually carries the GPS position it was taken at, the phone's make and model and the time, and editing tools
+add captions, authors and thumbnails. On a client's website that can show where someone lives or works. Every added or
+changed image must be free of it, and the check fails with the exact fix: run `npm run strip:images`, then commit.
+
+What `npm run strip:images` removes, without decoding or re-encoding the picture (the picture bytes are copied unchanged):
+
+| Type | Removed | Kept |
+| --- | --- | --- |
+| jpg | EXIF (camera, GPS, time), XMP, IPTC/Photoshop, comments, an embedded thumbnail, unknown vendor segments, anything after the end of the picture | the colour profile and Adobe colour marker; **one EXIF block holding only the rotation flag**, so a sideways phone photo still shows upright |
+| png | text notes, XMP, EXIF, the last-changed timestamp, unknown private chunks, anything after the end of the picture | colour and drawing chunks (gamma, colour profile, transparency, physical size, animation) |
+| webp | EXIF and XMP chunks (and their flags), anything after the end of the picture | the colour profile and the picture |
+
+By default it handles the images that differ from the point where the branch split from `origin/main`, whether committed,
+staged or not yet added. `--all` handles every image under `public/images/`; `--check` changes nothing and exits 1 if any
+image still has hidden data. A damaged image is reported and left untouched. Symbolic links and other file types are
+skipped (the scope check refuses them anyway). It is safe to run twice. The scope check uses the same code, so the two can
+never disagree about what "clean" means. The report names what was found (for example "EXIF (camera and location data)")
+but never prints the data itself.
+
+### Alt text (blocking on change branches)
+
+Every added or changed image must be used somewhere in `src/` with real alt text written out next to it, so a screen
+reader says what the picture shows. The check finds each place a string equal to the image's address appears (for
+`public/images/team/sam.jpg`, the string `"/images/team/sam.jpg"`), reading the files with the TypeScript parser, and
+accepts only these two shapes:
+
+```tsx
+<img src="/images/team/sam.jpg" alt="Sam at the front desk" />   // img, next/image or any component
+{ src: "/images/team/sam.jpg", alt: "Sam at the front desk" }    // in a content file: any key may hold the path, the key must be alt
+```
+
+It fails when the image is used nowhere, when a use has no `alt`, when the alt text is empty, a `[[placeholder]]`, a file
+name or a word that says nothing (`image`, `photo`, `picture`, `graphic`, `icon`, `logo`, `alt text`, `todo`, `tbd`,
+`untitled`, `placeholder`; the list is `genericAltText` in the rules file), and when the alt text is not written out as
+plain text (a variable, a function call, a template with `${}` or a spread of props cannot be checked). Alt text may be a
+string, a template without `${}`, or two strings joined with `+`. Every use is checked, not just the first. The change
+report lists each image with its alt text, so Grant can read it and judge whether it actually describes the picture.
+
+A purely decorative image (one that should have empty alt text) cannot pass this check on purpose: it stops for Grant,
+who decides how to mark it.
+
 ## Leftover placeholders (blocking on change branches)
 
 Any new `[[placeholder]]` on a line the change **adds** in `src/content/` or `src/app/`. A placeholder that was already on a
@@ -89,6 +134,14 @@ By default it compares `HEAD` with `origin/main`. Options: `--base <ref>`, `--he
 same report, always exit 0) and `--ci` (read GitHub's own variables: the base comes from `GITHUB_BASE_REF`, and it is
 strict only when the pull request's branch starts with `change/`; outside a pull request it does nothing). Exit codes:
 0 pass, 1 fail, 2 could not run.
+
+```bash
+npm run strip:images
+```
+
+Cleans the images this branch adds or changes (see "Hidden camera and location data"). Options: `--base <ref>` (default
+`origin/main`), `--all`, `--check`. Exit codes: 0 done, 1 an image still has data (`--check`) or could not be read, 2 could
+not run.
 
 ```bash
 npm run build
@@ -112,10 +165,16 @@ The proposed jobs (`change-scope` and `change-report`, added to `.github/workflo
 cannot write workflows) run on pull requests. They are **not** required checks yet: per CLAUDE.md a new check becomes
 required only after 5 clean runs and a deliberate-failure proof PR, and only after the ruleset is changed first.
 
+The jobs already run everything described here (the hidden-data and alt text checks live inside `check-change-scope.mjs`,
+and the script tests run with the `scripts/*.test.mjs` glob), so adding them needs no further workflow change. **They have
+not been copied into `ci.yml` yet** (as of 2026-11-22), so until they are, none of these checks runs in CI; run
+`npm run check:scope` by hand.
+
 ## Using it in a client repo
 
-Copy `scripts/change-scope-rules.mjs`, `scripts/change-scope-code.mjs`, `scripts/check-change-scope.mjs`, `scripts/change-report.mjs`, the two test files,
-`scripts/preview.mjs` and the three `package.json` scripts from the template. Adjust the rules file for that site: any
+Copy `scripts/change-scope-rules.mjs`, `scripts/change-scope-code.mjs`, `scripts/check-change-scope.mjs`, `scripts/change-report.mjs`,
+`scripts/image-metadata.mjs`, `scripts/image-alt.mjs`, `scripts/strip-image-metadata.mjs`, `scripts/image-fixtures.mjs`, every `*.test.mjs` beside them,
+`scripts/preview.mjs` and the four `package.json` scripts (`check:scope`, `report:changes`, `strip:images`, `test:scripts`) from the template. Adjust the rules file for that site: any
 extra page-building file that should stay off limits, and the size limits. Name the agent's branches `change/<short-name>`.
 
 ## Known limits
@@ -129,6 +188,19 @@ extra page-building file that should stay off limits, and the size limits. Name 
   layers are the required checks (including CodeQL), the preview Grant looks at, and the rule that Claude cannot merge.
 - **Images are checked by their first bytes, their size and a scan for markup**, not decoded. A hostile file that is a valid
   image and also carries a hidden payload could still pass; the site's CSP and `nosniff` header limit what it could do.
+- **Stripping removes the known places a file can hold data, not everything.** It does not touch the picture itself, so a
+  visible street sign, a name tag, a screen or a blurred-but-readable face stays. It does not change a file's name (a name
+  such as `home-at-12-oak-street.jpg` stays), and it keeps a colour profile and the rotation flag on purpose. A PNG's rotation
+  flag (in its EXIF chunk) is dropped rather than kept; browsers rarely use it. A JPEG with several EXIF blocks keeps at most
+  one rotation-only block. A file stripped of a flag it needed to look right would need to be re-encoded, which this tool
+  never does.
+- **Alt text is checked for being there and for saying something, not for being true.** `"A smiling woman"` passes for any
+  photo. Grant reads the alt text in the change report. Only uses in `.ts` and `.tsx` files under `src/` count (an image used
+  only as a CSS background has nowhere to hold alt text, so it fails as "not used"). A use whose alt text sits in a variable,
+  or in another file than the one holding the path, fails and has to be written out beside the image.
+- **Marker-level parsing, not full decoding.** The three file readers walk a file's segments or chunks and refuse a file whose
+  structure is damaged (a cut-short upload, a length that runs off the end). They do not check that the compressed picture
+  inside is valid; the browser does that.
 - **A new page could still hang or crash the build** (for example an endless recursion). That is a denial of service, not code
   execution; the CI timeout and the preview Grant looks at are what stop it.
 - **A link built from text pieces** (`"java".concat("script:...")` in a `href`) is not caught by the check; React 19 refuses to render
@@ -138,5 +210,6 @@ extra page-building file that should stay off limits, and the size limits. Name 
 
 ## What this does not do
 
-It does not read copy for banned wording or invented claims, and it does not check alt text. Those are separate checks.
-It also cannot tell whether a changed sentence is true. It only guarantees that a change stayed inside the allowed files.
+It does not read copy for banned wording or invented claims. That is a separate check. It checks that alt text exists and
+says something, but it cannot tell whether the alt text describes the picture. It also cannot tell whether a changed sentence
+is true. It only guarantees that a change stayed inside the allowed files.

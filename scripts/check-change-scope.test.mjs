@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { rules } from "./change-scope-rules.mjs";
+import { SECRET, app1Exif, jpeg as makeJpeg, png as makePng, pngText, webp as makeWebp } from "./image-fixtures.mjs";
 import {
   decide,
   evaluateChange,
@@ -387,21 +388,27 @@ test("parseArgs rejects unknown flags, missing values and refs that look like op
 
 // ---- the git layer, with a fake git ---------------------------------------------------------------------------
 
+/** A table of git calls and their output. A value of null means "git exited with status 1" (what `git grep` does for no match). */
 function fakeGit(table) {
   return (args) => {
     const key = args.join(" ");
     if (!(key in table)) throw new Error(`unexpected git call: ${key}`);
+    if (table[key] === null) throw Object.assign(new Error("git exited with status 1"), { status: 1 });
     return Buffer.from(table[key]);
   };
 }
 
 const RANGE = "origin/main...HEAD";
+const cleanJpeg = makeJpeg();
+const HOME_WITH_IMAGE = 'export const title = "From $900";\nexport const hero = { src: "/images/new.jpg", alt: "The front desk at opening time" };\n';
+const grepKey = (url) => `grep -l -I -F -z -e ${url} HEAD -- src`;
 const scenario = () => ({
   "merge-base origin/main HEAD": "abc123\n",
   [`diff --raw -z --no-renames ${RANGE}`]: rawEntry("M", "src/content/home.ts") + rawEntry("A", "public/images/new.jpg", "000000") + rawEntry("A", "src/app/(site)/faq/page.tsx", "000000"),
   [`diff -U0 --no-renames --text ${RANGE} -- src/content/home.ts`]: '@@ -1 +1 @@\n-title: "Old"\n+title: "From $900"\n',
-  "show HEAD:src/content/home.ts": 'export const title = "From $900";\n',
-  "show HEAD:public/images/new.jpg": jpg,
+  "show HEAD:src/content/home.ts": HOME_WITH_IMAGE,
+  "show HEAD:public/images/new.jpg": cleanJpeg,
+  [grepKey("/images/new.jpg")]: "HEAD:src/content/home.ts\0",
   "show HEAD:src/app/(site)/faq/page.tsx": goodPage,
   [`diff -U0 --no-renames --text ${RANGE} -- src/app/(site)/faq/page.tsx`]: goodPage.split("\n").map((l) => `+${l}`).join("\n").replace(/^/, "@@ -0,0 +1 @@\n"),
   "cat-file -e abc123:src/components/hl/Container.tsx": "",
@@ -416,7 +423,7 @@ test("gatherChange builds the change from git output and evaluateChange sorts it
     ["A", "src/app/(site)/faq/page.tsx"],
   ]);
   assert.deepEqual(change.files[0].added, ['title: "From $900"']);
-  assert.equal(change.files[1].size, jpg.length);
+  assert.equal(change.files[1].size, cleanJpeg.length);
   const result = evaluateChange(change, rules);
   assert.equal(result.tier, 1);
   assert.deepEqual(kinds(result).sort(), ["dollar", "new-page-not-in-routes"]);
@@ -863,4 +870,184 @@ test("real git: a good new page built from an existing component passes, and rep
   assert.equal(good.code, 0, good.report);
   const bad = inRepo(({ write }) => write("worker/contact.ts", "x"), ["--base", "main", "--head", "HEAD", "--report-only"]);
   assert.equal(bad.code, 0);
+});
+
+// ---- hidden image data and alt text ---------------------------------------------------------------------------
+
+const withRefs = (files, imageRefs = {}) => evaluateChange({ files, existsAtBase: () => false, imageRefs }, rules);
+const usedAs = (url, alt = "The front desk at opening time") => [{ path: "src/content/home.ts", content: `export const hero = { src: "${url}", alt: ${JSON.stringify(alt)} };\n` }];
+const EXIF_NAME = "EXIF (camera and location data)";
+
+test("an image used with real alt text has no alt problem, and its alt text is listed for the report", () => {
+  const result = withRefs([image("public/images/a.jpg", jpg)], { "public/images/a.jpg": usedAs("/images/a.jpg") });
+  assert.deepEqual(result.altProblems, []);
+  assert.deepEqual(result.images, [{ path: "public/images/a.jpg", alts: ["The front desk at opening time"] }]);
+  assert.equal(decide(result, "strict").ok, true);
+});
+
+test("an added image that nothing uses fails the alt check", () => {
+  const result = withRefs([image("public/images/a.jpg", jpg)]);
+  assert.equal(result.altProblems.length, 1);
+  assert.equal(result.altProblems[0].path, "public/images/a.jpg");
+  assert.match(result.altProblems[0].reason, /not used/);
+});
+
+test("a changed image (not only a new one) must have alt text, and a bad alt names the file that holds it", () => {
+  const changed = file("public/images/a.jpg", "M", { head: jpg, size: 1000 });
+  const result = withRefs([changed], { "public/images/a.jpg": usedAs("/images/a.jpg", "photo") });
+  assert.equal(result.altProblems.length, 1);
+  assert.match(result.altProblems[0].reason, /src\/content\/home\.ts/);
+  assert.match(result.altProblems[0].reason, /says nothing/);
+});
+
+test("deleted images and files outside public/images need no alt text", () => {
+  assert.deepEqual(withRefs([file("public/images/a.jpg", "D")]).altProblems, []);
+  assert.deepEqual(withRefs([image("public/brand/logo.png", png)]).altProblems, []);
+  assert.deepEqual(withRefs([file("public/images/a.jpg", "D")]).images, []);
+});
+
+test("every image in a change is checked on its own", () => {
+  const result = withRefs([image("public/images/a.jpg", jpg), image("public/images/b.jpg", jpg)], { "public/images/a.jpg": usedAs("/images/a.jpg") });
+  assert.deepEqual(result.altProblems.map((p) => p.path), ["public/images/b.jpg"]);
+});
+
+test("an image that still carries camera or location data fails and says how to fix it", () => {
+  const dirty = file("public/images/a.jpg", "A", { head: jpg, size: 1000, metadata: { removed: [EXIF_NAME, "comment"] } });
+  const result = withRefs([dirty], { "public/images/a.jpg": usedAs("/images/a.jpg") });
+  assert.equal(result.imageProblems.length, 1);
+  assert.match(result.imageProblems[0].reason, /EXIF/);
+  assert.match(result.imageProblems[0].reason, /comment/);
+  assert.match(result.imageProblems[0].reason, /npm run strip:images/);
+  assert.equal(decide(result, "strict").ok, false);
+});
+
+test("a clean image has no metadata problem, and an image that could not be read says so once", () => {
+  const clean = file("public/images/a.jpg", "A", { head: jpg, size: 1000, metadata: { removed: [] } });
+  assert.deepEqual(withRefs([clean], { "public/images/a.jpg": usedAs("/images/a.jpg") }).imageProblems, []);
+  const unreadable = file("public/images/a.jpg", "A", { head: jpg, size: 1000, metadata: { error: "not a valid JPEG: cut short" } });
+  const result = withRefs([unreadable], { "public/images/a.jpg": usedAs("/images/a.jpg") });
+  assert.equal(result.imageProblems.length, 1);
+  assert.match(result.imageProblems[0].reason, /could not be checked/);
+  const renamed = file("public/images/a.png", "A", { head: svg, size: 1000, metadata: { error: "not a valid PNG: it does not start with the PNG signature" } });
+  assert.equal(withRefs([renamed], { "public/images/a.png": usedAs("/images/a.png") }).imageProblems.length, 1, "only the renamed-file problem, not a second one");
+});
+
+test("strict mode fails on a missing alt text, report-only mode never does, and the reason is named", () => {
+  const result = withRefs([image("public/images/a.jpg", jpg)]);
+  assert.equal(decide(result, "strict").ok, false);
+  assert.deepEqual(decide(result, "strict").reasons, ["image alt text missing"]);
+  assert.equal(decide(result, "report-only").ok, true);
+});
+
+test("the report lists the images with their alt text, and the problems with how to fix them", () => {
+  const good = formatReport(withRefs([image("public/images/a.jpg", jpg)], { "public/images/a.jpg": usedAs("/images/a.jpg") }), { mode: "strict" });
+  assert.match(good, /Images in this change/);
+  assert.match(good, /public\/images\/a\.jpg: alt "The front desk at opening time"/);
+  assert.match(good, /PASS/);
+  const dirty = file("public/images/b.jpg", "A", { head: jpg, size: 1000, metadata: { removed: [EXIF_NAME] } });
+  const bad = formatReport(withRefs([image("public/images/a.jpg", jpg), dirty]), { mode: "strict" });
+  assert.match(bad, /Alt text problems/);
+  assert.match(bad, /not used/);
+  assert.match(bad, /npm run strip:images/);
+  assert.match(bad, /FAIL \(.*image rule broken.*image alt text missing.*\)/);
+});
+
+test("gatherChange reads each image's hidden data and the files that use it", () => {
+  const change = gatherChange({ base: "origin/main", head: "HEAD", git: fakeGit(scenario()) });
+  assert.deepEqual(change.files[1].metadata, { removed: [] });
+  assert.deepEqual(change.imageRefs, { "public/images/new.jpg": [{ path: "src/content/home.ts", content: HOME_WITH_IMAGE }] });
+  const result = evaluateChange(change, rules);
+  assert.deepEqual(result.altProblems, []);
+  assert.deepEqual(result.imageProblems, []);
+  assert.deepEqual(result.images, [{ path: "public/images/new.jpg", alts: ["The front desk at opening time"] }]);
+});
+
+test("an image with EXIF and GPS data fails through main, in strict mode only", () => {
+  const dirty = { ...scenario(), "show HEAD:public/images/new.jpg": makeJpeg([app1Exif()]) };
+  const out = [];
+  assert.equal(main({ argv: [], env: {}, git: fakeGit(dirty), out: (t) => out.push(t) }), 1);
+  assert.match(out.join("\n"), /npm run strip:images/);
+  assert.ok(!out.join("\n").includes(SECRET.gps), "the report never prints the hidden data itself");
+  assert.equal(main({ argv: ["--report-only"], env: {}, git: fakeGit(dirty), out: () => {} }), 0);
+});
+
+test("when git grep finds no file that uses the image the check fails cleanly, and when git grep breaks the check could not run", () => {
+  const unused = { ...scenario(), [grepKey("/images/new.jpg")]: null };
+  const out = [];
+  assert.equal(main({ argv: [], env: {}, git: fakeGit(unused), out: (t) => out.push(t) }), 1);
+  assert.match(out.join("\n"), /not used/);
+  const broken = (args) => {
+    if (args[0] === "grep") throw Object.assign(new Error("fatal: bad object"), { status: 128, stderr: Buffer.from("fatal: bad object") });
+    return fakeGit(scenario())(args);
+  };
+  assert.equal(main({ argv: [], env: {}, git: broken, out: (t) => out.push(t) }), 2);
+  assert.match(out.join("\n"), /could not read the git history/);
+});
+
+test("only .ts and .tsx files count as a use of an image", () => {
+  const css = { ...scenario(), [grepKey("/images/new.jpg")]: "HEAD:src/app/hl.css\0HEAD:src/content/home.ts\0" };
+  const change = gatherChange({ base: "origin/main", head: "HEAD", git: fakeGit(css) });
+  assert.deepEqual(change.imageRefs["public/images/new.jpg"].map((f) => f.path), ["src/content/home.ts"]);
+});
+
+const HOME_WITH_HERO = (url, alt) => `export const title = "Old";\nexport const hero = { src: "${url}", alt: "${alt}" };\n`;
+
+test("real git: clean jpg, png and webp images that are used with alt text pass", () => {
+  for (const [name, bytes] of [["a.jpg", makeJpeg()], ["b.png", makePng()], ["c.webp", makeWebp()]]) {
+    const { code, report } = inRepo(({ write }) => {
+      write(`public/images/${name}`, bytes);
+      write("src/content/home.ts", HOME_WITH_HERO(`/images/${name}`, "Sam at the front desk"));
+    });
+    assert.equal(code, 0, `${name}\n${report}`);
+    assert.match(report, new RegExp(`public/images/${name.replace(".", "\\.")}: alt "Sam at the front desk"`));
+  }
+});
+
+test("real git: an image with EXIF data fails, whatever the type, and the report never contains the hidden data", () => {
+  for (const [name, bytes] of [["a.jpg", makeJpeg([app1Exif()])], ["b.png", makePng([pngText("Author", SECRET.comment)])], ["c.webp", makeWebp({ exif: true })]]) {
+    const { code, report } = inRepo(({ write }) => {
+      write(`public/images/${name}`, bytes);
+      write("src/content/home.ts", HOME_WITH_HERO(`/images/${name}`, "Sam at the front desk"));
+    });
+    assert.equal(code, 1, `${name}\n${report}`);
+    assert.match(report, /npm run strip:images/);
+    for (const secret of Object.values(SECRET)) assert.ok(!report.includes(secret), `${name} leaked ${secret}`);
+  }
+});
+
+test("real git: an unused image, an image without alt text and an image with bad alt text all fail", () => {
+  const unused = inRepo(({ write }) => write("public/images/a.jpg", makeJpeg()));
+  assert.equal(unused.code, 1, unused.report);
+  assert.match(unused.report, /not used/);
+  const noAlt = inRepo(({ write }) => {
+    write("public/images/a.jpg", makeJpeg());
+    write("src/content/home.ts", 'export const title = "Old";\nexport const hero = { src: "/images/a.jpg" };\n');
+  });
+  assert.equal(noAlt.code, 1, noAlt.report);
+  assert.match(noAlt.report, /no alt text/);
+  const generic = inRepo(({ write }) => {
+    write("public/images/a.jpg", makeJpeg());
+    write("src/content/home.ts", HOME_WITH_HERO("/images/a.jpg", "image"));
+  });
+  assert.equal(generic.code, 1, generic.report);
+  assert.match(generic.report, /says nothing/);
+});
+
+test("real git: an image in a sub-folder is found by its full path, and a deleted image needs nothing", () => {
+  const nested = inRepo(({ write }) => {
+    write("public/images/team/sam.jpg", makeJpeg());
+    write("src/content/home.ts", HOME_WITH_HERO("/images/team/sam.jpg", "Sam at the front desk"));
+  });
+  assert.equal(nested.code, 0, nested.report);
+  const { dir, git } = makeRepo(({ write }) => write("public/images/old.jpg", makeJpeg()));
+  try {
+    git(["checkout", "-q", "-b", "change/remove"]);
+    rmSync(join(dir, "public/images/old.jpg"));
+    git(["add", "-A"]);
+    git(["-c", "user.email=t@example.com", "-c", "user.name=Test", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "remove"]);
+    const out = [];
+    assert.equal(main({ argv: ["--base", "change/test", "--head", "HEAD"], env: {}, git, out: (t) => out.push(t) }), 0, out.join("\n"));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
