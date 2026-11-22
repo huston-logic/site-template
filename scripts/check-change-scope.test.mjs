@@ -750,7 +750,8 @@ test("an image with HTML or SVG markup inside fails even when its first bytes ar
 });
 
 test("crafted file names and lines cannot forge output lines or break a code fence", () => {
-  assert.equal(safe("a\n::error::x\r\u0000"), "a??error::x??".replace("??error", "?::error").replace("::x??", "::x??"));
+  // The newline, carriage return and NUL each become one "?"; everything else is kept.
+  assert.equal(safe("a\n::error::x\r\u0000"), "a?::error::x??");
   const result = run([file("src/content/a\n::error::boom.ts"), file("src/content/home.ts", "M", { added: ['x: "$1 ``` \u001b[31m"'] })]);
   const report = formatReport(result, { mode: "strict" });
   assert.ok(!report.split("\n").some((line) => line.startsWith("::")), "no line may start with ::");
