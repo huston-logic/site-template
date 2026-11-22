@@ -1,0 +1,94 @@
+# Change scope check and change report
+
+Clients will ask for website changes in plain words, and an AI will make each change on its own branch. These two tools
+judge the **files** a branch changed, not what anyone says they did. They are plain Node scripts with no new dependencies.
+
+- **Change scope check** (`npm run check:scope`): sorts a change into tier 1 or tier 3, flags risky tier 1 changes, and
+  enforces the image and placeholder rules.
+- **Change report** (`npm run report:changes`): before and after screenshots of the pages a change touches, at phone and
+  desktop width, with the scope result on top.
+
+The rules live in one file: [`scripts/change-scope-rules.mjs`](../scripts/change-scope-rules.mjs). Editing it is itself tier 3.
+
+## The tiers
+
+| Tier | What it is | What the check does |
+| --- | --- | --- |
+| **1** | Content: copy in `src/content/*.ts`, photos in `public/images/`, a brand-new page built from blocks the site already has, the page list (`src/lib/routes.ts`) and the menu (`src/content/nav.ts`) | Passes. Risky tier 1 changes are **flagged** (below) |
+| **3** | Everything else: `worker/`, `public/_headers`, `wrangler.jsonc`, `site.config.ts`, `package.json` and the lockfile, `.github/`, `.claude/`, `src/components/`, and any other file | Fails (exit code 1) and lists each file with a plain reason |
+
+(Tier 2, "ask first", is about a vague request and is handled by the agent, not by files, so the scope check does not know it.)
+
+Three modules in `src/content/` are wiring, not copy, so they are tier 3: `site.ts`, `providers.ts` and `auto-reply.ts`.
+
+A **new page** is tier 1 only when its file is exactly `src/app/(site)/<name>/page.tsx` (lowercase, one folder deep) and it:
+
+- imports only `next`, `@/lib/metadata`, content modules and components that **already exist** on the base branch;
+- calls `pageMetadata(`;
+- contains none of `"use client"`, `dangerouslySetInnerHTML`, `<script`, `<iframe`, `fetch(`, `process.env`, `eval(`, `import(`.
+
+Editing an **existing** page file is tier 3. Deleting a page is tier 1 but flagged.
+
+## Flagged for Grant (still passes, always reported)
+
+Checked on lines added and removed, so changing or deleting a price is flagged too:
+
+- a dollar amount (`$900`, `500 USD`, `12 dollars`);
+- a contact detail or booking link: an email address, `mailto:` or `tel:`, a US-style phone number, or a link on a known
+  scheduler host (Calendly, Cal.com and similar; the list is in the rules file);
+- a removed page, a route removed from `src/lib/routes.ts`, or a new page that is not added to `src/lib/routes.ts`;
+- any change to `src/content/privacy.ts` or `src/content/contact-fields.ts`;
+- a change over **300 changed lines** or over **10 files**.
+
+## Image rules (blocking on change branches)
+
+For added or changed files under `public/images/`: `.jpg`, `.jpeg`, `.png` or `.webp` only, the file's first bytes must
+match its extension (a renamed SVG fails), and at most **500 KB** (512,000 bytes). SVG is never allowed because it can
+carry code. Deleted images are not checked.
+
+## Leftover placeholders (blocking on change branches)
+
+Any new `[[placeholder]]` on a line the change **adds** in `src/content/` or `src/app/`. Lines the change removes do not
+count, and the launch gate (`npm run check:placeholders`, which lists every placeholder in the repo) is unchanged.
+
+## Running it
+
+```bash
+npm run check:scope
+```
+
+By default it compares `HEAD` with `origin/main`. Options: `--base <ref>`, `--head <ref>`, `--report-only` (print the
+same report, always exit 0) and `--ci` (read GitHub's own variables: the base comes from `GITHUB_BASE_REF`, and it is
+strict only when the pull request's branch starts with `change/`; outside a pull request it does nothing). Exit codes:
+0 pass, 1 fail, 2 could not run.
+
+```bash
+npm run build
+npm run report:changes
+```
+
+Writes `change-report/report.md` and `change-report/<page>/{before,after}-{phone,desktop}.png` (the folder is git-ignored).
+"After" is your `out/` build. "Before" is built for you in a temporary git worktree from the point the branch split from
+`main` (`npm ci` and `npm run build`, a minute or two, removed afterwards); pass `--base-out <dir>` to reuse a build you
+already have. It photographs only the pages the change touches, found by following imports from the changed files (a change
+that reaches the shared layout, or that it cannot trace, photographs every page). Widths: phone 390 × 844, desktop 1440 × 900.
+It needs Chromium from Playwright (already a dev dependency) and falls back to an installed Google Chrome.
+
+Tests for both tools: `npm run test:scripts` (fake diffs and fake git, no network).
+
+## In CI
+
+The proposed jobs (`change-scope` and `change-report`, added to `.github/workflows/ci.yml` by hand, because Claude Code
+cannot write workflows) run on pull requests. They are **not** required checks yet: per CLAUDE.md a new check becomes
+required only after 5 clean runs and a deliberate-failure proof PR, and only after the ruleset is changed first.
+
+## Using it in a client repo
+
+Copy `scripts/change-scope-rules.mjs`, `scripts/check-change-scope.mjs`, `scripts/change-report.mjs`, the two test files,
+`scripts/preview.mjs` and the three `package.json` scripts from the template. Adjust the rules file for that site: any
+extra page-building file that should stay off limits, and the size limits. Name the agent's branches `change/<short-name>`.
+
+## What this does not do
+
+It does not read copy for banned wording or invented claims, and it does not check alt text. Those are separate checks.
+It also cannot tell whether a changed sentence is true. It only guarantees that a change stayed inside the allowed files.

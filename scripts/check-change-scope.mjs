@@ -89,10 +89,10 @@ function checkNewPage(file, rules, existsAtBase) {
   const { content } = file;
   if (typeof content !== "string") return { ok: false, reason: "a new page whose contents could not be read" };
   for (const text of rules.pageForbidden) {
-    if (content.includes(text)) return { ok: false, reason: `a new page may not contain ${text}` };
+    if (content.includes(text)) return { ok: false, reason: `a new page may not contain \`${text}\`` };
   }
   for (const text of rules.pageRequires) {
-    if (!content.includes(text)) return { ok: false, reason: `a new page must call ${text} (the shared SEO helper)` };
+    if (!content.includes(text)) return { ok: false, reason: `a new page must use \`${text}\` (the shared SEO helper)` };
   }
   const { exact, contentPrefix, componentPrefix } = rules.pageImports;
   for (const spec of IMPORT_PATTERNS.flatMap((pattern) => [...content.matchAll(pattern)].map((m) => m[1]))) {

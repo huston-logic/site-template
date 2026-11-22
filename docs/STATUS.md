@@ -2,7 +2,7 @@
 
 Business priorities live in the Google Doc "00 Huston Logic: Source of Truth"; this file is the repo's status.
 Rules for keeping it: CLAUDE.md, "Status and source of truth". Task list for the Nov 18 autonomous run: `docs/PLAN.md`.
-Last verified with `gh` on 2026-11-21.
+Last verified with `gh` on 2026-11-22.
 
 ## Current state
 
@@ -10,11 +10,11 @@ Last verified with `gh` on 2026-11-21.
   "Protect main" active, "Allow auto-merge" on.
 - **Live:** not checked from the repo. Whether Cloudflare Workers Builds is connected to the template itself is not
   recorded here; client sites deploy from their own repos.
-- **Merged:** PRs #1 to #18, all merged except #3 (Dependabot, closed unmerged). Includes the generic starter (#6), the
+- **Merged:** PRs #1 to #19, all merged except #3 (Dependabot, closed unmerged). Includes the generic starter (#6), the
   generic contact Worker with Apps Script writer and `docs/SECRETS.md` (#10), Organization JSON-LD (#8), the redirect
   slot (#9), the pipeline docs, ruleset export and launch checklist stub (#11), the dependency bumps (#13, #15), the
-  installed hook and settings changes that allow `gh pr merge --auto --squash` (#16), and the CLAUDE.md cleanup (#17, #18).
-- **Open:** this PR (STATUS.md format and the CLAUDE.md "Status and source of truth" section). No other open PRs.
+  installed hook and settings changes that allow `gh pr merge --auto --squash` (#16), the CLAUDE.md cleanup (#17, #18), and the STATUS.md format with the CLAUDE.md "Status and source of truth" rules (#19).
+- **Open:** this PR, steps 1 and 2 of the client change requests plan (change scope check and change report). No other open PRs.
 - **Still open per `docs/TEMPLATE.md`** (that file's PR table may lag the merged PRs): template README polish, and
   deciding which Huston content rules in AGENTS.md stay as template defaults.
 
@@ -29,18 +29,26 @@ Last verified with `gh` on 2026-11-21.
   exception, below); #15 Dependabot npm group bump.
 - 2026-11-18, owner install and cleanup: #16 hook, settings, agent and workflow changes hand-copied by Grant; #17 generic
   package description and CLAUDE.md matches the installed hooks; #18 note that new repos need "Allow auto-merge".
-- 2026-11-21: this PR, STATUS.md rewritten into four sections, CLAUDE.md gets the "Status and source of truth" rules.
+- 2026-11-21: #19 STATUS.md rewritten into four sections, CLAUDE.md gets the "Status and source of truth" rules.
+- 2026-11-22: this PR, `scripts/change-scope-rules.mjs`, `check-change-scope.mjs` (`npm run check:scope`) and `change-report.mjs`
+  (`npm run report:changes`) with tests (`npm run test:scripts`), `docs/CHANGE-SCOPE.md`. No new dependencies.
 
 ## Needs Grant
 
 In order:
 
-1. Review and merge this PR. It changes CLAUDE.md and docs only.
-2. Check that the master doc "00 Huston Logic: Source of Truth" links to `docs/STATUS.md` in this repo (I cannot see the
+1. Review and merge this PR. It changes scripts, `package.json`, `.gitignore`, `AGENTS.md` and docs. No dependency changes.
+2. Copy the proposed CI jobs into place (workflows are owner-only). The file is `ci.yml.proposed` in the Claude Code
+   scratchpad; the PR description has the same two jobs in case the scratchpad was cleared. Then commit it on a branch
+   and open a PR. The four required jobs are unchanged; the two new jobs (`change-scope`, `change-report`) are not
+   required.
+3. After 5 clean runs of `change-scope`, and a deliberate-failure proof PR on a `change/` branch, decide whether to make it
+   a required check (change the ruleset first, then the workflow).
+4. Check that the master doc "00 Huston Logic: Source of Truth" links to `docs/STATUS.md` in this repo (I cannot see the
    Google Doc).
-3. Decide the AGENTS.md question from `docs/TEMPLATE.md` section E: which Huston content rules (voice, framework,
+5. Decide the AGENTS.md question from `docs/TEMPLATE.md` section E: which Huston content rules (voice, framework,
    testimonials, pricing) stay as template defaults.
-4. For each new client repo made from this template, turn on "Allow auto-merge", apply the ruleset, and set the Worker
+6. For each new client repo made from this template, turn on "Allow auto-merge", apply the ruleset, and set the Worker
    secrets yourself. Steps: `docs/pipeline/client-onboarding-checklist.md`, `docs/SECRETS.md`,
    `docs/ruleset-protect-main.json`, `docs/LAUNCH-CHECKLIST.md` (still a stub headed "Filled in by Grant").
 
@@ -55,6 +63,12 @@ In order:
 - Decision (Grant, Nov 18): CLAUDE.md, AGENTS.md, `package.json`, `wrangler.jsonc` and `.gitignore` no longer ask for
   approval; Claude may enable auto-merge only in autonomous runs and only with `--auto --squash` or `--auto --merge`.
 - Decision (Grant, Nov 18): one-time waiver of the 7-day dependency rule for `@lhci/cli` 0.16.1 (below).
+
+- Client change requests v1, steps 1 and 2 built (scope check, change report). Still to build: the agent, the Changes page,
+  notifications, the rehearsal on Dylan's site and the after-live checks. The scope check is report-only in CI until it has
+  earned "required" (item 3 above).
+- Decision (Claude, while Grant was away): the tier 1 list excludes `src/content/site.ts`, `providers.ts` and `auto-reply.ts`
+  (wiring, not copy). Details and the other judgment calls: the PR description and `docs/CHANGE-SCOPE.md`.
 
 ## Record: one-time exception to the 7-day dependency rule (owner-approved Nov 18)
 
