@@ -27,7 +27,7 @@ Website for [[CLIENT_NAME]] ([[ONE_LINE_DESCRIPTION]]). Next.js App Router, stri
 - `src/content/` holds **all copy and site settings** as typed TypeScript modules (`home.ts`, `services.ts`, `about.ts`, `contact.ts`, `contact-fields.ts`, `auto-reply.ts`, `privacy.ts`, `site.ts`, `providers.ts`, `nav.ts`). Edit copy here, never inline in JSX. Provider settings (`email`, `schedulerUrl`, `linkedInUrl`, `turnstileSiteKey`) are set in `site.config.ts` (`contact.*`); `providers.ts` re-exports them and `site.ts` re-exports those.
 - `src/components/hl/` the v3 design primitives and page sections; `src/components/layout/` header, footer and nav; `src/components/ui/` copy helpers (`Text`, `Placeholder`, `JsonLd`, `BookCallButton`). Prefer a new small reusable component over repeating markup. Server Components by default; add `"use client"` only for real interactivity (currently: `HeaderNav`, `ContactForm`, `ThanksText`). Keep client JS minimal.
 - `src/lib/` pure helpers (`metadata.ts`, `organization-jsonld.ts`, `site-organization.ts`, `serialize-jsonld.ts`, `placeholders.ts`, `fonts.ts`, `routes.ts`, `contact-validation.ts`, `first-name.ts`, `contact-handoff.ts`).
-- `scripts/` Node scripts: `check-placeholders.mjs` (launch gate), `preview.mjs` (static preview server that also applies the `/*` block of `public/_headers`), `check-redirects.mjs` (checks that old-site URLs listed in a file 301 to a 200 page on a given base URL; tests in `check-redirects.test.mjs`, run with `node --test`, not wired into `npm run`).
+- `scripts/` Node scripts: `check-placeholders.mjs` (launch gate), `preview.mjs` (static preview server that also applies the `/*` block of `public/_headers`), `check-redirects.mjs` (checks that old-site URLs listed in a file 301 to a 200 page on a given base URL; tests in `check-redirects.test.mjs`), `change-scope-rules.mjs` (the one tier allow-list for client changes), `change-scope-code.mjs` (parser checks that tier 1 `.ts` files are plain data and new pages use only what the site has), `check-change-scope.mjs` (`npm run check:scope`: judges the files a branch changed against that allow-list; strict on `change/*` branches) and `change-report.mjs` (`npm run report:changes`: before and after screenshots of the pages a change touches). All scripts have tests beside them (`*.test.mjs`, `npm run test:scripts`). See `docs/CHANGE-SCOPE.md`.
 - `tests/a11y/` Playwright + axe accessibility check (CI job `a11y`, run against the built site via `scripts/preview.mjs`); `playwright.config.ts`. `src/lib/routes.ts` is the single route list used by `sitemap.ts` and the accessibility test.
 - `lighthouserc.cjs` Lighthouse CI config (CI job `lighthouse`; pages come from `src/lib/routes.ts`); `scripts/lighthouse-summary.mjs` writes the score table to the job summary.
 - `public/_headers` is the Cloudflare Workers header config. `public/_redirects` holds old-site redirects (comments only until launch). `.github/workflows/ci.yml` runs the checks.
@@ -84,9 +84,12 @@ The motion design is `docs/STYLE-GUIDE.md` §9. The rules below are the guardrai
 npm run lint        # ESLint
 npm run typecheck   # tsc --noEmit (site), then tsc --noEmit -p worker
 npm run test:worker # contact Worker tests and src/lib/*.test.ts (node --test, no network)
+npm run test:scripts # scripts/*.test.mjs (node --test, fake diffs, no network)
 npm run build       # static export to ./out
-npm run check       # lint, typecheck, test:worker, build, in order
+npm run check       # check:config, lint, typecheck, test:worker, test:scripts, build, in order
 npm run check:placeholders   # launch gate; expected to fail until placeholders are resolved
+npm run check:scope   # change scope: tier 1 (content) or tier 3 (needs the owner); compares HEAD with origin/main
+npm run report:changes   # before and after screenshots of changed pages; needs `npm run build` first and Chromium or Google Chrome
 npm run test:a11y   # Playwright + axe; needs `npm run build` first and an installed Chromium; not part of `npm run check`
 npm run test:lighthouse   # Lighthouse CI; needs `npm run build` first and Google Chrome; not part of `npm run check`
 ```
@@ -94,6 +97,8 @@ npm run test:lighthouse   # Lighthouse CI; needs `npm run build` first and Googl
 CI job `a11y` runs `test:a11y` on every PR. It is a required check: a failure blocks merging.
 
 CI job `lighthouse` runs `test:lighthouse` on every PR. It is a required check: a failure blocks merging.
+
+Client change requests are made on branches named `change/<short-name>`. On those branches the change scope check (`npm run check:scope`, `docs/CHANGE-SCOPE.md`) fails on any file outside tier 1, a bad image (not jpg, png or webp, or over 500 KB) or a new `[[placeholder]]`; on every other branch it only reports. The proposed `change-scope` and `change-report` CI jobs are not required checks yet.
 
 - `check`, `a11y`, `lighthouse` and `dependency-review` are required checks in the "Protect main" ruleset, and the "Require code scanning results" rule (CodeQL) also blocks merging on new alerts. Never rename or remove those jobs, add a `paths:` filter or job-level `if:` to them, use `[skip ci]`, or change `.github/workflows/codeql.yml`'s languages or category; change the ruleset first (see CLAUDE.md).
 - Fix a failing `a11y` or `lighthouse` job at its cause. Do not loosen a threshold or add a `known-issues.ts` entry just to get green.
