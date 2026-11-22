@@ -27,8 +27,9 @@ type changes are tier 3 at any path, and so is deleting `routes.ts` or `nav.ts`.
 contact Worker, which holds the email and Turnstile secrets), so "it only changes text" is not enough. The file is parsed
 with the TypeScript parser (already a dev dependency) and must contain only: imports of sibling content modules or
 type-only imports, type declarations, and `const` values built from literals, arrays and objects (spreads, `as const`,
-`satisfies` and `+` between literals are fine). Calls, functions, classes, templates with `${}`, `process`, `fetch`,
-`require`, `.constructor` and any other statement make it tier 3. A NUL byte does too.
+`satisfies` and `+` between literals are fine; a stray `;` is fine). Calls, functions, classes, templates with `${}`, `process`,
+`fetch`, `require`, `.constructor`, computed or `dangerouslySetInnerHTML`/`__proto__` keys, `using` declarations, syntax errors and any
+other statement make it tier 3. A NUL byte does too.
 
 A **new page** is tier 1 only when its file is exactly `src/app/(site)/<name>/page.tsx` (lowercase, one folder deep) and it
 passes both a text check and the parser:
@@ -37,10 +38,17 @@ passes both a text check and the parser:
   parser reads real import and export statements, so spacing tricks do not hide one);
 - calls `pageMetadata(`;
 - contains none of `"use client"`, `dangerouslySetInnerHTML`, `<script`, `<iframe`, `fetch(`, `process.env`, `eval(`, `import(`;
-- has only imports, `const` values, functions and type declarations at the top level (no stray calls or classes), uses none
-  of the names in `denyIdentifiers` (`require`, `process`, `globalThis`, `fetch`, `setTimeout`, ...) or `.constructor`, builds no
-  property name at run time, and uses none of the JSX tags `script`, `iframe`, `object`, `embed`, `style`, `base`, `link`,
-  `meta`, `form` or a `javascript:` or `data:` link.
+- fits a strict **allowlist grammar**, not a list of banned words (a banned-word list can never be complete: a property name
+  built at run time reaches the `Function` constructor without containing any banned word). A new page is JSX plus content
+  values: only imports, `const` values, functions and type declarations at the top level; inside functions only `const` and
+  `return`; expressions made of literals, names, property access, indexing by a number, arrays and objects with fixed keys,
+  `+ - && || ?? ===` style operators and `?:`; calls only to **imported or same-page helpers** and to `.map`, `.filter`,
+  `.flatMap`, `.slice`, `.join` and `.concat` (arrow functions only as `.map`/`.filter` callbacks); JSX tags only from a list of
+  safe HTML tags or components the page imports; attribute values that are strings or plain expressions (a link attribute
+  may not be built with `+` or a template); no spread attributes, no computed keys, no `new`, no templates with `${}`, no
+  `async`, no `if` or loops, no assignment. The readable banned-word reasons (`require`, `process`, `globalThis`, `fetch`,
+  `.constructor`, `<script>`, `<form>`, `javascript:` and so on) still come first, so the message names the problem;
+- parses without a syntax error (the build uses a different parser, so a tolerated error could be read differently).
 
 Editing an **existing** page file is tier 3. Deleting a page is tier 1 but flagged.
 

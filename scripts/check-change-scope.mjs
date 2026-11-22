@@ -67,8 +67,10 @@ export function gatherChange({ base, head, git, rules = defaultRules }) {
   const range = `${base}...${head}`;
   const files = parseRawDiff(git(["diff", "--raw", "-z", "--no-renames", range])).map(({ status, path, newMode }) => {
     const file = { path, status: ["A", "D", "T"].includes(status) ? status : "M", mode: newMode, added: [], removed: [] };
+    // A symlink or submodule is rejected by classify; its "content" (a link target or a commit) is never read.
+    const special = SPECIAL_MODES.includes(newMode);
     if (path.startsWith(rules.imageDir)) {
-      if (file.status !== "D") {
+      if (file.status !== "D" && !special) {
         const bytes = git(["show", `${head}:${path}`]);
         file.size = bytes.length;
         file.head = bytes.subarray(0, 12);
@@ -78,7 +80,7 @@ export function gatherChange({ base, head, git, rules = defaultRules }) {
     }
     // --text: git must not hide the added lines of a file it thinks is binary (for example, one that contains a NUL byte).
     Object.assign(file, parseHunkLines(git(["diff", "-U0", "--no-renames", "--text", range, "--", path])));
-    const needsContent = file.status !== "D" && (isCodeFile(path, rules) || (file.status === "A" && rules.pagePath.test(path)));
+    const needsContent = file.status !== "D" && !special && (isCodeFile(path, rules) || (file.status === "A" && rules.pagePath.test(path)));
     if (needsContent) file.content = String(git(["show", `${head}:${path}`]));
     return file;
   });

@@ -170,24 +170,15 @@ function buildBaseSite(base, head, log) {
       log(`Cleaned up the temporary folder ${dir}. If \`git worktree list\` still shows it, run: git worktree prune`);
     }
   };
-  // Ctrl-C during the long install or build must not leave a worktree behind.
-  const onInterrupt = () => {
-    cleanup();
-    process.exit(130);
-  };
-  process.once("SIGINT", onInterrupt);
-  process.once("SIGTERM", onInterrupt);
   log(`Building the "before" site from ${mergeBase.slice(0, 8)} in a temporary folder (a minute or two)...`);
   try {
     realGit(["worktree", "add", "--detach", dir, mergeBase]);
     execFileSync("npm", ["ci", "--no-audit", "--no-fund"], { cwd: dir, stdio: "inherit" });
     execFileSync("npm", ["run", "build"], { cwd: dir, stdio: "inherit" });
   } catch (error) {
+    // Also reached by Ctrl-C: the install or build child dies, execFileSync throws, and the temporary folder is removed.
     cleanup();
     throw error;
-  } finally {
-    process.off("SIGINT", onInterrupt);
-    process.off("SIGTERM", onInterrupt);
   }
   return { outDir: join(dir, "out"), cleanup };
 }

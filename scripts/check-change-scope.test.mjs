@@ -524,7 +524,7 @@ test("a file that could not be read is tier 3, and deleting routes.ts or nav.ts 
 
 const pageBypasses = [
   ["a same-line import after a statement", 'export const a=1; import {execSync} from "node:child_process";\n', "node:child_process"],
-  ["a leading semicolon import", ';import "node:child_process";\n', "EmptyStatement"],
+  ["a leading semicolon import", ';import "node:child_process";\n', "node:child_process"],
   ["an import without spaces", 'import{execSync}from"node:child_process";\n', "node:child_process"],
   ["a re-export without spaces", 'export*from"../../../../worker/contact";\n', "ExportDeclaration"],
   ["import = require", 'import x = require("child_process");\n', "ImportEqualsDeclaration"],
@@ -539,11 +539,11 @@ const pageBypasses = [
   ["setTimeout with a string", 'const t = setTimeout("code", 1);\n', "setTimeout"],
   ["a top-level call", 'console.log("x");\n', "ExpressionStatement"],
   ["a class", "class A {}\n", "ClassDeclaration"],
-  ["a spaced script tag", goodPage.replace("<Container>", '< script src="x" /><Container>'), "<script>"],
-  ["a capitalised Script tag", goodPage.replace("<Container>", '<Script src="x" /><Container>'), "<Script>"],
-  ["a form", goodPage.replace("<Container>", '<form action="/x"><Container>').replace("</Container>", "</Container></form>"), "<form>"],
-  ["a javascript: link", goodPage.replace("<Container>", '<a href="javascript:alert(1)">x</a><Container>'), "javascript:"],
-  ["a data: link", goodPage.replace("<Container>", '<a href="data:text/html;base64,AAAA">x</a><Container>'), "data:"],
+  ["a spaced script tag", goodPage.replace("<Container>", '<Container>< script src="x" />'), "<script>"],
+  ["a capitalised Script tag", goodPage.replace("<Container>", '<Container><Script src="x" />'), "<Script>"],
+  ["a form", goodPage.replace("<Container>", '<Container><form action="/x"></form>'), "<form>"],
+  ["a javascript: link", goodPage.replace("<Container>", '<Container><a href="javascript:alert(1)">x</a>'), "javascript:"],
+  ["a data: link", goodPage.replace("<Container>", '<Container><a href="data:text/html;base64,AAAA">x</a>'), "data:"],
 ];
 for (const [name, extra, hint] of pageBypasses) {
   test(`a new page with ${name} is tier 3`, () => {
@@ -553,6 +553,77 @@ for (const [name, extra, hint] of pageBypasses) {
     assert.ok(result.outside[0].reason.includes(hint), `reason "${result.outside[0].reason}" should mention "${hint}"`);
   });
 }
+
+// The page check is an allowlist grammar, so a danger nobody listed is still rejected (re-review of C2).
+const pageWith = (body) => `import { pageMetadata } from "@/lib/metadata";
+import { Container } from "@/components/hl/Container";
+export const metadata = pageMetadata({ title: "x", path: "/faq" });
+${body}
+`;
+const grammarBypasses = [
+  ["a constructor chain through a variable key", 'const k = "con"+"structor";\nexport default function P() { const v = [][k][k]("return process")(); return <Container>{v}</Container>; }'],
+  ["a computed key spread into JSX", 'export default function P() { const o = {["dangerously"+"SetInnerHTML"]: {__html: "<script>alert(1)</script>"}}; return <div {...o} />; }'],
+  ["a JSX spread of plain props", "export default function P(props) { return <div {...props} />; }"],
+  ["a built javascript: URL", 'export default function P() { return <a href={"java"+"script:alert(1)"}>x</a>; }'],
+  ["getPrototypeOf on an async function", 'const k = "con"+"structor";\nexport default function P() { const F = Object.getPrototypeOf(async function () {})[k]; return <Container>{F}</Container>; }'],
+  ["an arrow function outside a callback", "const f = () => 1;\nexport default function P() { return <Container />; }"],
+  ["an async default function", "export default async function P() { return <Container />; }"],
+  ["a template with a substitution", "const t = `a${b}`;\nexport default function P() { return <Container />; }"],
+  ["new", "const d = new Date();\nexport default function P() { return <Container />; }"],
+  ["an if statement", "export default function P() { if (x) { return null; } return <Container />; }"],
+  ["an unknown lowercase tag", "export default function P() { return <Container><marquee>x</marquee></Container>; }"],
+  ["a component that is not imported", "export default function P() { return <Evil />; }"],
+  ["assignment", "export default function P() { let a = 1; a = 2; return <Container />; }"],
+  ["a computed key in an object", 'const o = { ["a" + "b"]: 1 };\nexport default function P() { return <Container />; }'],
+  ["a spread child", "export default function P() { return <Container>{...x}</Container>; }"],
+  ["a syntax error", "export default function P() { return <Container>; }"],
+  ["a number index on a string-keyed lookup", 'export default function P() { return <Container>{obj["a" + "b"]}</Container>; }'],
+];
+for (const [name, body] of grammarBypasses) {
+  test(`a new page with ${name} is tier 3`, () => {
+    const result = run([newPage(pageWith(body))], components);
+    assert.equal(result.tier, 3, body);
+  });
+}
+
+test("a new page built from JSX, content values, imported helpers and callbacks is tier 1", () => {
+  const body = `import { faqHero, faqItems } from "@/content/faq";
+import { bookCallHref } from "@/components/hl/Container";
+export default function P() {
+  const first = faqItems[0];
+  const shown = faqItems.filter((item) => item.show).map(({ question, answer }, index) => (
+    <details key={index}><summary>{question}</summary><p>{answer}</p></details>
+  ));
+  return (
+    <Container>
+      <h1 className="font-ui">{faqHero.title}</h1>
+      <>{shown}</>
+      {first ? <a href={bookCallHref()}>Book</a> : null}
+      <img src={faqHero.image} alt={faqHero.alt} />
+    </Container>
+  );
+}`;
+  assert.equal(run([newPage(pageWith(body))], components).tier, 1);
+});
+
+test("calling a helper declared in the same page is fine, because its body is held to the same grammar", () => {
+  const body = "function label(text) { return text; }\nexport default function P() { return <Container>{label(\"x\")}</Container>; }";
+  assert.equal(run([newPage(pageWith(body))], components).tier, 1);
+});
+
+test("content files with await using, using, a syntax error, a computed key or a raw-HTML key are tier 3; a stray ; is fine", () => {
+  for (const content of [
+    "export await using a = x;\n",
+    "using a = x;\n",
+    "export const a = ;\n",
+    'export const a = { ["x" + "y"]: 1 };\n',
+    "export const a = { dangerouslySetInnerHTML: { __html: 'x' } };\n",
+    "export const a = { __proto__: b };\n",
+  ]) {
+    assert.equal(run([file("src/content/home.ts", "M", { content })]).tier, 3, content);
+  }
+  assert.equal(run([file("src/content/home.ts", "M", { content: "export const a = 1;;\n" })]).tier, 1);
+});
 
 test("a page that uses imported helpers, map and JSX is still tier 1", () => {
   const page = goodPage.replace("<PageHero", '{["a", "b"].map((x) => <p key={x}>{x}</p>)}\n      <PageHero');
@@ -686,6 +757,20 @@ test("real git: a file turned into a symlink is tier 3", () => {
   });
   assert.equal(code, 1, report);
   assert.match(report, /symbolic links/);
+});
+
+test("real git: a submodule (gitlink) at a content path is tier 3 and does not crash the check", () => {
+  const { code, report } = inRepo(({ dir }) => {
+    const nested = join(dir, "src/content/sub.ts");
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(join(nested, "a.txt"), "x");
+    const inner = gitIn(nested);
+    inner(["init", "-q", "-b", "main"]);
+    inner(["add", "-A"]);
+    inner(["-c", "user.email=t@example.com", "-c", "user.name=Test", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "inner"]);
+  });
+  assert.equal(code, 1, report);
+  assert.match(report, /submodules/);
 });
 
 test("real git: code added to a content file, a bad image and a bad new page all fail", () => {

@@ -59,12 +59,24 @@ function dataProblem(node, rules) {
         if (ts.isShorthandPropertyAssignment(prop)) return dataProblem(prop.name, rules);
         if (ts.isSpreadAssignment(prop)) return dataProblem(prop.expression, rules);
         if (!ts.isPropertyAssignment(prop)) return `has a method or accessor (${kindName(prop)})`;
-        const key = ts.isComputedPropertyName(prop.name) ? dataProblem(prop.name.expression, rules) : null;
-        return key ?? dataProblem(prop.initializer, rules);
+        return keyProblem(prop.name, rules) ?? dataProblem(prop.initializer, rules);
       });
     default:
       return `uses ${kindName(node)}, which is code, not data`;
   }
+}
+
+/** An object key: a name, string or number, never computed, and never one that reaches the prototype chain or raw HTML. */
+function keyProblem(name, rules) {
+  if (ts.isComputedPropertyName(name)) return "uses a computed property name";
+  const text = ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name) ? name.text : null;
+  if (text === null) return `uses a property name of kind ${kindName(name)}`;
+  return rules.denyProperties.includes(text) || rules.denyIdentifiers.includes(text) ? `uses the property name ${text}` : null;
+}
+
+/** Why the parser found a syntax error, or null. The build uses a different parser, so tolerated errors could be read differently. */
+function syntaxProblem(source) {
+  return source.parseDiagnostics?.length > 0 ? "has a syntax error" : null;
 }
 
 function firstProblem(nodes, check) {
@@ -76,6 +88,7 @@ function firstProblem(nodes, check) {
 }
 
 function contentStatementProblem(statement, rules) {
+  if (ts.isEmptyStatement(statement)) return null;
   if (ts.isImportDeclaration(statement)) {
     if (isTypeOnlyImport(statement) || contentImportAllowed(specifierOf(statement), rules)) return null;
     return `imports ${specifierOf(statement)}, which a content file may not import`;
@@ -85,7 +98,8 @@ function contentStatementProblem(statement, rules) {
     return statement.isTypeOnly || !statement.moduleSpecifier ? null : `re-exports from ${specifierOf(statement)}`;
   }
   if (ts.isVariableStatement(statement)) {
-    if (!(statement.declarationList.flags & ts.NodeFlags.Const)) return "declares a variable that is not const";
+    const { flags } = statement.declarationList;
+    if (!(flags & ts.NodeFlags.Const) || flags & ts.NodeFlags.Using) return "declares a variable that is not a plain const";
     return firstProblem(statement.declarationList.declarations, (d) => {
       if (!ts.isIdentifier(d.name)) return "takes a value apart (destructuring)";
       return d.initializer ? dataProblem(d.initializer, rules) : null;
@@ -98,7 +112,7 @@ function contentStatementProblem(statement, rules) {
 export function contentModuleProblem(text, rules = defaultRules) {
   if (text.includes("\0")) return "contains a binary (NUL) byte";
   const source = ts.createSourceFile("module.ts", text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
-  return firstProblem(source.statements, (s) => contentStatementProblem(s, rules));
+  return syntaxProblem(source) ?? firstProblem(source.statements, (s) => contentStatementProblem(s, rules));
 }
 
 // ---- new pages --------------------------------------------------------------------------------------------------
@@ -139,20 +153,176 @@ function pageNodeProblem(node, rules) {
   return undefined;
 }
 
+// The page grammar is an ALLOWLIST. A denylist of dangerous names can never be completed (a property name built at run
+// time reaches the Function constructor without any banned word), so a new page may only be JSX, content values and a few
+// call forms; everything else is rejected. pageNodeProblem above stays first because it gives readable reasons.
+const SAFE_TAGS = new Set([
+  "a", "abbr", "address", "article", "aside", "b", "blockquote", "br", "caption", "cite", "code", "dd", "details", "div", "dl", "dt", "em",
+  "figcaption", "figure", "footer", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "i", "img", "li", "main", "mark", "nav", "ol", "p",
+  "pre", "q", "s", "section", "small", "span", "strong", "sub", "summary", "sup", "table", "tbody", "td", "tfoot", "th", "thead", "time", "tr", "u", "ul",
+]);
+const ARRAY_METHODS = new Set(["map", "filter", "flatMap", "slice", "join", "concat"]);
+const CALLBACK_METHODS = new Set(["map", "filter", "flatMap"]);
+const URL_ATTRIBUTES = new Set(["href", "src", "action", "formAction", "srcSet", "poster", "data", "xlinkHref"]);
+const OPERATORS = new Set([K.PlusToken, K.MinusToken, K.AmpersandAmpersandToken, K.BarBarToken, K.QuestionQuestionToken, K.EqualsEqualsEqualsToken, K.ExclamationEqualsEqualsToken, K.LessThanToken, K.GreaterThanToken, K.LessThanEqualsToken, K.GreaterThanEqualsToken]);
+
+function bindingNames(node, names = []) {
+  if (ts.isIdentifier(node)) names.push(node.text);
+  else if (ts.isObjectBindingPattern(node) || ts.isArrayBindingPattern(node)) {
+    for (const element of node.elements) if (ts.isBindingElement(element)) bindingNames(element.name, names);
+  }
+  return names;
+}
+
+function bindingProblem(name, rules) {
+  if (ts.isIdentifier(name)) return null;
+  if (!ts.isObjectBindingPattern(name) && !ts.isArrayBindingPattern(name)) return `uses ${kindName(name)}`;
+  return firstProblem(name.elements.filter(ts.isBindingElement), (element) => {
+    if (element.initializer) return "a new page may not use default values when taking values apart";
+    if (element.propertyName && !ts.isIdentifier(element.propertyName)) return "a new page may not use a computed name when taking values apart";
+    return bindingProblem(element.name, rules);
+  });
+}
+
+function pageGrammarProblem(source, rules) {
+  const names = new Set();
+  for (const statement of source.statements) {
+    if (ts.isImportDeclaration(statement) && statement.importClause) {
+      const { name, namedBindings } = statement.importClause;
+      if (name) names.add(name.text);
+      if (namedBindings && ts.isNamespaceImport(namedBindings)) names.add(namedBindings.name.text);
+      if (namedBindings && ts.isNamedImports(namedBindings)) for (const element of namedBindings.elements) names.add(element.name.text);
+    } else if (ts.isFunctionDeclaration(statement) && statement.name) names.add(statement.name.text);
+  }
+  const imported = new Set(names);
+  for (const statement of source.statements) {
+    if (ts.isImportDeclaration(statement)) continue;
+    for (const declared of ts.isVariableStatement(statement) ? statement.declarationList.declarations.flatMap((d) => bindingNames(d.name)) : []) names.add(declared);
+  }
+
+  const bad = (what) => `a new page may not use ${what}`;
+  const expr = (node, callbackOk = false) => {
+    switch (node.kind) {
+      case K.StringLiteral: case K.NoSubstitutionTemplateLiteral: case K.NumericLiteral: case K.BigIntLiteral: case K.TrueKeyword: case K.FalseKeyword: case K.NullKeyword:
+        return null;
+      case K.Identifier:
+        return null;
+      case K.PropertyAccessExpression:
+        return expr(node.expression);
+      case K.ElementAccessExpression:
+        return ts.isNumericLiteral(node.argumentExpression) ? expr(node.expression) : bad("square brackets with anything but a number");
+      case K.ArrayLiteralExpression:
+        return firstProblem(node.elements, (element) => expr(ts.isSpreadElement(element) ? element.expression : element));
+      case K.ObjectLiteralExpression:
+        return firstProblem(node.properties, (prop) => {
+          if (ts.isShorthandPropertyAssignment(prop)) return null;
+          if (ts.isSpreadAssignment(prop)) return expr(prop.expression);
+          if (!ts.isPropertyAssignment(prop)) return bad("a method or accessor in an object");
+          return keyProblem(prop.name, rules) ?? expr(prop.initializer);
+        });
+      case K.ParenthesizedExpression: case K.AsExpression: case K.SatisfiesExpression: case K.NonNullExpression: case K.TypeAssertionExpression:
+        return expr(node.expression);
+      case K.PrefixUnaryExpression:
+        return node.operator === K.ExclamationToken || node.operator === K.MinusToken ? expr(node.operand) : bad("that operator");
+      case K.BinaryExpression:
+        return OPERATORS.has(node.operatorToken.kind) ? firstProblem([node.left, node.right], (n) => expr(n)) : bad(`the operator ${node.operatorToken.getText()}`);
+      case K.ConditionalExpression:
+        return firstProblem([node.condition, node.whenTrue, node.whenFalse], (n) => expr(n));
+      case K.CallExpression: {
+        const callee = node.expression;
+        let allowCallbacks = false;
+        if (ts.isIdentifier(callee)) {
+          if (!imported.has(callee.text)) return bad(`a call to ${callee.text} (pages may call only imported or local helpers and ${[...ARRAY_METHODS].join("/")})`);
+        } else if (ts.isPropertyAccessExpression(callee) && ARRAY_METHODS.has(callee.name.text)) {
+          const receiver = expr(callee.expression);
+          if (receiver) return receiver;
+          allowCallbacks = CALLBACK_METHODS.has(callee.name.text);
+        } else return bad("that kind of call");
+        return firstProblem(node.arguments, (argument) => expr(argument, allowCallbacks));
+      }
+      case K.ArrowFunction: {
+        if (!callbackOk) return bad("a function here (only .map/.filter callbacks may be functions)");
+        if (node.modifiers?.length) return bad("an async function");
+        const parameters = firstProblem(node.parameters, (p) => (p.initializer ? bad("default values in parameters") : bindingProblem(p.name, rules)));
+        return parameters ?? (ts.isBlock(node.body) ? statements(node.body.statements) : expr(node.body));
+      }
+      case K.JsxElement: case K.JsxSelfClosingElement: case K.JsxFragment:
+        return jsx(node);
+      default:
+        return bad(`${kindName(node)}`);
+    }
+  };
+
+  const statements = (list) =>
+    firstProblem(list, (statement) => {
+      if (ts.isReturnStatement(statement)) return statement.expression ? expr(statement.expression) : null;
+      if (ts.isEmptyStatement(statement)) return null;
+      if (ts.isVariableStatement(statement)) {
+        if (!(statement.declarationList.flags & ts.NodeFlags.Const) || statement.declarationList.flags & ts.NodeFlags.Using) return bad("a variable that is not a plain const");
+        return firstProblem(statement.declarationList.declarations, (d) => bindingProblem(d.name, rules) ?? (d.initializer ? expr(d.initializer) : null));
+      }
+      return bad(`${kindName(statement)} inside a function`);
+    });
+
+  const jsxTag = (tag) => {
+    if (ts.isIdentifier(tag)) return /^[a-z]/.test(tag.text) ? (SAFE_TAGS.has(tag.text) ? null : bad(`the <${tag.text}> tag`)) : names.has(tag.text) ? null : bad(`the <${tag.text}> component (it is not imported)`);
+    if (ts.isPropertyAccessExpression(tag)) return jsxTag(tag.expression);
+    return bad("that kind of tag");
+  };
+  const jsxAttribute = (attribute) => {
+    if (ts.isJsxSpreadAttribute(attribute)) return bad("spread attributes ({...props})");
+    if (!ts.isIdentifier(attribute.name)) return bad("a namespaced attribute");
+    const { initializer } = attribute;
+    if (!initializer) return null;
+    if (ts.isStringLiteral(initializer)) return null;
+    if (!ts.isJsxExpression(initializer) || !initializer.expression) return bad("that attribute value");
+    if (URL_ATTRIBUTES.has(attribute.name.text) && !(ts.isStringLiteral(initializer.expression) || ts.isIdentifier(initializer.expression) || ts.isPropertyAccessExpression(initializer.expression) || ts.isCallExpression(initializer.expression))) {
+      return bad(`a computed value for ${attribute.name.text}`);
+    }
+    return expr(initializer.expression);
+  };
+  const jsxChild = (child) => {
+    if (ts.isJsxText(child)) return null;
+    if (ts.isJsxExpression(child)) return child.expression && !child.dotDotDotToken ? expr(child.expression) : child.dotDotDotToken ? bad("spread children") : null;
+    return jsx(child);
+  };
+  const jsx = (node) => {
+    if (ts.isJsxFragment(node)) return firstProblem(node.children, jsxChild);
+    const opening = ts.isJsxElement(node) ? node.openingElement : node;
+    const own = jsxTag(opening.tagName) ?? firstProblem(opening.attributes.properties, jsxAttribute);
+    return own ?? (ts.isJsxElement(node) ? firstProblem(node.children, jsxChild) : null);
+  };
+
+  const functionProblem = (fn) => {
+    if (fn.asteriskToken || fn.modifiers?.some((m) => m.kind === K.AsyncKeyword)) return bad("an async or generator function");
+    const parameters = firstProblem(fn.parameters, (p) => (p.initializer ? bad("default values in parameters") : bindingProblem(p.name, rules)));
+    return parameters ?? (fn.body ? statements(fn.body.statements) : null);
+  };
+
+  return firstProblem(source.statements, (statement) => {
+    if (ts.isVariableStatement(statement)) return statements([statement]);
+    if (ts.isFunctionDeclaration(statement)) return functionProblem(statement);
+    if (ts.isExportAssignment(statement)) return expr(statement.expression);
+    return null;
+  });
+}
+
 /** Why `text` is not an acceptable new page, or null when it is. `existsAtBase` says whether a component file exists. */
 export function pageProblem(text, existsAtBase, rules = defaultRules) {
   if (text.includes("\0")) return "contains a binary (NUL) byte";
   const source = ts.createSourceFile("page.tsx", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const syntax = syntaxProblem(source);
+  if (syntax) return `a new page ${syntax}`;
   for (const statement of source.statements) {
     if (ts.isImportDeclaration(statement)) {
       const problem = pageImportProblem(specifierOf(statement), existsAtBase, rules);
       if (problem) return problem;
-    } else if (ts.isExportDeclaration(statement) && !statement.moduleSpecifier) {
+    } else if ((ts.isExportDeclaration(statement) && !statement.moduleSpecifier) || ts.isEmptyStatement(statement)) {
       continue;
     } else if (!PAGE_STATEMENTS.some((is) => is(statement))) {
       return `a new page contains ${kindName(statement)} at the top level, which is not allowed`;
     }
   }
   const visit = (node) => pageNodeProblem(node, rules) ?? ts.forEachChild(node, visit);
-  return visit(source) ?? null;
+  return visit(source) ?? pageGrammarProblem(source, rules) ?? null;
 }
