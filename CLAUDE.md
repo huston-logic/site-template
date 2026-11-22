@@ -145,6 +145,18 @@ are still open and unmerged, update it only in the first PR and one closing PR s
   Compare builds against the style guide's first-screen spec at 1440 × 900 and 390 × 844.
 - If a source and the code disagree, or a rule isn't clearly covered by either, tell me.
 
+## Status and source of truth
+- Business priorities live in the Google Doc "00 Huston Logic: Source of Truth". This repo's status lives in docs/STATUS.md, and the master links to it.
+- Read docs/STATUS.md before starting a run.
+- At the end of every run, update docs/STATUS.md in place:
+  - Current state: what's live, what's merged, what's open
+  - Changelog: one dated line per batch, with PR numbers
+  - Needs Grant: steps only Grant can do (secrets, deploys, approvals), in order
+  - For the master: any change to scope, product or a decision, one line each
+- Don't create dated handoff files. Update STATUS.md instead.
+- In an autonomous run, the timing rule under "Autonomous runs" still decides which PR carries the STATUS.md update
+  (first PR and one closing PR while PRs are open).
+
 ## Secrets
 - No secrets in code, ever. `NEXT_PUBLIC_*` variables are public, so nothing
   sensitive goes there either.
