@@ -6,20 +6,37 @@
 //
 // --strict (the default) exits 1 on a tier 3 file, a bad image or a new [[placeholder]]. --report-only prints the same
 // report and always exits 0. --ci reads GitHub's own variables: the base comes from GITHUB_BASE_REF, and it is strict
-// only when the pull request's branch (GITHUB_HEAD_REF) starts with "change/". Exit codes: 0 pass, 1 fail, 2 error.
+// only when the pull request's branch (GITHUB_HEAD_REF) starts with "change/" (any capitalisation). Exit codes: 0 pass,
+// 1 fail, 2 could not run.
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { rules as defaultRules } from "./change-scope-rules.mjs";
+import { contentModuleProblem, pageProblem } from "./change-scope-code.mjs";
+
+// ---- small helpers ----------------------------------------------------------------------------------------------
+
+/** Replaces control characters (newlines included) so a crafted file name or line cannot forge output lines. */
+export const safe = (text) => String(text).replace(/[\u0000-\u001f\u007f]/g, "?");
+
+/** A markdown code fence longer than any run of backticks inside the text. */
+export function fence(text, info = "text") {
+  const longest = Math.max(0, ...(String(text).match(/`+/g) ?? []).map((run) => run.length));
+  const ticks = "`".repeat(Math.max(3, longest + 1));
+  return `${ticks}${info}\n${text}\n${ticks}`;
+}
+
+const SPECIAL_MODES = ["120000", "160000"]; // symbolic link, submodule
 
 // ---- parsing git output ---------------------------------------------------------------------------------------
 
-/** Parses `git diff --name-status -z --no-renames`: "M\0path\0A\0path\0". */
-export function parseNameStatus(raw) {
+/** Parses `git diff --raw -z --no-renames`: ":100644 100644 sha sha M\0path\0". */
+export function parseRawDiff(raw) {
   const tokens = String(raw).split("\0");
   const entries = [];
   for (let i = 0; i + 1 < tokens.length && tokens[i] !== ""; i += 2) {
-    entries.push({ status: tokens[i][0], path: tokens[i + 1] });
+    const [oldMode, newMode, , , status] = tokens[i].replace(/^:/, "").split(" ");
+    entries.push({ status: status[0], path: tokens[i + 1], oldMode, newMode });
   }
   return entries;
 }
@@ -40,24 +57,29 @@ export function parseHunkLines(patch) {
 
 // ---- reading the change from git ------------------------------------------------------------------------------
 
+const isCodeFile = (path, rules) => (rules.contentFile.test(path) && !rules.contentWiring.includes(path)) || rules.tier1Files.includes(path);
+
 /**
  * Reads a change from git. `git` is a function taking an argument array and returning a Buffer, so tests can fake it.
  * Returns { files, existsAtBase } for evaluateChange.
  */
 export function gatherChange({ base, head, git, rules = defaultRules }) {
   const range = `${base}...${head}`;
-  const files = parseNameStatus(git(["diff", "--name-status", "-z", "--no-renames", range])).map(({ status, path }) => {
-    const file = { path, status: status === "A" || status === "D" ? status : "M", added: [], removed: [] };
+  const files = parseRawDiff(git(["diff", "--raw", "-z", "--no-renames", range])).map(({ status, path, newMode }) => {
+    const file = { path, status: ["A", "D", "T"].includes(status) ? status : "M", mode: newMode, added: [], removed: [] };
     if (path.startsWith(rules.imageDir)) {
       if (file.status !== "D") {
         const bytes = git(["show", `${head}:${path}`]);
         file.size = bytes.length;
         file.head = bytes.subarray(0, 12);
+        file.hasMarkup = /<script|<svg|<html|<iframe/i.test(bytes.toString("latin1"));
       }
       return file;
     }
-    Object.assign(file, parseHunkLines(git(["diff", "-U0", "--no-renames", range, "--", path])));
-    if (file.status === "A" && rules.pagePath.test(path)) file.content = String(git(["show", `${head}:${path}`]));
+    // --text: git must not hide the added lines of a file it thinks is binary (for example, one that contains a NUL byte).
+    Object.assign(file, parseHunkLines(git(["diff", "-U0", "--no-renames", "--text", range, "--", path])));
+    const needsContent = file.status !== "D" && (isCodeFile(path, rules) || (file.status === "A" && rules.pagePath.test(path)));
+    if (needsContent) file.content = String(git(["show", `${head}:${path}`]));
     return file;
   });
   let mergeBase;
@@ -79,51 +101,47 @@ function tier3Reason(path, rules) {
   return rules.tier3Labels.find(([pattern]) => pattern.test(path))[1];
 }
 
-const IMPORT_PATTERNS = [
-  /^\s*import\s*["']([^"']+)["']/gm,
-  /^\s*(?:import|export)\s+(?:type\s+)?[^"';]*?\bfrom\s*["']([^"']+)["']/gm,
-];
-
-/** A new page is tier 1 only when it is built from what the site already has. Returns { ok } or { ok: false, reason }. */
-function checkNewPage(file, rules, existsAtBase) {
+/** Substring checks run before the parser so the reason names the exact text (and they catch the obvious cases cheaply). */
+function newPageProblem(file, rules, existsAtBase) {
   const { content } = file;
-  if (typeof content !== "string") return { ok: false, reason: "a new page whose contents could not be read" };
+  if (typeof content !== "string") return "a new page whose contents could not be read";
   for (const text of rules.pageForbidden) {
-    if (content.includes(text)) return { ok: false, reason: `a new page may not contain \`${text}\`` };
+    if (content.includes(text)) return `a new page may not contain \`${text}\``;
   }
   for (const text of rules.pageRequires) {
-    if (!content.includes(text)) return { ok: false, reason: `a new page must use \`${text}\` (the shared SEO helper)` };
+    if (!content.includes(text)) return `a new page must use \`${text}\` (the shared SEO helper)`;
   }
-  const { exact, contentPrefix, componentPrefix } = rules.pageImports;
-  for (const spec of IMPORT_PATTERNS.flatMap((pattern) => [...content.matchAll(pattern)].map((m) => m[1]))) {
-    if (exact.includes(spec)) continue;
-    if (spec.startsWith(contentPrefix)) {
-      const target = `src/content/${spec.slice(contentPrefix.length)}.ts`;
-      if (rules.contentFile.test(target) && !rules.contentWiring.includes(target)) continue;
-    } else if (spec.startsWith(componentPrefix)) {
-      const target = `src/components/${spec.slice(componentPrefix.length)}`;
-      if ([".tsx", ".ts", "/index.tsx", "/index.ts"].some((ending) => existsAtBase(target + ending))) continue;
-    }
-    return { ok: false, reason: `a new page imports ${spec}, which is not an existing component, content file or @/lib/metadata` };
-  }
-  return { ok: true };
+  return pageProblem(content, existsAtBase, rules);
 }
 
 function classify(file, rules, existsAtBase) {
   const { path, status } = file;
-  if (rules.tier1Files.includes(path)) return { ok: true };
-  if (rules.contentFile.test(path) && !rules.contentWiring.includes(path)) return { ok: true };
+  if (status === "T" || (status !== "D" && SPECIAL_MODES.includes(file.mode))) {
+    return { ok: false, reason: "symbolic links, submodules and file type changes are not allowed" };
+  }
+  if (isCodeFile(path, rules)) {
+    if (status === "D") {
+      return rules.tier1Files.includes(path) ? { ok: false, reason: "the page list and the menu may be edited, not deleted" } : { ok: true };
+    }
+    if (typeof file.content !== "string") return { ok: false, reason: `the contents of ${path} could not be read` };
+    const problem = contentModuleProblem(file.content, rules);
+    return problem ? { ok: false, reason: `a content file may hold plain data only, but this one ${problem}` } : { ok: true };
+  }
   if (path.startsWith(rules.imageDir)) return { ok: true };
   if (rules.pagePath.test(path)) {
     if (status === "D") return { ok: true };
-    if (status === "A") return checkNewPage(file, rules, existsAtBase);
+    if (status === "A") {
+      const problem = newPageProblem(file, rules, existsAtBase);
+      return problem ? { ok: false, reason: problem } : { ok: true };
+    }
   }
   return { ok: false, reason: tier3Reason(path, rules) };
 }
 
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const snippet = (line) => (line.trim().length > 70 ? `${line.trim().slice(0, 67)}...` : line.trim());
+const snippet = (line) => safe(line.trim().length > 70 ? `${line.trim().slice(0, 67)}...` : line.trim());
 const routeStrings = (lines) => new Set(lines.flatMap((line) => [...line.matchAll(/["'](\/[a-z0-9/-]*)["']/g)].map((m) => m[1])));
+const LINK_PATTERN = /\bhttps?:\/\/\S+|\bjavascript:|\bdata:[a-z]+\/[a-z]/i;
 
 function imageProblems(file, rules) {
   const dot = file.path.lastIndexOf(".");
@@ -138,6 +156,7 @@ function imageProblems(file, rules) {
     (type === "png" && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) ||
     (type === "webp" && bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP");
   if (!matches) problems.push(`the file's contents are not really a ${extension.slice(1)} image (renamed file?)`);
+  if (file.hasMarkup) problems.push("the file contains HTML or SVG markup (a script hidden in an image?)");
   if ((file.size ?? 0) > rules.maxImageBytes) {
     problems.push(`${Math.round(file.size / 1024)} KB is over the ${Math.round(rules.maxImageBytes / 1024)} KB limit`);
   }
@@ -147,13 +166,13 @@ function imageProblems(file, rules) {
 /** The pure core: takes { files, existsAtBase } and returns the verdict. No git, no disk. */
 export function evaluateChange({ files, existsAtBase }, rules = defaultRules) {
   const result = { tier: 1, outside: [], flags: [], imageProblems: [], placeholders: [], fileCount: files.length, lineCount: 0 };
-  const flag = (kind, path, detail) => result.flags.push({ kind, path, detail });
-  const schedulerPattern = new RegExp(`https?://(?:[\\w-]+\\.)*(?:${rules.schedulerHosts.map(escapeRegExp).join("|")})\\b`, "i");
+  const flag = (kind, path, detail) => result.flags.push({ kind, path: safe(path), detail: safe(detail) });
+  const schedulerPattern = new RegExp(`(?<![\\w.-])(?:https?:\\/\\/|\\/\\/)?(?:[\\w-]+\\.)*(?:${rules.schedulerHosts.map(escapeRegExp).join("|")})\\b`, "i");
   const addedRoutes = routeStrings(files.find((f) => f.path === "src/lib/routes.ts")?.added ?? []);
 
   for (const file of files) {
     const verdict = classify(file, rules, existsAtBase);
-    if (!verdict.ok) result.outside.push({ path: file.path, reason: verdict.reason });
+    if (!verdict.ok) result.outside.push({ path: safe(file.path), reason: safe(verdict.reason) });
 
     const page = rules.pagePath.exec(file.path);
     if (page && file.status === "D") flag("removed-page", file.path, `the page /${page[1]} was deleted`);
@@ -168,7 +187,7 @@ export function evaluateChange({ files, existsAtBase }, rules = defaultRules) {
     if (rules.sensitiveFiles.includes(file.path)) flag("sensitive-file", file.path, "legal text or the contact form's questions changed");
 
     if (file.path.startsWith(rules.imageDir)) {
-      if (file.status !== "D") for (const reason of imageProblems(file, rules)) result.imageProblems.push({ path: file.path, reason });
+      if (file.status !== "D") for (const reason of imageProblems(file, rules)) result.imageProblems.push({ path: safe(file.path), reason });
       continue;
     }
     result.lineCount += file.added.length + file.removed.length;
@@ -177,12 +196,21 @@ export function evaluateChange({ files, existsAtBase }, rules = defaultRules) {
         if (rules.dollarPatterns.some((p) => p.test(line))) flag("dollar", file.path, `a dollar amount is ${side}: ${snippet(line)}`);
         if (rules.contactPatterns.some((p) => p.test(line)) || schedulerPattern.test(line)) {
           flag("contact", file.path, `a contact detail or booking link is ${side}: ${snippet(line)}`);
+        } else if (side === "added" && LINK_PATTERN.test(line)) {
+          flag("link", file.path, `a new link is added: ${snippet(line)}`);
         }
       }
     }
     if (rules.placeholderDirs.some((dir) => file.path.startsWith(dir)) && rules.placeholderFiles.test(file.path) && file.status !== "D") {
+      // A placeholder that only moved or sat on an edited line is not new: cancel each added one against a removed one.
+      const removedCounts = new Map();
+      for (const line of file.removed) for (const m of line.matchAll(rules.placeholderPattern)) removedCounts.set(m[0], (removedCounts.get(m[0]) ?? 0) + 1);
       for (const line of file.added) {
-        for (const match of line.matchAll(rules.placeholderPattern)) result.placeholders.push({ path: file.path, text: match[0] });
+        for (const match of line.matchAll(rules.placeholderPattern)) {
+          const left = removedCounts.get(match[0]) ?? 0;
+          if (left > 0) removedCounts.set(match[0], left - 1);
+          else result.placeholders.push({ path: safe(file.path), text: safe(match[0]) });
+        }
       }
     }
   }
@@ -210,7 +238,7 @@ const MAX_LISTED = 20;
 const list = (items) => [...items.slice(0, MAX_LISTED), ...(items.length > MAX_LISTED ? [`  ...and ${items.length - MAX_LISTED} more`] : [])];
 
 export function formatReport(result, { mode = "strict", base, head } = {}) {
-  const lines = [`Change scope check${base ? ` (${base}...${head})` : ""}`, ""];
+  const lines = [`Change scope check${base ? ` (${safe(base)}...${safe(head)})` : ""}`, ""];
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
   if (result.tier === 1) {
     lines.push(`Tier 1: this change only touches content (${plural(result.fileCount, "file")}). A client can ask for this.`);
@@ -257,7 +285,7 @@ export function parseArgs(argv, env) {
     const arg = argv[i];
     if (arg === "--base" || arg === "--head") {
       const value = argv[i + 1];
-      if (value === undefined || value.startsWith("--")) return { error: `${arg} needs a value` };
+      if (value === undefined || value.startsWith("-")) return { error: `${arg} needs a branch or commit name, not an option` };
       if (arg === "--base") base = value;
       else head = value;
       i += 1;
@@ -269,14 +297,16 @@ export function parseArgs(argv, env) {
   if (ci) {
     if (!env.GITHUB_BASE_REF && base === undefined) return { skip: "Change scope check skipped: this is not a pull request, so there is nothing to compare." };
     base ??= `origin/${env.GITHUB_BASE_REF}`;
-    mode ??= (env.GITHUB_HEAD_REF ?? "").startsWith("change/") ? "strict" : "report-only";
+    mode ??= /^change\//i.test(env.GITHUB_HEAD_REF ?? "") ? "strict" : "report-only";
   }
   return { base: base ?? "origin/main", head: head ?? "HEAD", mode: mode ?? "strict" };
 }
 
-export function realGit(args) {
-  return execFileSync("git", ["--literal-pathspecs", ...args], { maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+/** A git runner for a folder (default: the current one). Takes an argument array and returns a Buffer. */
+export function gitIn(cwd) {
+  return (args) => execFileSync("git", ["--literal-pathspecs", ...args], { cwd, maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
 }
+export const realGit = gitIn(undefined);
 
 /** Returns the exit code: 0 pass, 1 fail, 2 could not run. */
 export function main({ argv, env = process.env, git = realGit, out = console.log }) {
@@ -293,13 +323,13 @@ export function main({ argv, env = process.env, git = realGit, out = console.log
   try {
     change = gatherChange({ base: args.base, head: args.head, git });
   } catch (error) {
-    out(`Change scope check could not read the git history: ${error.stderr?.toString().trim() || error.message}`);
+    out(`Change scope check could not read the git history: ${safe(error.stderr?.toString().trim() || error.message)}`);
     return 2;
   }
   const result = evaluateChange(change, defaultRules);
   const text = formatReport(result, args);
   out(text);
-  if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `\`\`\`text\n${text}\n\`\`\`\n`);
+  if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${fence(text)}\n`);
   return decide(result, args.mode).ok ? 0 : 1;
 }
 

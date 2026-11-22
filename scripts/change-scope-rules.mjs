@@ -9,8 +9,8 @@
 
 export const rules = {
   // ---- Tier 1 ---------------------------------------------------------------------------------------------------
-  /** Copy modules: src/content/<name>.ts, top level only. */
-  contentFile: /^src\/content\/[^/]+\.ts$/,
+  /** Copy modules: src/content/<name>.ts, top level only, no dots in the name (so *.test.ts and *.d.ts are not copy). */
+  contentFile: /^src\/content\/[A-Za-z0-9_-]+\.ts$/,
   /** Modules inside src/content that are wiring, not copy: they re-export settings, read process.env or feed the Worker. */
   contentWiring: ["src/content/site.ts", "src/content/providers.ts", "src/content/auto-reply.ts"],
   /** Photos live here. Added, changed and deleted files are tier 1, subject to the image rules below. */
@@ -19,8 +19,24 @@ export const rules = {
   tier1Files: ["src/lib/routes.ts", "src/content/nav.ts"],
   /** A brand-new page: exactly src/app/(site)/<name>/page.tsx, one folder deep, lowercase name. */
   pagePath: /^src\/app\/\(site\)\/([a-z0-9-]+)\/page\.tsx$/,
+  /**
+   * Tier 1 .ts files (content modules, routes.ts, nav.ts) are code that runs at build time, so they are parsed and must
+   * be plain data: imports of sibling content modules (or type-only imports), type declarations and `const` values built
+   * from literals, arrays and objects. No calls, functions, classes or other statements.
+   */
   /** What a new page may import: next (for the Metadata type), src/content modules, @/lib/metadata and components that already exist. */
   pageImports: { exact: ["next", "@/lib/metadata"], contentPrefix: "@/content/", componentPrefix: "@/components/" },
+  /** Names no tier 1 file or new page may use. Static analysis is best effort; CodeQL and the preview are the other layers. */
+  denyIdentifiers: [
+    "eval", "Function", "setTimeout", "setInterval", "setImmediate", "queueMicrotask", "require", "process", "globalThis",
+    "global", "window", "self", "document", "navigator", "location", "localStorage", "sessionStorage", "indexedDB", "fetch",
+    "XMLHttpRequest", "WebSocket", "EventSource", "Worker", "SharedWorker", "WebAssembly", "Reflect", "Proxy", "Atomics",
+    "module", "exports", "__dirname", "__filename", "Buffer", "importScripts", "dangerouslySetInnerHTML", "srcDoc",
+  ],
+  /** Property names that reach the Function constructor or the prototype chain. */
+  denyProperties: ["constructor", "__proto__", "prototype"],
+  /** JSX tags a new page may not use. */
+  denyJsxTags: ["script", "Script", "iframe", "object", "embed", "style", "base", "link", "meta", "form"],
   /** A new page must use the shared metadata helper... */
   pageRequires: ["pageMetadata("],
   /** ...and must not contain any of these (client code, raw HTML, network calls, secrets, dynamic code). */
@@ -29,9 +45,9 @@ export const rules = {
   // ---- Flags: the change still passes, but Grant is told -------------------------------------------------------------
   /** Dollar amounts: a $ followed by a digit, or a number followed by USD or dollars. */
   dollarPatterns: [/\$\s?\d/, /\b\d[\d,]*(?:\.\d+)?\s?(?:USD|dollars?)\b/i],
-  /** Contact details: email addresses, mailto:/tel: links, US-style phone numbers. */
-  contactPatterns: [/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/, /\b(?:mailto|tel):/i, /(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/],
-  /** Booking links: a URL on one of these hosts. */
+  /** Contact details: email addresses, mailto:/tel: links, US-style and international (+...) phone numbers. */
+  contactPatterns: [/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/, /\b(?:mailto|tel):/i, /(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/, /\+\d[\d\s().-]{8,}\d/],
+  /** Booking links: a link (with or without https://) on one of these hosts. */
   schedulerHosts: ["calendly.com", "cal.com", "savvycal.com", "tidycal.com", "acuityscheduling.com", "youcanbook.me", "zcal.co", "calendar.app.google"],
   /** Files whose every change is flagged (legal text and the contact form's questions). */
   sensitiveFiles: ["src/content/privacy.ts", "src/content/contact-fields.ts"],

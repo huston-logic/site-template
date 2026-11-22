@@ -9,11 +9,11 @@
 // Playwright is already a dev dependency, so nothing new is installed; if its Chromium is missing it falls back to the
 // installed Google Chrome. Screenshots are informational: this script never blocks a merge (scripts/check-change-scope.mjs does).
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, posix, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { decide, evaluateChange, formatReport, gatherChange, parseArgs, realGit } from "./check-change-scope.mjs";
+import { decide, evaluateChange, fence, formatReport, gatherChange, parseArgs, realGit, safe } from "./check-change-scope.mjs";
 import { rules } from "./change-scope-rules.mjs";
 import { startPreviewServer } from "./preview.mjs";
 
@@ -120,7 +120,7 @@ export function extractOptions(argv) {
 
 export function buildReportMarkdown({ scopeText, base, head, pages, viewports }) {
   const sizes = viewports.map((v) => `${v.name} ${v.width} × ${v.height}`).join(", ");
-  const lines = ["# Change report", "", `Compared ${base}...${head}.`, "", "## Scope check", "", "```text", scopeText, "```", ""];
+  const lines = ["# Change report", "", `Compared ${safe(base)}...${safe(head)}.`, "", "## Scope check", "", fence(scopeText), ""];
   if (pages.length === 0) return [...lines, "## Pages", "", "No visible page is affected by this change, so there are no screenshots.", ""].join("\n");
   lines.push(`## Pages (${pages.length})`, "", `Screenshots at ${sizes}.`, "");
   for (const page of pages) {
@@ -158,13 +158,25 @@ function readRoutes() {
 function buildBaseSite(base, head, log) {
   const mergeBase = String(realGit(["merge-base", base, head])).trim();
   const dir = mkdtempSync(join(tmpdir(), "change-report-base-"));
+  let cleaned = false;
   const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
     try {
       realGit(["worktree", "remove", "--force", dir]);
     } catch {
-      log(`Could not remove the temporary folder ${dir}. Remove it with: git worktree remove --force ${dir}`);
+      // git never registered the folder (for example `worktree add` failed): remove the empty folder ourselves.
+      rmSync(dir, { recursive: true, force: true });
+      log(`Cleaned up the temporary folder ${dir}. If \`git worktree list\` still shows it, run: git worktree prune`);
     }
   };
+  // Ctrl-C during the long install or build must not leave a worktree behind.
+  const onInterrupt = () => {
+    cleanup();
+    process.exit(130);
+  };
+  process.once("SIGINT", onInterrupt);
+  process.once("SIGTERM", onInterrupt);
   log(`Building the "before" site from ${mergeBase.slice(0, 8)} in a temporary folder (a minute or two)...`);
   try {
     realGit(["worktree", "add", "--detach", dir, mergeBase]);
@@ -173,6 +185,9 @@ function buildBaseSite(base, head, log) {
   } catch (error) {
     cleanup();
     throw error;
+  } finally {
+    process.off("SIGINT", onInterrupt);
+    process.off("SIGTERM", onInterrupt);
   }
   return { outDir: join(dir, "out"), cleanup };
 }
@@ -190,11 +205,15 @@ async function openBrowser() {
   }
 }
 
-/** Screenshots every page on both sides at both widths. Mutates a page's before/after to false when the page is not there. */
+/** Screenshots every page on both sides at both widths. Sets a page's before/after to false when the page is not there. */
 async function takeScreenshots({ beforeDir, afterDir, pages, outDir, log }) {
-  const servers = { before: await startPreviewServer({ outDir: beforeDir, port: 0 }), after: await startPreviewServer({ outDir: afterDir, port: 0 }) };
-  const browser = await openBrowser();
+  const servers = {};
+  let browser;
   try {
+    // Everything that is opened is closed in the finally below, even when a later step (the browser) fails to start.
+    servers.before = await startPreviewServer({ outDir: beforeDir, port: 0 });
+    servers.after = await startPreviewServer({ outDir: afterDir, port: 0 });
+    browser = await openBrowser();
     for (const viewport of VIEWPORTS) {
       const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, reducedMotion: "reduce", hasTouch: viewport.name === "phone" });
       for (const side of ["before", "after"]) {
@@ -215,8 +234,8 @@ async function takeScreenshots({ beforeDir, afterDir, pages, outDir, log }) {
       await context.close();
     }
   } finally {
-    await browser.close();
-    await Promise.all([servers.before.close(), servers.after.close()]);
+    await browser?.close();
+    await Promise.all(Object.values(servers).map((server) => server.close()));
   }
 }
 
@@ -240,7 +259,14 @@ export async function main({ argv, env = process.env, log = console.log }) {
     return 2;
   }
 
-  const change = gatherChange({ base: args.base, head: args.head, git: realGit });
+  let change;
+  try {
+    change = gatherChange({ base: args.base, head: args.head, git: realGit });
+  } catch (error) {
+    log(`Change report could not read the git history: ${safe(error.stderr?.toString().trim() || error.message)}`);
+    return 2;
+  }
+  log(`Using the build in ${options.headOut} (built ${statSync(join(headDir, "index.html")).mtime.toLocaleString()}). Rebuild first if you changed anything since.`);
   const result = evaluateChange(change, rules);
   const scopeText = formatReport(result, args);
   const sources = readSources();

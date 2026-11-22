@@ -131,3 +131,8 @@ test("the markdown report says so when no page is affected", () => {
   const md = buildReportMarkdown({ scopeText: "x", base: "a", head: "b", pages: [], viewports: [] });
   assert.match(md, /No visible page is affected/i);
 });
+
+test("the markdown report's code fence cannot be closed by backticks inside the scope text", () => {
+  const md = buildReportMarkdown({ scopeText: "evil ``` still inside\n## fake heading", base: "a", head: "b", pages: [], viewports: [] });
+  assert.match(md, /````text\nevil ``` still inside\n## fake heading\n````\n/);
+});

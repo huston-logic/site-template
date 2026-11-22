@@ -42,13 +42,15 @@ In order:
    scratchpad; the PR description has the same two jobs in case the scratchpad was cleared. Then commit it on a branch
    and open a PR. The four required jobs are unchanged; the two new jobs (`change-scope`, `change-report`) are not
    required.
-3. After 5 clean runs of `change-scope`, and a deliberate-failure proof PR on a `change/` branch, decide whether to make it
+3. Decide how strict mode is enforced. Today it applies only to branches named `change/...`, so it trusts the branch name
+   (limit written up in `docs/CHANGE-SCOPE.md`). The ruleset or CODEOWNERS can close that; I did not touch the ruleset.
+4. After 5 clean runs of `change-scope`, and a deliberate-failure proof PR on a `change/` branch, decide whether to make it
    a required check (change the ruleset first, then the workflow).
-4. Check that the master doc "00 Huston Logic: Source of Truth" links to `docs/STATUS.md` in this repo (I cannot see the
+5. Check that the master doc "00 Huston Logic: Source of Truth" links to `docs/STATUS.md` in this repo (I cannot see the
    Google Doc).
-5. Decide the AGENTS.md question from `docs/TEMPLATE.md` section E: which Huston content rules (voice, framework,
+6. Decide the AGENTS.md question from `docs/TEMPLATE.md` section E: which Huston content rules (voice, framework,
    testimonials, pricing) stay as template defaults.
-6. For each new client repo made from this template, turn on "Allow auto-merge", apply the ruleset, and set the Worker
+7. For each new client repo made from this template, turn on "Allow auto-merge", apply the ruleset, and set the Worker
    secrets yourself. Steps: `docs/pipeline/client-onboarding-checklist.md`, `docs/SECRETS.md`,
    `docs/ruleset-protect-main.json`, `docs/LAUNCH-CHECKLIST.md` (still a stub headed "Filled in by Grant").
 
@@ -66,7 +68,7 @@ In order:
 
 - Client change requests v1, steps 1 and 2 built (scope check, change report). Still to build: the agent, the Changes page,
   notifications, the rehearsal on Dylan's site and the after-live checks. The scope check is report-only in CI until it has
-  earned "required" (item 3 above).
+  earned "required" (item 4 above).
 - Decision (Claude, while Grant was away): the tier 1 list excludes `src/content/site.ts`, `providers.ts` and `auto-reply.ts`
   (wiring, not copy). Details and the other judgment calls: the PR description and `docs/CHANGE-SCOPE.md`.
 

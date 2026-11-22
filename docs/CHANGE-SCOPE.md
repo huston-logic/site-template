@@ -14,18 +14,33 @@ The rules live in one file: [`scripts/change-scope-rules.mjs`](../scripts/change
 
 | Tier | What it is | What the check does |
 | --- | --- | --- |
-| **1** | Content: copy in `src/content/*.ts`, photos in `public/images/`, a brand-new page built from blocks the site already has, the page list (`src/lib/routes.ts`) and the menu (`src/content/nav.ts`) | Passes. Risky tier 1 changes are **flagged** (below) |
+| **1** | Content: copy in `src/content/<name>.ts` (plain data only, see below), photos in `public/images/`, a brand-new page built from blocks the site already has, the page list (`src/lib/routes.ts`) and the menu (`src/content/nav.ts`) | Passes. Risky tier 1 changes are **flagged** (below) |
 | **3** | Everything else: `worker/`, `public/_headers`, `wrangler.jsonc`, `site.config.ts`, `package.json` and the lockfile, `.github/`, `.claude/`, `src/components/`, and any other file | Fails (exit code 1) and lists each file with a plain reason |
 
 (Tier 2, "ask first", is about a vague request and is handled by the agent, not by files, so the scope check does not know it.)
 
-Three modules in `src/content/` are wiring, not copy, so they are tier 3: `site.ts`, `providers.ts` and `auto-reply.ts`.
+Three modules in `src/content/` are wiring, not copy, so they are tier 3: `site.ts`, `providers.ts` and `auto-reply.ts`. Files
+with a dot in the name (`*.test.ts`, `*.d.ts`) and files in sub-folders are tier 3 too. Symbolic links, submodules and file
+type changes are tier 3 at any path, and so is deleting `routes.ts` or `nav.ts`.
 
-A **new page** is tier 1 only when its file is exactly `src/app/(site)/<name>/page.tsx` (lowercase, one folder deep) and it:
+**Tier 1 `.ts` files must be plain data.** A content module runs at build time (and `contact-fields.ts` also runs inside the
+contact Worker, which holds the email and Turnstile secrets), so "it only changes text" is not enough. The file is parsed
+with the TypeScript parser (already a dev dependency) and must contain only: imports of sibling content modules or
+type-only imports, type declarations, and `const` values built from literals, arrays and objects (spreads, `as const`,
+`satisfies` and `+` between literals are fine). Calls, functions, classes, templates with `${}`, `process`, `fetch`,
+`require`, `.constructor` and any other statement make it tier 3. A NUL byte does too.
 
-- imports only `next`, `@/lib/metadata`, content modules and components that **already exist** on the base branch;
+A **new page** is tier 1 only when its file is exactly `src/app/(site)/<name>/page.tsx` (lowercase, one folder deep) and it
+passes both a text check and the parser:
+
+- imports only `next`, `@/lib/metadata`, content modules and components that **already exist** on the base branch (the
+  parser reads real import and export statements, so spacing tricks do not hide one);
 - calls `pageMetadata(`;
-- contains none of `"use client"`, `dangerouslySetInnerHTML`, `<script`, `<iframe`, `fetch(`, `process.env`, `eval(`, `import(`.
+- contains none of `"use client"`, `dangerouslySetInnerHTML`, `<script`, `<iframe`, `fetch(`, `process.env`, `eval(`, `import(`;
+- has only imports, `const` values, functions and type declarations at the top level (no stray calls or classes), uses none
+  of the names in `denyIdentifiers` (`require`, `process`, `globalThis`, `fetch`, `setTimeout`, ...) or `.constructor`, builds no
+  property name at run time, and uses none of the JSX tags `script`, `iframe`, `object`, `embed`, `style`, `base`, `link`,
+  `meta`, `form` or a `javascript:` or `data:` link.
 
 Editing an **existing** page file is tier 3. Deleting a page is tier 1 but flagged.
 
@@ -34,8 +49,9 @@ Editing an **existing** page file is tier 3. Deleting a page is tier 1 but flagg
 Checked on lines added and removed, so changing or deleting a price is flagged too:
 
 - a dollar amount (`$900`, `500 USD`, `12 dollars`);
-- a contact detail or booking link: an email address, `mailto:` or `tel:`, a US-style phone number, or a link on a known
-  scheduler host (Calendly, Cal.com and similar; the list is in the rules file);
+- a contact detail or booking link: an email address, `mailto:` or `tel:`, a US-style or international phone number, or a
+  link on a known scheduler host (Calendly, Cal.com and similar, with or without `https://`; the list is in the rules file);
+- any new `https://` link (added lines only), or a `javascript:` or `data:` link;
 - a removed page, a route removed from `src/lib/routes.ts`, or a new page that is not added to `src/lib/routes.ts`;
 - any change to `src/content/privacy.ts` or `src/content/contact-fields.ts`;
 - a change over **300 changed lines** or over **10 files**.
@@ -44,12 +60,13 @@ Checked on lines added and removed, so changing or deleting a price is flagged t
 
 For added or changed files under `public/images/`: `.jpg`, `.jpeg`, `.png` or `.webp` only, the file's first bytes must
 match its extension (a renamed SVG fails), and at most **500 KB** (512,000 bytes). SVG is never allowed because it can
-carry code. Deleted images are not checked.
+carry code. A file with `<script`, `<svg`, `<html` or `<iframe` inside it fails even when its first bytes are right. Deleted
+images are not checked.
 
 ## Leftover placeholders (blocking on change branches)
 
-Any new `[[placeholder]]` on a line the change **adds** in `src/content/` or `src/app/`. Lines the change removes do not
-count, and the launch gate (`npm run check:placeholders`, which lists every placeholder in the repo) is unchanged.
+Any new `[[placeholder]]` on a line the change **adds** in `src/content/` or `src/app/`. A placeholder that was already on a
+line the change edited is not new (each added one cancels against a removed one with the same text), and the launch gate (`npm run check:placeholders`, which lists every placeholder in the repo) is unchanged.
 
 ## Running it
 
@@ -74,7 +91,9 @@ already have. It photographs only the pages the change touches, found by followi
 that reaches the shared layout, or that it cannot trace, photographs every page). Widths: phone 390 × 844, desktop 1440 × 900.
 It needs Chromium from Playwright (already a dev dependency) and falls back to an installed Google Chrome.
 
-Tests for both tools: `npm run test:scripts` (fake diffs and fake git, no network).
+It needs `npm ci` first, because the code check uses the `typescript` dev dependency.
+
+Tests for both tools: `npm run test:scripts` (fake diffs, plus throwaway real git repositories in the temp folder; no network).
 
 ## In CI
 
@@ -84,9 +103,23 @@ required only after 5 clean runs and a deliberate-failure proof PR, and only aft
 
 ## Using it in a client repo
 
-Copy `scripts/change-scope-rules.mjs`, `scripts/check-change-scope.mjs`, `scripts/change-report.mjs`, the two test files,
+Copy `scripts/change-scope-rules.mjs`, `scripts/change-scope-code.mjs`, `scripts/check-change-scope.mjs`, `scripts/change-report.mjs`, the two test files,
 `scripts/preview.mjs` and the three `package.json` scripts from the template. Adjust the rules file for that site: any
 extra page-building file that should stay off limits, and the size limits. Name the agent's branches `change/<short-name>`.
+
+## Known limits
+
+- **Strict mode depends on the branch name.** `--ci` is strict only when the pull request's branch starts with `change/`. The
+  check judges files, not claims, but it trusts the actor it guards to pick that branch name. Until the ruleset enforces it
+  (for example CODEOWNERS on tier 3 paths, or a required check that needs an owner label), the agent's workflow must create
+  `change/` branches itself and nobody should open a client change from another branch.
+- **The code checks are static analysis, one layer among several.** They reject code in tier 1 files and in new pages by
+  reading the parse tree, which is far harder to dodge than text search, but they cannot prove a file is harmless. The other
+  layers are the required checks (including CodeQL), the preview Grant looks at, and the rule that Claude cannot merge.
+- **Images are checked by their first bytes, their size and a scan for markup**, not decoded. A hostile file that is a valid
+  image and also carries a hidden payload could still pass; the site's CSP and `nosniff` header limit what it could do.
+- **Spelled-out prices** ("five hundred dollars") and other currencies are not flagged.
+- **The report's "after" is whatever is in `out/`**; rebuild before running it.
 
 ## What this does not do
 
