@@ -66,6 +66,14 @@ export const rules = {
     ".webp": "webp",
   },
   maxImageBytes: 500 * 1024,
+  /**
+   * Hidden camera, location and editing data (EXIF, XMP, IPTC, comments, thumbnails) must be gone from every added or changed
+   * image. `npm run strip:images` removes it (scripts/strip-image-metadata.mjs); scripts/image-metadata.mjs says what counts.
+   */
+  /** Every added or changed image must be used with alt text written next to it. These words say nothing, so they do not count. */
+  genericAltText: ["image", "img", "photo", "picture", "graphic", "icon", "logo", "alt", "alt text", "todo", "tbd", "untitled", "placeholder"],
+  /** Where an image's URL (such as /images/team/sam.jpg) is looked for, to find the alt text beside it. */
+  imageReferenceDir: "src",
 
   // ---- Leftover placeholders (blocking on change branches) ---------------------------------------------------------
   /** Same folders, file types and pattern as scripts/check-placeholders.mjs; only lines ADDED by the change count. */

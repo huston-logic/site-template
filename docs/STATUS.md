@@ -10,11 +10,14 @@ Last verified with `gh` on 2026-11-22.
   "Protect main" active, "Allow auto-merge" on.
 - **Live:** not checked from the repo. Whether Cloudflare Workers Builds is connected to the template itself is not
   recorded here; client sites deploy from their own repos.
-- **Merged:** PRs #1 to #19, all merged except #3 (Dependabot, closed unmerged). Includes the generic starter (#6), the
+- **Merged:** PRs #1 to #20, all merged except #3 (Dependabot, closed unmerged). Includes the generic starter (#6), the
   generic contact Worker with Apps Script writer and `docs/SECRETS.md` (#10), Organization JSON-LD (#8), the redirect
   slot (#9), the pipeline docs, ruleset export and launch checklist stub (#11), the dependency bumps (#13, #15), the
-  installed hook and settings changes that allow `gh pr merge --auto --squash` (#16), the CLAUDE.md cleanup (#17, #18), and the STATUS.md format with the CLAUDE.md "Status and source of truth" rules (#19).
-- **Open:** #20, steps 1 and 2 of the client change requests plan (change scope check and change report). No other open PRs.
+  installed hook and settings changes that allow `gh pr merge --auto --squash` (#16), the CLAUDE.md cleanup (#17, #18), the STATUS.md format with the CLAUDE.md "Status and source of truth" rules (#19), and the change scope check and change report, steps 1 and 2 of the client change requests plan (#20).
+- **Open:** #21, hidden camera and location data stripped from client images and a blocking alt text check (builds
+  on #20). No other open PRs.
+- **Not in CI yet:** the `change-scope` and `change-report` jobs from #20 were never copied into `.github/workflows/ci.yml`
+  (workflows are owner-only), so no scope, image-data or alt text check runs on pull requests until Grant copies them.
 - **Still open per `docs/TEMPLATE.md`** (that file's PR table may lag the merged PRs): template README polish, and
   deciding which Huston content rules in AGENTS.md stay as template defaults.
 
@@ -32,16 +35,22 @@ Last verified with `gh` on 2026-11-22.
 - 2026-11-21: #19 STATUS.md rewritten into four sections, CLAUDE.md gets the "Status and source of truth" rules.
 - 2026-11-22: #20 `scripts/change-scope-rules.mjs`, `check-change-scope.mjs` (`npm run check:scope`) and `change-report.mjs`
   (`npm run report:changes`) with tests (`npm run test:scripts`), `docs/CHANGE-SCOPE.md`. No new dependencies.
+- 2026-11-22: #21 `npm run strip:images` (`scripts/strip-image-metadata.mjs`, `image-metadata.mjs`) removes EXIF,
+  GPS, XMP, IPTC, comments and thumbnails from jpg, png and webp without re-encoding; `check:scope` fails a `change/` branch
+  whose images still carry them or are not used with real alt text (`scripts/image-alt.mjs`); the change report lists each
+  image with its alt text. Pure Node, no new dependencies; STATUS.md corrected for #20.
 
 ## Needs Grant
 
 In order:
 
-1. Review and merge this PR. It changes scripts, `package.json`, `.gitignore`, `AGENTS.md` and docs. No dependency changes.
-2. Copy the proposed CI jobs into place (workflows are owner-only). The file is `ci.yml.proposed` in the Claude Code
-   scratchpad; the PR description has the same two jobs in case the scratchpad was cleared. Then commit it on a branch
-   and open a PR. The four required jobs are unchanged; the two new jobs (`change-scope`, `change-report`) are not
-   required.
+1. Review and merge #21. It changes scripts, `package.json` (one new script, `strip:images`), `AGENTS.md` and docs.
+   No dependency changes.
+2. Copy the proposed CI jobs into place (workflows are owner-only). #20 proposed them and they were never applied. The file
+   is `ci.yml.proposed` in the Claude Code scratchpad; the PR description has the same two jobs in case the scratchpad was
+   cleared. Then commit it on a branch and open a PR. The four required jobs are unchanged; the two new jobs
+   (`change-scope`, `change-report`) are not required. This PR needs no further workflow change: the image checks run inside
+   those jobs.
 3. Decide how strict mode is enforced. Today it applies only to branches named `change/...`, so it trusts the branch name
    (limit written up in `docs/CHANGE-SCOPE.md`). The ruleset or CODEOWNERS can close that; I did not touch the ruleset.
 4. After 5 clean runs of `change-scope`, and a deliberate-failure proof PR on a `change/` branch, decide whether to make it
@@ -66,11 +75,17 @@ In order:
   approval; Claude may enable auto-merge only in autonomous runs and only with `--auto --squash` or `--auto --merge`.
 - Decision (Grant, Nov 18): one-time waiver of the 7-day dependency rule for `@lhci/cli` 0.16.1 (below).
 
-- Client change requests v1, steps 1 and 2 built (scope check, change report). Still to build: the agent, the Changes page,
-  notifications, the rehearsal on Dylan's site and the after-live checks. The scope check is report-only in CI until it has
-  earned "required" (item 4 above).
+- Client change requests v1, steps 1 and 2 built and merged (scope check, change report), plus image privacy and alt text
+  checks (#21, open). Still to build: the agent, the Changes page, notifications, the rehearsal on Dylan's site
+  and the after-live checks. The scope check is report-only in CI until it has earned "required" (item 4 above), and the CI
+  jobs are not installed yet (item 2).
 - Decision (Claude, while Grant was away): the tier 1 list excludes `src/content/site.ts`, `providers.ts` and `auto-reply.ts`
   (wiring, not copy). Details and the other judgment calls: the PR description and `docs/CHANGE-SCOPE.md`.
+- Decision (Claude, while Grant was away, #21): client photos must be clean of camera and location data and used
+  with real alt text to pass on a `change/` branch. Calls made: a phone photo's rotation flag is kept (one EXIF block holding
+  only that), because dropping it turns the picture sideways and fixing that needs re-encoding; an image used nowhere, or
+  with empty ("decorative") or non-literal alt text, fails and stops for Grant rather than passing; alt text is checked for
+  being real, not for being accurate (Grant reads it in the change report).
 
 ## Record: one-time exception to the 7-day dependency rule (owner-approved Nov 18)
 

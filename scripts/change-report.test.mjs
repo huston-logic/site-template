@@ -3,6 +3,8 @@
 //   node --test scripts/change-report.test.mjs   (or `npm run test:scripts`)
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { rules } from "./change-scope-rules.mjs";
+import { evaluateChange, formatReport } from "./check-change-scope.mjs";
 import { affectedPages, buildReportMarkdown, extractOptions, findImporters, routeForPageFile, slugForRoute } from "./change-report.mjs";
 
 const allRoutes = ["/", "/services", "/about", "/contact", "/privacy", "/contact/thanks"];
@@ -125,6 +127,28 @@ test("the markdown report lists the scope result and a before and after for each
   assert.doesNotMatch(md, /faq\/before-/);
   assert.match(md, /new page, no before/i);
   assert.match(md, /390 × 844/);
+});
+
+test("a photo change puts its alt text and its problems in the report, and photographs the pages that show it", () => {
+  const photo = (path, head, extra = {}) => ({ path, status: "A", added: [], removed: [], head, size: 1000, ...extra });
+  const jpegHead = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
+  const used = [{ path: "src/content/home.ts", content: 'export const homeHero = { image: "/images/home/hero.jpg", alt: "Dylan at the front counter" };\n' }];
+  const result = evaluateChange(
+    {
+      files: [photo("public/images/home/hero.jpg", jpegHead), photo("public/images/home/leak.jpg", jpegHead, { metadata: { removed: ["EXIF (camera and location data)"] } })],
+      existsAtBase: () => false,
+      imageRefs: { "public/images/home/hero.jpg": used },
+    },
+    rules,
+  );
+  const scopeText = formatReport(result, { mode: "strict", base: "origin/main", head: "HEAD" });
+  const md = buildReportMarkdown({ scopeText, base: "origin/main", head: "HEAD", pages: [], viewports: [] });
+  assert.match(md, /public\/images\/home\/hero\.jpg: alt "Dylan at the front counter"/);
+  assert.match(md, /Alt text problems/);
+  assert.match(md, /leak\.jpg.*not used/);
+  assert.match(md, /npm run strip:images/);
+  const pages = affectedPages({ files: [{ status: "A", path: "public/images/home/hero.jpg" }], sources, pageRoutes, allRoutes });
+  assert.deepEqual(pages.map((p) => p.route), ["/"]);
 });
 
 test("the markdown report says so when no page is affected", () => {
