@@ -1,82 +1,78 @@
-# Autonomous run status
+# Status: site-template
 
-Plan: `docs/PLAN.md`. Rules: CLAUDE.md, "Autonomous runs". Started 2026-11-18. Updated after every task.
+Business priorities live in the Google Doc "00 Huston Logic: Source of Truth"; this file is the repo's status.
+Rules for keeping it: CLAUDE.md, "Status and source of truth". Task list for the Nov 18 autonomous run: `docs/PLAN.md`.
+Last verified with `gh` on 2026-11-21.
 
-## Tasks
+## Current state
 
-| # | Task | PR | State |
-| --- | --- | --- | --- |
-| 0 | Autonomous runs rules, PLAN.md, STATUS.md | [#7](https://github.com/huston-logic/site-template/pull/7) | merged |
-| 1 | T3b Organization JSON-LD (homepage only) | [#8](https://github.com/huston-logic/site-template/pull/8) | merged |
-| 2 | Redirect slot and check-redirects | [#9](https://github.com/huston-logic/site-template/pull/9) | merged |
-| 3 | T4 generic Worker, Apps Script writer, SECRETS.md | [#10](https://github.com/huston-logic/site-template/pull/10) | merged (CodeQL alert fixed in the code) |
-| 4 | T5 ruleset export, pipeline docs, launch checklist stub | [#11](https://github.com/huston-logic/site-template/pull/11) | merged |
-| - | STATUS update | [#12](https://github.com/huston-logic/site-template/pull/12) | merged |
-| 5 | T1c Dependabot fix: `@lhci/cli` 0.16.1, Playwright 1.65.0 | [#13](https://github.com/huston-logic/site-template/pull/13) | open. **Contains the one-time 7-day exception below.** After it merges, close Dependabot PR #3 with a comment linking #13. |
-| 6 | Mark repo as template | none (API call) | done (`is_template` is true) |
-| - | Hand-copy batch installed by the owner | [#16](https://github.com/huston-logic/site-template/pull/16) | merged |
-| - | Cleanup: generic package description, CLAUDE.md matches hooks | [#17](https://github.com/huston-logic/site-template/pull/17) | open |
+- **Repo:** `huston-logic/site-template`, a GitHub template (`is_template` is true). Default branch `main`, ruleset
+  "Protect main" active, "Allow auto-merge" on.
+- **Live:** not checked from the repo. Whether Cloudflare Workers Builds is connected to the template itself is not
+  recorded here; client sites deploy from their own repos.
+- **Merged:** PRs #1 to #18, all merged except #3 (Dependabot, closed unmerged). Includes the generic starter (#6), the
+  generic contact Worker with Apps Script writer and `docs/SECRETS.md` (#10), Organization JSON-LD (#8), the redirect
+  slot (#9), the pipeline docs, ruleset export and launch checklist stub (#11), the dependency bumps (#13, #15), the
+  installed hook and settings changes that allow `gh pr merge --auto --squash` (#16), and the CLAUDE.md cleanup (#17, #18).
+- **Open:** this PR (STATUS.md format and the CLAUDE.md "Status and source of truth" section). No other open PRs.
+- **Still open per `docs/TEMPLATE.md`** (that file's PR table may lag the merged PRs): template README polish, and
+  deciding which Huston content rules in AGENTS.md stay as template defaults.
 
-## One-time exception to the 7-day dependency rule (owner-approved Nov 18)
+## Changelog
+
+- 2026-11-17: #1 generic template identity and `docs/TEMPLATE.md`; #2 remove `engine-strict` so Dependabot's npm 12 can
+  update; #4 `site.config.ts` with `sync:config` and `check:config`; #5 CI runs `check:config`. #3 (Dependabot) closed.
+- 2026-11-18, autonomous run, product code: #6 generic starter site; #8 Organization JSON-LD on the homepage only;
+  #9 redirect slot and `check-redirects`; #10 generic Worker, Apps Script Sheet writer, `docs/SECRETS.md`.
+- 2026-11-18, autonomous run, docs and tooling: #7 run rules, PLAN.md, STATUS.md; #11 ruleset export, pipeline docs,
+  launch checklist stub; #12 and #14 STATUS updates; #13 `@lhci/cli` 0.16.1 and Playwright 1.65.0 (one-time 7-day
+  exception, below); #15 Dependabot npm group bump.
+- 2026-11-18, owner install and cleanup: #16 hook, settings, agent and workflow changes hand-copied by Grant; #17 generic
+  package description and CLAUDE.md matches the installed hooks; #18 note that new repos need "Allow auto-merge".
+- 2026-11-21: this PR, STATUS.md rewritten into four sections, CLAUDE.md gets the "Status and source of truth" rules.
+
+## Needs Grant
+
+In order:
+
+1. Review and merge this PR. It changes CLAUDE.md and docs only.
+2. Check that the master doc "00 Huston Logic: Source of Truth" links to `docs/STATUS.md` in this repo (I cannot see the
+   Google Doc).
+3. Decide the AGENTS.md question from `docs/TEMPLATE.md` section E: which Huston content rules (voice, framework,
+   testimonials, pricing) stay as template defaults.
+4. For each new client repo made from this template, turn on "Allow auto-merge", apply the ruleset, and set the Worker
+   secrets yourself. Steps: `docs/pipeline/client-onboarding-checklist.md`, `docs/SECRETS.md`,
+   `docs/ruleset-protect-main.json`, `docs/LAUNCH-CHECKLIST.md` (still a stub headed "Filled in by Grant").
+
+## For the master
+
+- Template: the repo is now a GitHub template; client sites start from it. Auto-merge is on, behind the four required
+  checks and CodeQL.
+- Decision (Grant, Nov 18): the contact form's Sheet writer defaults to a Google Apps Script web app with a shared
+  secret; the service-account writer stays as an option.
+- Decision (Grant, Nov 18): the B7b automatic reply was made generic (no "demo" line, biography replaced by a
+  placeholder, "Partner" label). `docs/website-plan.md` was not updated.
+- Decision (Grant, Nov 18): CLAUDE.md, AGENTS.md, `package.json`, `wrangler.jsonc` and `.gitignore` no longer ask for
+  approval; Claude may enable auto-merge only in autonomous runs and only with `--auto --squash` or `--auto --merge`.
+- Decision (Grant, Nov 18): one-time waiver of the 7-day dependency rule for `@lhci/cli` 0.16.1 (below).
+
+## Record: one-time exception to the 7-day dependency rule (owner-approved Nov 18)
 
 `@lhci/cli` 0.16.1 (published 2026-11-11 23:40Z) was about 2 hours short of 7 days when PR #13 was made. Grant waived the
-rule for that release only, once. Its sibling `@lhci/utils` 0.16.1 (same release) comes with it. Nothing else is
-waived: `@playwright/test` and `overrides.playwright-core` 1.65.0 are 13 days old, and the lockfile was written with
+rule for that release only, once; its sibling `@lhci/utils` 0.16.1 came with it. Nothing else is waived:
+`@playwright/test` and `overrides.playwright-core` 1.65.0 were 13 days old, and the lockfile was written with
 `npx npm@12 install --package-lock-only --before=2026-11-11T23:41:00Z`, so no other package newer than the waived
-release is in it (every other changed version is at least 7 days old). Without `--before`, npm picked about 20
-transitive versions that were 1 to 6 days old (for example `@sentry/*` 11.14.0 and `puppeteer-core` 25.18.1).
+release is in it. Without `--before`, npm picked about 20 transitive versions that were 1 to 6 days old.
 
-## Judgment calls
+## Record: judgment calls from the Nov 18 run
 
-- Branches are made one at a time in the main checkout, not in worktrees: tasks run in sequence and each starts from a
-  fresh `main`.
-- PR 0 (docs only) was written directly, not through an implementer subagent. The other tasks used an implementer and a
-  separate reviewer subagent each.
-- `gh pr merge --auto --squash` is blocked by the owner-only hook `.claude/hooks/guard-bash.mjs` (it also blocks merging
-  through `gh api`). I did not work around it. Every PR was left open and announced as "ready for auto-merge" once its
-  review passed ("review passed" is the author's record, not something GitHub shows); the owner merged them by hand.
-  The owner approved (Nov 18) a hook change that allows exactly `gh pr merge <number> --auto --squash` and `--auto
-  --merge`; it was installed in #16.
-- Each task branched from `main` and no PR depended on another. After a PR merged, the other open branches were updated
-  from `origin/main` (merge commits, no force pushes).
 - T3b: `@type` is `Organization` (was `ProfessionalService`). Founder `jobTitle` is built but not emitted, because the
-  site does not show `owner.role` anywhere. The new optional `brand.logo` config key is not a launch blocker.
-- T2: Wrangler allows 2,000 characters per redirect rule, not the 1,000 in the brief, so `public/_redirects` says 2,000.
-  The redirect checker's tests run with `node --test scripts/check-redirects.test.mjs` and are not wired into CI
-  (workflows are owner-only and `package.json` was being changed by another PR).
-- T4: `sheetTabs` stay "Submissions" / "Preview" (generic names, not client-specific). `siteEmail` and `schedulerUrl`
-  are `null` in the template, so the Worker answers 502 `config_incomplete` until they are set. The B7b automatic reply
-  was genericized (dropped "(Consider this the demo!)", biography paragraph replaced by a `[[placeholder]]`, "Zoho
-  partner" label is now "Partner"); this is a change to approved copy; the owner confirmed it on Nov 18 (the template is generic).
-  `docs/website-plan.md` was not updated.
-- T4: CodeQL flagged `js/incomplete-url-substring-sanitization` in `worker/contact.test.ts`. Fixed in the code (the test
-  now compares whole lines); no dismissal and no suppression.
-- T5: the proposals for `.claude/agents/*.md` and the workflow comments were hand-copied by the owner (#16).
-- T1c: Playwright 1.65.0, not 1.65.1 (1.65.1 was 5 days old). Dependabot's Tailwind 4.3.5 bump is not part of #13;
-  Dependabot will propose it again.
-
-## Stop queue
-
-- Auto-merge: unblocked (hook change installed in PR #16); use `gh pr merge <number> --auto --squash`.
-- Close Dependabot PR #3 with a comment linking #13, after #13 merges (owner confirmed Nov 18).
-- `npm run test:a11y` was not run locally for the T1c bump (it needs Chromium, a separate approval); CI runs it.
-
-## Proposals for the owner (hand-copy)
-
-All four were installed by the owner in #16 (kept here as a record). In order:
-
-1. `.claude/hooks/guard-bash.mjs` and `.claude/hooks/selftest.mjs`: allow exactly `gh pr merge <n> --auto --squash` and
-   `--auto --merge` (`--admin` and any merge without `--auto` stay blocked), and Bash writes to the five files no longer ask.
-2. `.claude/hooks/protect-config.mjs` and `.claude/hooks/README.md`: Edit/Write of `package.json`, `CLAUDE.md`,
-   `AGENTS.md`, `wrangler.jsonc` and `.gitignore` no longer ask.
-3. `.claude/settings.json`: the five "ask" rules removed, every deny rule and hook kept.
-4. `.claude/agents/review-{a11y,code,security}.md` ("this site" wording) and the comment-only fixes in
-   `.github/workflows/{ci,codeql,dependency-review}.yml` (PR #11 has merged, so these can be applied now).
-
-Tested in a scratch copy of the hooks folder: `node .claude/hooks/selftest.mjs` ends with `All 104 passed`.
-
-## Flagged dependencies
-
-PR #13 bumps `@lhci/cli` 0.16.0 to 0.16.1 (the one-time exception above), `@playwright/test` and
-`overrides.playwright-core` 1.64.1 to 1.65.0. Exact-pinned. Lockfile churn is limited to `@lhci/cli`'s and Playwright's
-dependency trees, all other versions at least 7 days old.
+  site does not show `owner.role`. The optional `brand.logo` config key is not a launch blocker.
+- T2: Wrangler allows 2,000 characters per redirect rule, so `public/_redirects` says 2,000. The checker's tests run with
+  `node --test scripts/check-redirects.test.mjs` and are not wired into CI (workflows are owner-only).
+- T4: `sheetTabs` stay "Submissions" / "Preview". `siteEmail` and `schedulerUrl` are `null` in the template, so the
+  Worker answers 502 `config_incomplete` until they are set. CodeQL's `js/incomplete-url-substring-sanitization` alert in
+  `worker/contact.test.ts` was fixed in the code, not dismissed.
+- T1c: Playwright 1.65.0, not 1.65.1 (1.65.1 was 5 days old).
+- Branches were made one at a time in the main checkout, not in worktrees. `gh pr merge --auto --squash` was blocked by
+  the owner-only hook until #16, so the PRs before it were merged by hand.
