@@ -14,7 +14,7 @@ Last verified with `gh` on 2026-11-22.
   generic contact Worker with Apps Script writer and `docs/SECRETS.md` (#10), Organization JSON-LD (#8), the redirect
   slot (#9), the pipeline docs, ruleset export and launch checklist stub (#11), the dependency bumps (#13, #15), the
   installed hook and settings changes that allow `gh pr merge --auto --squash` (#16), the CLAUDE.md cleanup (#17, #18), the STATUS.md format with the CLAUDE.md "Status and source of truth" rules (#19), and the change scope check and change report, steps 1 and 2 of the client change requests plan (#20).
-- **Open:** [[PR_NUMBER]], hidden camera and location data stripped from client images and a blocking alt text check (builds
+- **Open:** #21, hidden camera and location data stripped from client images and a blocking alt text check (builds
   on #20). No other open PRs.
 - **Not in CI yet:** the `change-scope` and `change-report` jobs from #20 were never copied into `.github/workflows/ci.yml`
   (workflows are owner-only), so no scope, image-data or alt text check runs on pull requests until Grant copies them.
@@ -35,7 +35,7 @@ Last verified with `gh` on 2026-11-22.
 - 2026-11-21: #19 STATUS.md rewritten into four sections, CLAUDE.md gets the "Status and source of truth" rules.
 - 2026-11-22: #20 `scripts/change-scope-rules.mjs`, `check-change-scope.mjs` (`npm run check:scope`) and `change-report.mjs`
   (`npm run report:changes`) with tests (`npm run test:scripts`), `docs/CHANGE-SCOPE.md`. No new dependencies.
-- 2026-11-22: [[PR_NUMBER]] `npm run strip:images` (`scripts/strip-image-metadata.mjs`, `image-metadata.mjs`) removes EXIF,
+- 2026-11-22: #21 `npm run strip:images` (`scripts/strip-image-metadata.mjs`, `image-metadata.mjs`) removes EXIF,
   GPS, XMP, IPTC, comments and thumbnails from jpg, png and webp without re-encoding; `check:scope` fails a `change/` branch
   whose images still carry them or are not used with real alt text (`scripts/image-alt.mjs`); the change report lists each
   image with its alt text. Pure Node, no new dependencies; STATUS.md corrected for #20.
@@ -44,7 +44,7 @@ Last verified with `gh` on 2026-11-22.
 
 In order:
 
-1. Review and merge [[PR_NUMBER]]. It changes scripts, `package.json` (one new script, `strip:images`), `AGENTS.md` and docs.
+1. Review and merge #21. It changes scripts, `package.json` (one new script, `strip:images`), `AGENTS.md` and docs.
    No dependency changes.
 2. Copy the proposed CI jobs into place (workflows are owner-only). #20 proposed them and they were never applied. The file
    is `ci.yml.proposed` in the Claude Code scratchpad; the PR description has the same two jobs in case the scratchpad was
@@ -76,12 +76,12 @@ In order:
 - Decision (Grant, Nov 18): one-time waiver of the 7-day dependency rule for `@lhci/cli` 0.16.1 (below).
 
 - Client change requests v1, steps 1 and 2 built and merged (scope check, change report), plus image privacy and alt text
-  checks ([[PR_NUMBER]], open). Still to build: the agent, the Changes page, notifications, the rehearsal on Dylan's site
+  checks (#21, open). Still to build: the agent, the Changes page, notifications, the rehearsal on Dylan's site
   and the after-live checks. The scope check is report-only in CI until it has earned "required" (item 4 above), and the CI
   jobs are not installed yet (item 2).
 - Decision (Claude, while Grant was away): the tier 1 list excludes `src/content/site.ts`, `providers.ts` and `auto-reply.ts`
   (wiring, not copy). Details and the other judgment calls: the PR description and `docs/CHANGE-SCOPE.md`.
-- Decision (Claude, while Grant was away, [[PR_NUMBER]]): client photos must be clean of camera and location data and used
+- Decision (Claude, while Grant was away, #21): client photos must be clean of camera and location data and used
   with real alt text to pass on a `change/` branch. Calls made: a phone photo's rotation flag is kept (one EXIF block holding
   only that), because dropping it turns the picture sideways and fixing that needs re-encoding; an image used nowhere, or
   with empty ("decorative") or non-literal alt text, fails and stops for Grant rather than passing; alt text is checked for
