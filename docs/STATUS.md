@@ -14,7 +14,7 @@ Last verified with `gh` on 2026-11-22.
   generic contact Worker with Apps Script writer and `docs/SECRETS.md` (#10), Organization JSON-LD (#8), the redirect
   slot (#9), the pipeline docs, ruleset export and launch checklist stub (#11), the dependency bumps (#13, #15), the
   installed hook and settings changes that allow `gh pr merge --auto --squash` (#16), the CLAUDE.md cleanup (#17, #18), the STATUS.md format with the CLAUDE.md "Status and source of truth" rules (#19), the change scope check and change report, steps 1 and 2 of the client change requests plan (#20), and hidden camera and location data stripped from client images plus a blocking alt text check (#21).
-- **Open:** [[PR_NUMBER]], the `change-scope` and `change-report` CI jobs (proposed in #20, copied into
+- **Open:** #22, the `change-scope` and `change-report` CI jobs (proposed in #20, copied into
   `.github/workflows/ci.yml` by Grant). Until it merges, no scope, image-data or alt text check runs on pull requests.
   The jobs are not required checks. No other open PRs.
 - **Still open per `docs/TEMPLATE.md`** (that file's PR table may lag the merged PRs): template README polish, and
@@ -38,14 +38,14 @@ Last verified with `gh` on 2026-11-22.
   GPS, XMP, IPTC, comments and thumbnails from jpg, png and webp without re-encoding; `check:scope` fails a `change/` branch
   whose images still carry them or are not used with real alt text (`scripts/image-alt.mjs`); the change report lists each
   image with its alt text. Pure Node, no new dependencies; STATUS.md corrected for #20.
-- 2026-11-22: [[PR_NUMBER]] `change-scope` and `change-report` jobs added to `.github/workflows/ci.yml` (Grant hand-copied
+- 2026-11-22: #22 `change-scope` and `change-report` jobs added to `.github/workflows/ci.yml` (Grant hand-copied
   them; Claude cannot write workflows). Not required checks; strict only on `change/` branches.
 
 ## Needs Grant
 
 In order:
 
-1. Review and merge [[PR_NUMBER]]. It only adds the two CI jobs (`change-scope`, `change-report`) to `ci.yml`; the four
+1. Review and merge #22. It only adds the two CI jobs (`change-scope`, `change-report`) to `ci.yml`; the four
    required jobs are unchanged and the new jobs are not required checks. Watch its first run: both jobs run on this PR too.
 2. Decide how strict mode is enforced. Today it applies only to branches named `change/...`, so it trusts the branch name
    (limit written up in `docs/CHANGE-SCOPE.md`). The ruleset or CODEOWNERS can close that; I did not touch the ruleset.
@@ -73,7 +73,7 @@ In order:
 
 - Client change requests v1, steps 1 and 2 built and merged (scope check, change report), plus image privacy and alt text
   checks (#21, merged). Still to build: the agent, the Changes page, notifications, the rehearsal on Dylan's site
-  and the after-live checks. The scope check is report-only in CI until it has earned "required" (item 3 above); its CI jobs are added by [[PR_NUMBER]] (item 1).
+  and the after-live checks. The scope check is report-only in CI until it has earned "required" (item 3 above); its CI jobs are added by #22 (item 1).
 - Decision (Claude, while Grant was away): the tier 1 list excludes `src/content/site.ts`, `providers.ts` and `auto-reply.ts`
   (wiring, not copy). Details and the other judgment calls: the PR description and `docs/CHANGE-SCOPE.md`.
 - Decision (Claude, while Grant was away, #21): client photos must be clean of camera and location data and used
