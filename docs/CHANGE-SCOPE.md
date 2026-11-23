@@ -170,14 +170,12 @@ Tests for both tools: `npm run test:scripts` (fake diffs, plus throwaway real gi
 
 ## In CI
 
-The proposed jobs (`change-scope` and `change-report`, added to `.github/workflows/ci.yml` by hand, because Claude Code
+The jobs `change-scope` and `change-report` in `.github/workflows/ci.yml` (copied in by hand, because Claude Code
 cannot write workflows) run on pull requests. They are **not** required checks yet: per CLAUDE.md a new check becomes
 required only after 5 clean runs and a deliberate-failure proof PR, and only after the ruleset is changed first.
 
 The jobs already run everything described here (the hidden-data and alt text checks live inside `check-change-scope.mjs`,
-and the script tests run with the `scripts/*.test.mjs` glob), so adding them needs no further workflow change. **They have
-not been copied into `ci.yml` yet** (as of 2026-11-22), so until they are, none of these checks runs in CI; run
-`npm run check:scope` by hand.
+and the script tests run with the `scripts/*.test.mjs` glob), so adding them needed no further workflow change.
 
 ## Using it in a client repo
 
