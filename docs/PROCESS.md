@@ -123,6 +123,20 @@ Measured on Grant's Mac, `.next` deleted first so the build starts cold.
 | `build` | 4.6 s |
 | `npm run check` as one command | 12.8 s |
 
-### After
+### After (2026-11-24)
 
-Filled in at the end of this run.
+| Step | Time |
+|---|---|
+| `check:config` | 0.2 s |
+| `check:process` (new) | 0.1 s |
+| `lint` | 2.0 s |
+| `typecheck` | 1.6 s |
+| `test:worker` | 0.3 s |
+| `test:scripts` | 4.2 s |
+| `build` | 4.3 s |
+| `npm run check:fast` as one command | 8.0 s |
+| `npm run check` as one command | 12.3 s |
+
+Single runs vary by a few seconds (one `npm run check` on the same day took 19.5 s). The template's build is small, so
+`check:fast` saves only about 4 seconds here; on a client site the build is the step that grows, and it now runs once
+before the PR instead of on every commit. CI time is separate: Lighthouse now does 3 runs per page instead of 5.
