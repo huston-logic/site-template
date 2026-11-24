@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { checkProcess } from "./check-process.mjs";
+import { checkProcess, successLine } from "./check-process.mjs";
 
 const lines = (n, text = "line") => Array.from({ length: n }, (_, i) => `${text} ${i}`).join("\n") + "\n";
 
@@ -136,4 +136,19 @@ test("rule 7: off by default, on by the JSON file or by options", () => {
   assert.deepEqual(problemsFor({ ".claude/hooks/precommit-check.mjs": "const SCRIPT = 'check:fast';\n" }, options), []);
   // Options override the file.
   assert.deepEqual(problemsFor({ ...on, ...hook("check") }, { rules: { precommitHookFastOnly: false } }), []);
+});
+
+test("a broken process-rules.json fails closed; a missing one means the flag is off", () => {
+  for (const bad of ["{ not json", "", "[]", "null", '{ "precommitHookFastOnly": "true" }', '{ "precommitHookFastOnly": 1 }', '{ "precommitHookFastOnly": null }']) {
+    const found = problemsFor({ "scripts/process-rules.json": bad });
+    assert.equal(found.length, 1, JSON.stringify(bad));
+    assert.match(found[0], /scripts\/process-rules\.json/);
+  }
+  assert.deepEqual(problemsFor({ "scripts/process-rules.json": "{}" }), []);
+  assert.deepEqual(problemsFor({ "scripts/process-rules.json": null }), []);
+});
+
+test("the success line does not count the switched-off rule", () => {
+  assert.match(successLine({ precommitHookFastOnly: false }), /all 6 rules passed \(1 off until the owner switches it on: precommitHookFastOnly\)/);
+  assert.equal(successLine({ precommitHookFastOnly: true }), "check:process: all 7 rules passed");
 });

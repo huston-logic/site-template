@@ -32,23 +32,34 @@ function section(lines, heading) {
   return end === -1 ? rest : rest.slice(0, end);
 }
 
+const RULES_FILE = "scripts/process-rules.json";
+
+/** A missing file means the flag is off. A file that is not valid JSON, or a flag that is not true/false, is a problem. */
 function loadRules(root, options) {
   let rules = { precommitHookFastOnly: false };
-  const text = read(join(root, "scripts", "process-rules.json"));
+  const problems = [];
+  const text = read(join(root, RULES_FILE));
   if (text !== null) {
     try {
-      rules = { ...rules, ...JSON.parse(text) };
+      const parsed = JSON.parse(text);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
+      if ("precommitHookFastOnly" in parsed && typeof parsed.precommitHookFastOnly !== "boolean") {
+        problems.push(`${RULES_FILE}: "precommitHookFastOnly" must be true or false. Fix the value.`);
+      } else {
+        rules = { ...rules, ...parsed };
+      }
     } catch {
-      // A broken rules file is treated as "flag off"; the JSON is simple enough that a reviewer will see it.
+      problems.push(`${RULES_FILE} is not valid JSON. Fix it; it should read { "precommitHookFastOnly": false }.`);
     }
   }
-  return { ...rules, ...(options.rules ?? {}) };
+  return { rules: { ...rules, ...(options.rules ?? {}) }, problems };
 }
 
 /** Returns an array of problem strings; empty means every rule passed. */
 export function checkProcess(root, options = {}) {
-  const rules = loadRules(root, options);
-  const problems = [];
+  const loaded = loadRules(root, options);
+  const rules = loaded.rules;
+  const problems = [...loaded.problems];
 
   // 1. STATUS.md length
   const statusText = read(join(root, "docs", "STATUS.md"));
@@ -135,6 +146,12 @@ export function checkProcess(root, options = {}) {
   return problems;
 }
 
+/** The line printed on success; a switched-off rule is not counted as passed. */
+export function successLine(rules) {
+  if (rules.precommitHookFastOnly === true) return "check:process: all 7 rules passed";
+  return "check:process: all 6 rules passed (1 off until the owner switches it on: precommitHookFastOnly)";
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..");
   const problems = checkProcess(root);
@@ -143,6 +160,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(`check:process: ${problems.length} problem${problems.length === 1 ? "" : "s"} found`);
     process.exitCode = 1;
   } else {
-    console.log("check:process: all 7 rules passed");
+    console.log(successLine(loadRules(root, {}).rules));
   }
 }
