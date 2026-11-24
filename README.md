@@ -303,6 +303,8 @@ If a production build itself fails, nothing is deployed and the old version stay
 
 ## Launch checklist
 
+The full launch checklist, with an owner and a proof for every item, is [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md). The items below are this site's own content checks; do them as well.
+
 - [ ] Domain, DNS and business email working; `NEXT_PUBLIC_SITE_URL` set to the final domain
 - [ ] `email`, `schedulerUrl`, `linkedInUrl`, `turnstileSiteKey` set in `site.config.ts`
 - [ ] `npm run check:placeholders` passes (photos, screenshots, titles, location, background wording, musician line, certifications, privacy date)
