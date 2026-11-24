@@ -1,5 +1,7 @@
 # Delivery pipeline handbook
 
+**This copy, in `huston-logic/site-template`, is the truth; copies of this handbook in other repos are not.**
+
 The technical handbook of the delivery pipeline used by this repo, written for the AI agents and
 developers who will reuse it on client sites. Every statement below was read from a file in this
 repo, from a command run against GitHub or wrangler, or from the pull-request history, on
