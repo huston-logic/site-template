@@ -12,9 +12,9 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 - **Live:** not checked from the repo; client sites deploy from their own repos.
 - **Merged:** PRs #1 to #22, all merged except #3 (Dependabot, closed unmerged). #22 added the `change-scope` and
   `change-report` CI jobs (not required checks).
-- **Open:** #24 (`chore/fast-checks`: `check:fast`, `check:process`, Lighthouse 3 runs, short STATUS.md) and the docs
-  PR based on it (`docs/website-process`: PROCESS.md rules, launch checklist, CLAUDE.md "Autonomous runs"). Merge #24
-  first.
+- **Open:** #24 (`chore/fast-checks`: `check:fast`, `check:process`, Lighthouse 3 runs, short STATUS.md; all CI checks
+  passed) and #25, based on it (`docs/website-process`: PROCESS.md rules, launch checklist, CLAUDE.md "Autonomous
+  runs"). Merge #24 first.
 - **Not installed yet:** the fast pre-commit hook, the pre-push hook and the `scout` and `docs-writer` agents. They are
   owner-only files, waiting in the scratchpad for the owner batch (Needs Grant, item 2). Until then the installed
   pre-commit hook still runs the full `npm run check` on every commit.
@@ -25,8 +25,8 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 
 In order:
 
-1. Review and merge #24, then the docs PR. If GitHub does not switch the docs PR's base to `main` by itself after #24
-   merges, ask Claude to merge `main` into `docs/website-process` (a normal merge commit, no force push).
+1. Review and merge #24, then #25. If GitHub does not switch #25's base to `main` by itself after #24 merges, ask
+   Claude to merge `main` into `docs/website-process` (a normal merge commit, no force push).
 2. After #24 is merged, run the owner batch from the repo root:
    `bash /private/tmp/claude-501/-Users-granthuston--claude-spares-spare-kIcMai/f8dec3d8-dac2-44e1-9af0-9d44b52c77f9/scratchpad/owner-proposals/owner-batch.sh`.
    It makes the branch `chore/owner-fast-hooks`, copies in the fast pre-commit hook, the new pre-push hook (full check
@@ -60,19 +60,19 @@ Opus planned and reviewed; Sonnet wrote the scripts and the hook proposals; Haik
 - #24: `npm run check:fast` (everything in `check` except the build); `npm run check` is now `check:fast` then
   `build`; `npm run check:process` with 11 tests; Lighthouse `numberOfRuns` 5 to 3 (no threshold touched); STATUS.md
   cut down, old file kept in `docs/history/`.
-- Docs PR: `docs/PROCESS.md` (Where facts live, 12 rules, what still stops for Grant, before and after timings);
+- #25: `docs/PROCESS.md` (Where facts live, 12 rules, what still stops for Grant, before and after timings);
   `docs/LAUNCH-CHECKLIST.md` moved from `incoming/` (formatting only) and linked from the README; CLAUDE.md "Autonomous
   runs" rewritten; one line at the top of `docs/pipeline/README.md`.
 - Owner-only proposals in the scratchpad (Needs Grant, item 2). Hook selftest: 104 cases today, 132 with the
   proposals, none removed.
-- Judgment calls: the docs PR is stacked on #24 because `check:process` needs `docs/PROCESS.md` and a short STATUS.md
+- Judgment calls: #25 is stacked on #24 because `check:process` needs `docs/PROCESS.md` and a short STATUS.md
   to pass, so #24 carries both. CLAUDE.md lines outside "Autonomous runs" that said "full check on every commit" or
   described the old STATUS changelog were updated to match. The README keeps its site-specific launch items under a
   pointer to the full checklist. No auto-merge was enabled: the brief did not call this an autonomous run.
 
 | Measure | This run |
 |---|---|
-| Wall-clock time | about 20 minutes (13:04 to about 13:24) |
-| Commits | 9 (5 in #24, 4 in the docs PR) |
+| Wall-clock time | 16 minutes (13:04 to 13:20, both PRs open) |
+| Commits | 10 (5 in #24, 5 in #25) |
 | Time in checks | about 5 minutes (the installed hook ran the full check on each commit, plus timing runs) |
-| Time waiting on CI | 0: #24's CI ran while the docs PR was written; nothing waited on it |
+| Time waiting on CI | 0: #24's CI ran while #25 was written; nothing waited on it. #24's slowest job, `lighthouse` (3 runs per page), took 3 min 35 s |
