@@ -14,6 +14,7 @@
     "sync:config": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/sync-config.mjs",
     "check:config": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/sync-config.mjs --check",
     "check:scope": "node scripts/check-change-scope.mjs",
+    "check:process": "node scripts/check-process.mjs",
     "report:changes": "node scripts/change-report.mjs",
     "strip:images": "node scripts/strip-image-metadata.mjs",
     "test:scripts": "node --test \"scripts/*.test.mjs\"",
