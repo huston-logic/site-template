@@ -58,12 +58,23 @@ export const siteConfig = {
     sheetWriter: "apps-script" as "apps-script" | "service-account",
     /** The two tab names in the Sheet. Generic names; the Apps Script reads the same two names from its Script Properties. */
     sheetTabs: { production: "Submissions", preview: "Preview" },
+    /**
+     * Where each submission is saved. "sheet" (the default) is the Google Sheet above, the fallback. "pipeline" posts it
+     * server to server to the client's Pipeline app copy (`pipelineUrl` + "/intake", secret INTAKE_SECRET). The notification
+     * email goes to `siteEmail` either way. Which secrets are required follows this setting (`npm run sync:config`).
+     * Another tool the client names is not built; its one place in the code is `saveSubmission` in worker/contact.ts.
+     */
+    destination: "sheet" as "sheet" | "pipeline",
+    /** The Pipeline app copy's https origin, such as "https://pipeline.example.com" (no path). Needed when destination is "pipeline". */
+    pipelineUrl: null as string | null,
     rateLimit: {
       limit: 5,
       periodSeconds: 60,
-      // CLIENT: replace. Any integer string that is unique per Cloudflare account (for example "101" and "102").
-      namespaceIds: { production: "[[Rate limit namespace id (production)]]", preview: "[[Rate limit namespace id (preview)]]" },
     },
+    // CLIENT: replace. Two whole numbers written as strings, unique to this site in its Cloudflare account: bindings with
+    // the same id share counters, even across Workers. Take the next free pair from docs/HOSTING.md (new sites start at
+    // 2001) and add the row there. 1001 and 1002 are the template's own; `npm run check:config` rejects them on a real site.
+    rateLimitIds: { production: "1001", preview: "1002" },
   },
   theme: {
     // CLIENT: replace. A neutral grey and blue palette; every pair keeps WCAG AA contrast.
