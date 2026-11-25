@@ -95,6 +95,27 @@ what enforces it. `npm run check:process` fails if a rule has no "Why" or this f
 - **Decided:** Grant, 2026-11-24
 - **Enforced by:** `lighthouserc.cjs`; the required `lighthouse` check.
 
+### 13. Hosting
+
+- **What:** Huston Logic hosts every client site in its own Cloudflare account, from a repo in the `huston-logic` GitHub org. The client's domain registration and mailboxes stay in the client's name, and their data stays theirs: the client keeps only the registrar and email logins. The domain's nameservers point at a zone in Huston Logic's Cloudflare account; Resend, Turnstile and uptime monitoring are Huston Logic's accounts too. On request Huston Logic offboards the client: code and hosting move to the client's own GitHub and Cloudflare, and Huston Logic's liability ends at handover. The steps are in `docs/OFFBOARDING.md` (not yet rehearsed). The hosting fee is a business fact and lives in the master doc, not here.
+- **Why:** Owners want it handled for them. Hosting costs Huston Logic about $25 a month in total (Cloudflare Workers Paid $5, Resend Pro $20) whatever the number of clients. One Cloudflare account also fits Cloudflare's rule that a GitHub account points to only one Cloudflare account.
+- **Decided:** Grant, 2026-11-24
+- **Enforced by:** `docs/LAUNCH-CHECKLIST.md` section A and `docs/pipeline/client-onboarding-checklist.md` (convention, no automatic check).
+
+### 14. Every site has its own rate-limit ids
+
+- **What:** Each site sets its own pair of rate-limit namespace ids (`contact.rateLimitIds` in `site.config.ts`), taken from the register in `docs/HOSTING.md`. New sites start at 2001. The register is updated in the same PR that gives a site its ids.
+- **Why:** Rate-limit bindings with the same `namespace_id` in one Cloudflare account share their counters, even across Workers (Cloudflare docs, "Rate Limiting" binding). Two sites on the same ids would count each other's visitors.
+- **Decided:** Grant, 2026-11-24
+- **Enforced by:** `npm run check:config` fails if the ids are missing or not numbers, if the two ids match, or if a configured site (a real `domain.workerName`) still uses the template's 1001 or 1002. The register itself is convention.
+
+### 15. Form contacts go to the client's own tool
+
+- **What:** A form contact goes into the client's Pipeline app copy if they use it (`contact.destination: "pipeline"`), otherwise into another tool they name, and into a Google Sheet (`"sheet"`, the default) only as the fallback. The notification email always goes to the client's inbox and says whether the app or the Sheet saved the contact. The visitor sees success only if the contact reached the client somewhere: the app, the Sheet or the notification email. "Another tool the client names" is not built. Its one place in the code is `saveSubmission` in `worker/contact.ts`, marked "THIRD DESTINATION GOES HERE": add the destination name to `site.config.ts`, `scripts/config-rules.mjs` (secret names) and that function, with tests.
+- **Why:** The owner works from their Pipeline app, so a contact should land where they already look. The Sheet stays as the fallback because it needs no other product.
+- **Decided:** Grant, 2026-11-24
+- **Enforced by:** `npm run check:config` (the destination, its URL and its secret names), the Worker tests (`npm run test:worker`), and `wrangler.jsonc`'s `secrets.required`, which follows the destination.
+
 ## What still stops for Grant
 
 - Adding or upgrading a dependency. (In an autonomous run this item is replaced; see "Autonomous runs" in CLAUDE.md.)
