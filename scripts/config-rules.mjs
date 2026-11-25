@@ -1,6 +1,7 @@
 // Rules for site.config.ts that `npm run check:config` (scripts/sync-config.mjs) enforces, and the Worker secret names
 // each form destination needs. Pure functions over a config object, so they have tests (config-rules.test.mjs).
 // Names only, never values (docs/SECRETS.md).
+import { isHttpsOrigin } from "../worker/pipeline-url.ts"; // the same rule the Worker applies before it sends the secret
 
 const DESTINATIONS = ["sheet", "pipeline"];
 const WRITERS = ["apps-script", "service-account"];
@@ -26,17 +27,6 @@ export function secretsFor(contact) {
   throw new Error(`site.config.ts contact.sheetWriter must be "apps-script" or "service-account", not ${JSON.stringify(contact.sheetWriter)}`);
 }
 
-/** True for exactly "https://host" with an optional port: no path, query, fragment or credentials, no trailing slash. */
-export function isHttpsOrigin(value) {
-  if (typeof value !== "string") return false;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && url.username === "" && url.password === "" && value === url.origin;
-  } catch {
-    return false;
-  }
-}
-
 /** One plain line per problem; an empty array means the config passes. */
 export function configProblems(c) {
   const problems = [];
@@ -51,7 +41,7 @@ export function configProblems(c) {
   }
   if (destination === "pipeline" && !isHttpsOrigin(contact.pipelineUrl)) {
     problems.push(
-      `site.config.ts  contact.pipelineUrl must be the Pipeline app copy's https origin, like "https://pipeline.example.com" (no path, no trailing slash), not ${JSON.stringify(contact.pipelineUrl)}`,
+      `site.config.ts  contact.pipelineUrl must be the Pipeline app copy's https origin, like "https://pipeline.example.com" (lowercase, no path, no trailing slash, no ":443"), not ${JSON.stringify(contact.pipelineUrl)}`,
     );
   }
 

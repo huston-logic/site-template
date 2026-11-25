@@ -1,4 +1,5 @@
 import { log, retryable, TIMEOUT_MS } from "./env.ts";
+import { isHttpsOrigin } from "./pipeline-url.ts";
 
 /**
  * Saves one lead in the client's Pipeline app copy (huston-logic/pipeline README, "Connect a website form"): a
@@ -14,16 +15,6 @@ export interface PipelineLead {
   message: string;
   /** Left out of the request when empty. */
   business?: string;
-}
-
-/** True for exactly "https://host" (an optional port is fine): no path, query, fragment or credentials, no trailing slash. */
-function isHttpsOrigin(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && url.username === "" && url.password === "" && value === url.origin;
-  } catch {
-    return false;
-  }
 }
 
 /** Same contract as the Sheet writers: true only when the app saved the lead. Retries once on a rate limit, server error or network failure. */
@@ -44,8 +35,9 @@ export async function sendToPipeline(baseUrl: string | null | undefined, secret:
         method: "POST",
         headers: { "content-type": "application/json", "x-intake-secret": secret },
         body,
-        // A redirect could carry the secret header to another host; treat one as a failure.
-        redirect: "error",
+        // Never follow a redirect: it could carry the secret header to another host. "manual" hands back the 3xx answer,
+        // which is not 2xx, so it counts as a failure and is not retried.
+        redirect: "manual",
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (response.status >= 200 && response.status < 300) return true;

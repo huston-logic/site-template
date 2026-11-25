@@ -753,7 +753,7 @@ describe("the Pipeline app destination", () => {
     const headers = call.init.headers as Record<string, string>;
     assert.equal(headers["content-type"], "application/json");
     assert.equal(headers["x-intake-secret"], INTAKE_SECRET);
-    assert.equal(call.init.redirect, "error", "a redirect must never carry the secret to another host");
+    assert.equal(call.init.redirect, "manual", "a redirect is never followed, so it can never carry the secret to another host");
     assert.ok(call.init.signal instanceof AbortSignal, "has a timeout signal");
     assert.deepEqual(Object.keys(call.json ?? {}).sort(), ["business", "email", "message", "name"]);
     assert.equal(call.json?.name, VISITOR.name);
@@ -809,7 +809,16 @@ describe("the Pipeline app destination", () => {
     assert.ok(notifyText().includes("Pipeline app: NOT saved"));
   });
 
-  test("an unreachable app (or a redirect) is retried once, then the note goes by email only", async () => {
+  test("a redirect answer is a failure: not followed, not retried, and the note goes by email only", async () => {
+    responders.intake = () => new Response(null, { status: 302, headers: { location: "https://elsewhere.example.test/intake" } });
+    const response = await pipelineWorker.fetch(post(valid), env());
+    assert.equal(response.status, 200);
+    assert.equal(called("intake").length, 1);
+    assert.ok(logs.some((l) => l.includes('"event":"pipeline_failed"') && l.includes('"status":302')));
+    assert.ok(notifyText().includes("Pipeline app: NOT saved"));
+  });
+
+  test("an unreachable app is retried once, then the note goes by email only", async () => {
     responders.intake = () => {
       throw new Error("network down");
     };
