@@ -170,8 +170,8 @@ test("HTML or markdown link in text", () => {
   assert.deepEqual(checkHome([block("hero", { title: "1 < 2 and **bold** [[later]] A & B" })]), []);
 });
 
-test("javascript: and data: links", () => {
-  for (const [href, word] of [["javascript:alert(1)", "javascript:"], ["JavaScript:alert(1)", "javascript:"], [" javascript:x", "javascript:"], ["data:text/html,hi", "data:"]]) {
+test("javascript:, vbscript: and data: links", () => {
+  for (const [href, word] of [["javascript:alert(1)", "javascript:"], ["JavaScript:alert(1)", "javascript:"], [" javascript:x", "javascript:"], ["vbscript:msgbox(1)", "vbscript:"], ["VBScript:x", "vbscript:"], ["data:text/html,hi", "data:"]]) {
     const problems = checkHome([block("hero", { title: "Hi", action: { label: "Go", href } })]);
     assert.equal(problems.length, 1, href);
     assert.ok(problems[0].includes(word), `${href}: ${problems[0]}`);

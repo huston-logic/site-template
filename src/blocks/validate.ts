@@ -73,8 +73,9 @@ function linkProblem(href: string, ctx: Context): string | null {
   if (href === BOOKING_LINK) return null;
   const lower = href.trim().toLowerCase();
   if (href.length > 300) return "is longer than 300 characters";
-  if (lower.startsWith("javascript:")) return "is a javascript: link, which is never allowed";
-  if (lower.startsWith("data:")) return "is a data: link, which is never allowed";
+  // Script and data schemes are named here so the message says why; anything else not listed below is refused too.
+  const scheme = /^(javascript|vbscript|data):/.exec(lower)?.[1];
+  if (scheme !== undefined) return `is a ${scheme}: link, which is never allowed`;
   if (lower.startsWith("http:")) return "is an http: link; use https:// so the visitor's connection is secure";
   if (lower.startsWith("//")) return "starts with //, which can point anywhere; write the full https:// address";
   if (/[\s\u0000-\u001f]/.test(href)) return "contains a space or hidden character";

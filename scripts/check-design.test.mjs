@@ -14,7 +14,7 @@ for (const [name, source, expected] of [
   test(`fails ${name}`, () => {
     const problems = designProblems("src/x.tsx", `${source}\n`);
     assert.equal(problems.length, 1, problems.join("\n"));
-    assert.match(problems[0], new RegExp(`^src/x\\.tsx:1: .*\\(${expected.replace(/[()]/g, "\\$&")}\\)$`));
+    assert.match(problems[0], new RegExp(`^src/x\\.tsx:1: .*\\(${expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)$`));
   });
 }
 

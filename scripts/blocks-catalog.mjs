@@ -199,7 +199,8 @@ function limitsWords(f) {
   }
 }
 
-const cell = (s) => String(s).replace(/\|/g, "\\|");
+// Backslashes first, so an escaped pipe cannot be undone by a backslash already in the text.
+const cell = (s) => String(s).replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
 
 /** Table rows for a field and, for groups and lists of groups, the fields inside them (named like `videos[].url`). */
 function fieldRows(f, name) {
