@@ -16,7 +16,7 @@
   --duration-lift: 250ms;
   --ease-hover: ease-out;
   --motion-enter-distance: 16px;
-  --motion-enter-range: 240px;
+  --duration-enter: 600ms;
 
   --default-transition-duration: var(--duration-feedback);
   --default-transition-timing-function: var(--ease-site);

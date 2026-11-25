@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { Glow } from "@/components/hl/Glow";
 import { blockComponents } from "./components";
+import { EnterObserver } from "./EnterObserver";
 import { registry } from "./definitions";
 import { spacingFor } from "./rhythm";
 import type { AnyBlockDefinition, BlockInstance } from "./schema";
@@ -47,6 +48,7 @@ export function BlockRenderer({ blocks }: { blocks: readonly BlockInstance[] }) 
       {blocks.map((block, index) => (
         <BlockView key={index} block={block} index={index} previous={index > 0 ? definitions.get(blocks[index - 1]?.type ?? "") : undefined} primary={index === 0} />
       ))}
+      <EnterObserver />
     </div>
   );
 }

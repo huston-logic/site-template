@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BlockView } from "@/blocks/BlockRenderer";
+import { EnterObserver } from "@/blocks/EnterObserver";
 import { registry } from "@/blocks/definitions";
 import type { AnyBlockDefinition, BlockInstance } from "@/blocks/schema";
 import { Container } from "@/components/hl/Container";
@@ -51,6 +52,7 @@ export default function ShowcasePage() {
           );
         }),
       )}
+      <EnterObserver />
     </div>
   );
 }

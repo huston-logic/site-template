@@ -329,24 +329,18 @@
   }
 }
 
-/* Entrance (spec 5.8): a block marked data-motion="enter" rises a little as it scrolls into view. A CSS scroll-driven
-   animation, so no JavaScript and no scroll listener; unsupported browsers and reduced motion show the resting state.
-   No fade on purpose: text below the first screen stays at full contrast for any reader that does not scroll
-   (accessibility checkers, link previews, print). With a fade, Lighthouse read the /services FAQ at near-zero opacity.
-   The timeline must come after the shorthand, which resets it. */
-@keyframes hl-enter {
-  from {
-    translate: 0 var(--motion-enter-distance);
-  }
-}
-
+/* Entrance (spec 5.8): a block marked data-motion="enter" waits 16px low and rises into place the first time it comes
+   into view; EnterObserver (src/blocks/EnterObserver.tsx) marks it data-entered with an IntersectionObserver, as the
+   motion rules ask (no scroll listener, no scroll-linked effect). Transform only: no fade, so every block is readable at
+   full contrast before, during and without the motion (with a fade, Lighthouse read the /services FAQ at near-zero
+   opacity), and no layout shift. Gated on the `js` class, so without JavaScript nothing moves. */
 @media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    [data-motion="enter"] {
-      animation: hl-enter auto var(--ease-site) both;
-      animation-timeline: view();
-      animation-range: cover 0% cover var(--motion-enter-range);
-    }
+  .js [data-motion="enter"] {
+    transition: translate var(--duration-enter) var(--ease-site);
+  }
+
+  .js [data-motion="enter"]:not([data-entered]) {
+    translate: 0 var(--motion-enter-distance);
   }
 }
 

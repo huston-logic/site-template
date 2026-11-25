@@ -167,19 +167,20 @@ Inventory today: link underline (0.5 s, `--hl-ease`), arrow nudge (150 ms ease-o
 menu panel (`--duration-feedback`/`--duration-panel`, `--ease-site`), native smooth anchor scroll, the global
 reduced-motion switch. No entrance or scroll animation exists. The layer:
 - Tokens in `globals.css` `@theme static`: the existing three plus `--duration-underline`, `--ease-underline`,
-  `--duration-nudge`, `--duration-lift`, `--ease-hover`, `--motion-enter-distance`, `--motion-enter-range`. Every
-  transition and keyframe in `hl.css` uses tokens; `check:design` fails a raw duration there.
-- **Entrance (default for every block):** the renderer marks each block after the first `data-motion="enter"`; CSS rises
-  it from `--motion-enter-distance` as it scrolls into view, using a CSS scroll-driven animation
-  (`animation-timeline: view()`) inside `@supports` and `prefers-reduced-motion: no-preference`. No JavaScript, no scroll
-  listener, transform and opacity only (no layout shift), resting state identical. Unsupported browsers and reduced
-  motion show the resting state. The first block never animates (it is the first paint and usually the LCP). **Ruling:**
-  scroll-driven rather than a time-based reveal, because AGENTS.md forbids JS-gated hidden content. Cost if wrong: swap
-  the CSS rule; blocks are unaffected.
-- **Ruling (made during the build):** the entrance is a rise with no fade. With a fade, Lighthouse (which does not use
-  reduced motion) read the `/services` FAQ below the first screen at near-zero opacity and scored accessibility 96 instead
-  of 100; any reader that does not scroll would see faint text. Cost if wrong: a fade can come back once checkers and
-  previews are shown to read the resting state.
+  `--duration-nudge`, `--duration-lift`, `--ease-hover`, `--motion-enter-distance` (16px), `--duration-enter` (600ms).
+  Every transition and keyframe in `hl.css` uses tokens; `check:design` fails a raw duration there.
+- **Entrance (default for every block):** the renderer marks each block after the first `data-motion="enter"`. With
+  JavaScript on (the `js` class) and no reduced-motion preference, such a block waits `--motion-enter-distance` low and
+  rises into place over `--duration-enter` the first time it comes into view; `EnterObserver` (a small client component
+  the renderer mounts once per page) marks it `data-entered` with an `IntersectionObserver`. Transform only: no fade, no
+  layout shift, nothing hidden, resting state identical. Without JavaScript or with reduced motion nothing moves. The
+  first block never animates (it is the first paint and usually the LCP).
+- **Ruling (made during the build), first version:** a CSS scroll-driven animation (`animation-timeline: view()`) that
+  rose and faded each block. Replaced for two reasons. AGENTS.md's motion rules ban scroll-linked effects and name
+  `IntersectionObserver` for reveal-on-view (AGENTS.md wins on code rules). And with a fade, Lighthouse (which does not
+  use reduced motion) read the `/services` FAQ below the first screen at near-zero opacity and scored accessibility 96
+  instead of 100; any reader that does not scroll would see faint text. Cost if wrong: a fade or a scroll-linked
+  version can come back by changing two CSS rules; blocks are unaffected.
 - **Hover:** the existing underline, arrow and lift, through the primitives. **Scroll:** native only.
 - A block declares `motion: { entrance: "default" }`, or `{ entrance: "none", reason }`, or adds `signature: { keyframes,
   reason }` naming an `@keyframes hl-signature-<name>` in `hl.css`. Signature blocks are the page's focal animation, so the
