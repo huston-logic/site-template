@@ -21,7 +21,7 @@ export function ReasonList({ id, heading, items }: ReasonListProps) {
           {items.map((item, index) => (
             <li key={item.title} className="relative">
               <p className="font-ui text-item font-semibold"><Text>{item.title}</Text></p>
-              <p className="mt-2 text-[17px] leading-[1.55]"><Text>{item.body}</Text></p>
+              <p className="mt-2 text-list"><Text>{item.body}</Text></p>
               <CellDividers index={index} total={items.length} md={2} />
             </li>
           ))}

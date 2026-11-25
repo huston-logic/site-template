@@ -17,19 +17,19 @@ type ClosingCtaProps = {
 export function ClosingCta({ heading, body, children, note }: ClosingCtaProps) {
   return (
     <section className="relative py-16 md:py-24">
-      <Glow variant="seam" className="left-1/2 top-[-260px] -ml-[650px]" />
+      <Glow variant="seam" className="hl-glow-closing" />
       <Container className="relative z-10">
-        <h2 className="max-w-[17em] font-ui text-h2 font-bold">
+        <h2 className="max-w-heading font-ui text-h2 font-bold">
           <Text>{heading}</Text>
         </h2>
         {body ? (
-          <p className="mt-4 max-w-[60ch] text-blurb">
+          <p className="mt-4 max-w-intro text-blurb">
             <Text>{body}</Text>
           </p>
         ) : null}
         <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2">{children}</div>
         {note ? (
-          <p className="mt-6 text-[15px] text-ink-2">
+          <p className="mt-6 text-label text-ink-2">
             <Text>{note}</Text>
           </p>
         ) : null}

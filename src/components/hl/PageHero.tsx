@@ -18,16 +18,16 @@ const asText = (node: ReactNode) => (typeof node === "string" ? <Text>{node}</Te
 /** Top of every page: left-aligned eyebrow, H1, intro and action, with a soft glow in the top-right corner. Static. */
 export function PageHero({ eyebrow, title, intro, children }: PageHeroProps) {
   return (
-    <section className="relative pb-16 pt-[72px]">
-      <Glow variant="green" className="-right-[260px] -top-[260px] size-[520px]" />
+    <section className="relative pb-16 pt-18">
+      <Glow variant="green" className="hl-glow-hero" />
       <Container className="relative z-10">
         {eyebrow ? (
           <Eyebrow>
             <Text>{eyebrow}</Text>
           </Eyebrow>
         ) : null}
-        <h1 className={`${eyebrow ? "mt-[18px] " : ""}max-w-[18em] font-ui text-page-title font-bold`}>{asText(title)}</h1>
-        {intro ? <p className="mt-6 max-w-[60ch] text-body">{asText(intro)}</p> : null}
+        <h1 className={`${eyebrow ? "mt-4.5 " : ""}max-w-title font-ui text-page-title font-bold`}>{asText(title)}</h1>
+        {intro ? <p className="mt-6 max-w-intro text-body">{asText(intro)}</p> : null}
         {children ? <div className="mt-8">{children}</div> : null}
       </Container>
     </section>
