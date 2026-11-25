@@ -6,7 +6,7 @@ export const MENU_PLACES = ["header", "footer", "legal"] as const;
 export type MenuPlace = (typeof MENU_PLACES)[number];
 
 /** Paths a page may not take: routes the site already owns. */
-export const RESERVED_PATHS = ["/blocks", "/api", "/contact/thanks", "/og.png", "/icon.svg", "/sitemap.xml", "/robots.txt"] as const;
+export const RESERVED_PATHS = ["/blocks", "/api", "/contact/thanks", "/og.png", "/icon.svg", "/sitemap.xml", "/robots.txt", "/404", "/index", "/_not-found", "/_next"] as const;
 /** Pages that must exist and be live: the booking fallback and the form live on /contact. */
 export const REQUIRED_LIVE = ["/", "/contact"] as const;
 /** The site's booking link (the scheduler, else /contact#book). */

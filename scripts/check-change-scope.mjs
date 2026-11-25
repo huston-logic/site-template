@@ -121,7 +121,10 @@ export function gatherChange({ base, head, git, rules = defaultRules }) {
     if (needsContent) file.content = String(git(["show", `${head}:${path}`]));
     return file;
   });
-  const touchesPages = files.some((f) => isPageFile(f.path, rules) && ["A", "M"].includes(f.status) && !SPECIAL_MODES.includes(f.mode));
+  // A page file added or edited, or a picture removed or replaced (a page may still use it), means the pages are checked.
+  const touchesPages = files.some(
+    (f) => !SPECIAL_MODES.includes(f.mode) && ((isPageFile(f.path, rules) && ["A", "M"].includes(f.status)) || (f.path.startsWith(rules.imageDir) && ["D", "M"].includes(f.status))),
+  );
   if (!touchesPages) return { files, imageRefs };
   return { files, imageRefs, pages: readPagesAt(head, git, rules), headImages: listAt(head, rules.imageDir, git, true) };
 }

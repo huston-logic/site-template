@@ -108,7 +108,9 @@ export function pageInfoFromTexts(entries) {
  */
 export function affectedPages({ files, sources, pageRoutes = {}, allRoutes, pagesHead = {}, pagesBase = {} }) {
   const entries = new Map();
-  const liveAt = (pages, route) => (Object.hasOwn(pages, route) ? pages[route].status === "live" : !Object.hasOwn(pagesHead, route) && !Object.hasOwn(pagesBase, route));
+  // A route with no page file on that side may still be a page there: a code page, or (when converting a site to blocks)
+  // a page that only became a file on this branch. The screenshot step asks that side's build and skips a 404.
+  const liveAt = (pages, route) => (Object.hasOwn(pages, route) ? pages[route].status === "live" : true);
   const mark = (route, reason, sides = {}) => entries.has(route) || entries.set(route, { reason, ...sides });
   for (const { status, path } of files) {
     const own = routeForPageFile(path);
@@ -116,7 +118,7 @@ export function affectedPages({ files, sources, pageRoutes = {}, allRoutes, page
     if (own) {
       const baseLive = liveAt(pagesBase, own);
       const headLive = liveAt(pagesHead, own);
-      if (status === "A") mark(own, "new page", { before: false, after: headLive });
+      if (status === "A") mark(own, "new page file", { before: baseLive, after: headLive });
       else if (status === "D") mark(own, "page deleted", { before: baseLive, after: false });
       else if (baseLive && !headLive) mark(own, "page archived", { before: true, after: false });
       else if (!baseLive && headLive) mark(own, "page restored", { before: false, after: true });

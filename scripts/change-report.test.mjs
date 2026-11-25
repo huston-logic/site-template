@@ -84,10 +84,16 @@ test("a page file maps to its own route, the home page file to /", () => {
   assert.deepEqual(routes(change(["M", "src/content/pages/home.json"], ["M", "src/content/pages/services.json"])), ["/", "/services"]);
 });
 
-test("a new page file is a new page: an after only", () => {
+test("a new page file is photographed on both sides: the base build says whether the page was there (a 404 is skipped)", () => {
   const head = { ...pagesBefore, "/our-team": live("hero", "closing-cta") };
   const [page] = pages(change(["A", "src/content/pages/our-team.json"]), head, pagesBefore);
-  assert.deepEqual([page.route, page.slug, page.before, page.after, page.reason], ["/our-team", "our-team", false, true, "new page"]);
+  assert.deepEqual([page.route, page.slug, page.before, page.after, page.reason], ["/our-team", "our-team", true, true, "new page file"]);
+});
+
+test("converting a site to blocks: a page that was code at the base and is a page file now gets a before and an after", () => {
+  const head = { "/": live("hero"), "/about": live("hero", "prose") };
+  const converted = pages(change(["A", "src/content/pages/home.json"], ["A", "src/content/pages/about.json"]), head, {});
+  assert.deepEqual(converted.map((p) => [p.route, p.before, p.after]), [["/", true, true], ["/about", true, true]]);
 });
 
 test("a page that goes from live to archived is a page archived: a before only", () => {
@@ -102,10 +108,11 @@ test("a page that goes from archived to live is a page restored: an after only",
   assert.deepEqual([page.route, page.before, page.after, page.reason], ["/about", false, true, "page restored"]);
 });
 
-test("editing a page that stays archived, or adding a new archived page, shows nothing", () => {
+test("editing a page that stays archived shows nothing; a new archived page file is only looked for in the base build", () => {
   const archivedBoth = { ...pagesBefore, "/about": archived("hero") };
   assert.deepEqual(pages(change(["M", "src/content/pages/about.json"]), archivedBoth, archivedBoth), []);
-  assert.deepEqual(pages(change(["A", "src/content/pages/old.json"]), { ...pagesBefore, "/old": archived("hero") }, pagesBefore), []);
+  const added = pages(change(["A", "src/content/pages/old.json"]), { ...pagesBefore, "/old": archived("hero") }, pagesBefore);
+  assert.deepEqual(added.map((p) => [p.route, p.before, p.after]), [["/old", true, false]], "only the base build is asked, and it skips a 404");
 });
 
 test("a block's library folder reaches every page that uses that block type, plus the showcase", () => {

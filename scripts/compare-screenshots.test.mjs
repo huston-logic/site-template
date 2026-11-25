@@ -82,7 +82,7 @@ test("refuses things that are not 8-bit RGB or RGBA PNGs", () => {
 test("identical images", () => {
   const a = decodePng(encode(4, 3, gradient(4, 3)));
   const b = decodePng(encode(4, 3, gradient(4, 3), { filters: [1, 2, 4] }));
-  assert.deepEqual(comparePngs(a, b), { identical: true, changedPixels: 0, box: null });
+  assert.deepEqual(comparePngs(a, b), { identical: true, changedPixels: 0, maxDelta: 0, box: null });
 });
 
 test("one pixel different", () => {
@@ -103,6 +103,21 @@ test("bounding box covers every changed pixel", () => {
   const result = comparePngs(decodePng(encode(6, 6, pixels)), decodePng(encode(6, 6, changed)));
   assert.equal(result.changedPixels, 2);
   assert.deepEqual(result.box, { x: 1, y: 1, width: 4, height: 4 });
+});
+
+test("the largest channel difference is reported, and a tolerance is opt-in", () => {
+  const pixels = gradient(4, 3);
+  const noisy = pixels.map((p) => [...p]);
+  noisy[5] = [noisy[5][0] + 2, noisy[5][1], noisy[5][2], noisy[5][3]];
+  const a = decodePng(encode(4, 3, pixels));
+  const b = decodePng(encode(4, 3, noisy));
+  const exact = comparePngs(a, b);
+  assert.equal(exact.identical, false, "exact by default");
+  assert.equal(exact.maxDelta, 2);
+  const within = comparePngs(a, b, 2);
+  assert.equal(within.identical, true);
+  assert.equal(within.maxDelta, 2);
+  assert.equal(comparePngs(a, b, 1).identical, false);
 });
 
 test("different sizes are not identical and say so", () => {

@@ -611,6 +611,31 @@ test("real git: a page that links to a page that does not exist fails with a pla
   assert.match(report, /FAIL \(content problem\)/);
 });
 
+test("real git: deleting a picture a page still uses fails, even when no page file changed", () => {
+  const withPoster = pageData("/about", {
+    blocks: [
+      { type: "hero", content: { title: "A headline for the page" } },
+      { type: "video", content: { url: "https://www.youtube.com/watch?v=aqz-KE-bpKQ", title: "A short tour of the studio", poster: { src: "/images/studio.jpg", alt: "The studio front desk" } } },
+      { type: "closing-cta", content: { heading: "Ready when you are", action: { label: "Book a call", href: "@booking" } } },
+    ],
+  });
+  const { dir, git } = makeRepo(({ write }) => {
+    write("public/images/studio.jpg", makeJpeg());
+    write("src/content/pages/about.json", JSON.stringify(withPoster, null, 2));
+  });
+  try {
+    git(["checkout", "-q", "-b", "change/remove-photo"]);
+    rmSync(join(dir, "public/images/studio.jpg"));
+    git(["add", "-A"]);
+    git(["-c", "user.email=t@example.com", "-c", "user.name=Test", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "remove"]);
+    const out = [];
+    assert.equal(main({ argv: ["--base", "change/test", "--head", "HEAD"], env: {}, git, out: (t) => out.push(t) }), 1, out.join("\n"));
+    assert.match(out.join("\n"), /about\.json, block 2 \(video\)/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("real git: a page file that is not valid JSON fails and names the file, never a stack trace", () => {
   const { code, report } = inRepo(({ write }) => write("src/content/pages/about.json", '{ "path": "/about", }\n'));
   assert.equal(code, 1, report);

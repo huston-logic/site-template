@@ -72,12 +72,17 @@ export function decodePng(buffer) {
   return { width, height, data };
 }
 
-/** { identical, changedPixels, box: {x, y, width, height} | null, note? }. Different sizes are never identical. */
-export function comparePngs(a, b) {
+/**
+ * { identical, changedPixels, maxDelta, box: {x, y, width, height} | null, note? }. A pixel counts as changed when any
+ * channel differs by more than `tolerance` (default 0: exact). maxDelta is the largest channel difference seen. Different
+ * sizes are never identical.
+ */
+export function comparePngs(a, b, tolerance = 0) {
   if (a.width !== b.width || a.height !== b.height) {
-    return { identical: false, changedPixels: 0, box: null, note: `sizes differ: ${a.width} x ${a.height} before, ${b.width} x ${b.height} after` };
+    return { identical: false, changedPixels: 0, maxDelta: 255, box: null, note: `sizes differ: ${a.width} x ${a.height} before, ${b.width} x ${b.height} after` };
   }
   let changedPixels = 0;
+  let maxDelta = 0;
   let minX = a.width;
   let minY = a.height;
   let maxX = -1;
@@ -85,7 +90,10 @@ export function comparePngs(a, b) {
   for (let y = 0; y < a.height; y += 1) {
     for (let x = 0; x < a.width; x += 1) {
       const i = (y * a.width + x) * 4;
-      if (a.data[i] !== b.data[i] || a.data[i + 1] !== b.data[i + 1] || a.data[i + 2] !== b.data[i + 2] || a.data[i + 3] !== b.data[i + 3]) {
+      let delta = 0;
+      for (let c = 0; c < 4; c += 1) delta = Math.max(delta, Math.abs(a.data[i + c] - b.data[i + c]));
+      if (delta > maxDelta) maxDelta = delta;
+      if (delta > tolerance) {
         changedPixels += 1;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
@@ -94,12 +102,12 @@ export function comparePngs(a, b) {
       }
     }
   }
-  if (changedPixels === 0) return { identical: true, changedPixels: 0, box: null };
-  return { identical: false, changedPixels, box: { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 } };
+  if (changedPixels === 0) return { identical: true, changedPixels: 0, maxDelta, box: null };
+  return { identical: false, changedPixels, maxDelta, box: { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 } };
 }
 
 /** Compares every <page>/before-<name>.png with <page>/after-<name>.png in a change-report folder. Returns report lines. */
-export function compareFolder(folder) {
+export function compareFolder(folder, tolerance = 0) {
   const lines = [];
   let allIdentical = true;
   let compared = 0;
@@ -113,12 +121,12 @@ export function compareFolder(folder) {
         allIdentical = false;
         continue;
       }
-      const result = comparePngs(decodePng(readFileSync(join(dir, file))), decodePng(readFileSync(afterPath)));
+      const result = comparePngs(decodePng(readFileSync(join(dir, file))), decodePng(readFileSync(afterPath)), tolerance);
       compared += 1;
-      if (result.identical) lines.push(`${page} ${name}: identical`);
+      if (result.identical) lines.push(result.maxDelta === 0 ? `${page} ${name}: identical` : `${page} ${name}: identical within ${tolerance} (largest channel difference ${result.maxDelta} of 255)`);
       else {
         allIdentical = false;
-        const where = result.box ? `${result.changedPixels} changed pixels, box x ${result.box.x} y ${result.box.y}, ${result.box.width} x ${result.box.height}` : result.note;
+        const where = result.box ? `${result.changedPixels} changed pixels, box x ${result.box.x} y ${result.box.y}, ${result.box.width} x ${result.box.height}, largest channel difference ${result.maxDelta} of 255` : result.note;
         lines.push(`${page} ${name}: DIFFERENT, ${where}`);
       }
     }
@@ -130,13 +138,23 @@ export function compareFolder(folder) {
   return { lines, allIdentical };
 }
 
+// Usage: compare-screenshots.mjs [folder] [--tolerance N]. Exact by default. A tolerance (for example 2, the
+// gradient rasterisation noise seen in soft glows between two runs of the same build) is for a person who has looked
+// at the pictures; say so in the PR.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const folder = resolve(process.argv[2] ?? "change-report");
-  if (!existsSync(folder)) {
+  const args = process.argv.slice(2);
+  const at = args.indexOf("--tolerance");
+  const tolerance = at >= 0 ? Number(args[at + 1]) : 0;
+  const folderArg = args.find((arg, i) => !arg.startsWith("--") && (at < 0 || i !== at + 1));
+  const folder = resolve(folderArg ?? "change-report");
+  if (!Number.isInteger(tolerance) || tolerance < 0 || tolerance > 255) {
+    console.error("--tolerance takes a whole number from 0 to 255.");
+    process.exitCode = 2;
+  } else if (!existsSync(folder)) {
     console.error(`No folder ${folder}. Run npm run report:changes first.`);
     process.exitCode = 1;
   } else {
-    const { lines, allIdentical } = compareFolder(folder);
+    const { lines, allIdentical } = compareFolder(folder, tolerance);
     for (const line of lines) console.log(line);
     process.exitCode = allIdentical ? 0 : 1;
   }
