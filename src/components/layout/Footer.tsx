@@ -3,14 +3,16 @@ import { ArrowLabel } from "@/components/hl/Arrow";
 import { Container } from "@/components/hl/Container";
 import { HlLink } from "@/components/hl/HlLink";
 import { Text } from "@/components/ui/Text";
-import { footerLinks, privacyLink } from "@/content/nav";
 import { siteConfig } from "@/content/site";
+import { getMenu } from "@/lib/pages";
 import { Logo } from "./Logo";
 
 const linkClass = "inline-flex min-h-11 items-center font-ui text-[16px] font-medium text-ink";
 
 /** Site footer (docs/STYLE-GUIDE.md §7.26, Rev 7.1 B10): fades in from the page, no hard edge. */
 export function Footer() {
+  const footerLinks = getMenu("footer");
+  const legalLinks = getMenu("legal");
   return (
     <footer className="hl-footer relative overflow-hidden pb-12 pt-24">
       <Container className="relative">
@@ -56,10 +58,15 @@ export function Footer() {
         </div>
 
         <p className="mt-12 text-small text-ink-2">
-          <Link href={privacyLink.href} className="inline-flex min-h-11 items-center underline underline-offset-4">
-            {privacyLink.label}
-          </Link>{" "}
-          · &copy; {siteConfig.copyrightYear} <Text>{siteConfig.name}</Text>
+          {legalLinks.map((link) => (
+            <span key={link.href}>
+              <Link href={link.href} className="inline-flex min-h-11 items-center underline underline-offset-4">
+                {link.label}
+              </Link>{" "}
+              ·{" "}
+            </span>
+          ))}
+          &copy; {siteConfig.copyrightYear} <Text>{siteConfig.name}</Text>
         </p>
       </Container>
     </footer>

@@ -14,7 +14,7 @@ export function Faq({ items }: FaqProps) {
         <div key={item.question}>
           {index > 0 ? <FadingDivider /> : null}
           <details className="group">
-            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-6 py-3 font-ui text-[20px] font-semibold leading-snug [&::-webkit-details-marker]:hidden">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-6 py-3 font-ui text-question font-semibold [&::-webkit-details-marker]:hidden">
               <span>
                 <Text>{item.question}</Text>
               </span>
@@ -23,7 +23,7 @@ export function Faq({ items }: FaqProps) {
                 <circle cx="10" cy="10" r="4" fill="var(--hl-rust)" className="opacity-0 group-open:opacity-100" />
               </svg>
             </summary>
-            <p className="max-w-[66ch] pb-6 text-[17px] leading-[1.55]">
+            <p className="max-w-answer pb-6 text-list">
               <Text>{item.answer}</Text>
             </p>
           </details>

@@ -1,0 +1,47 @@
+{
+  "path": "/about",
+  "title": "[[About page SEO title]]",
+  "description": "[[About page SEO description]]",
+  "status": "live",
+  "menu": {
+    "label": "About",
+    "order": 20,
+    "places": [
+      "header",
+      "footer"
+    ]
+  },
+  "blocks": [
+    {
+      "type": "hero",
+      "content": {
+        "eyebrow": "[[About eyebrow]]",
+        "title": "[[About headline]]",
+        "intro": "[[About introduction]]"
+      }
+    },
+    {
+      "type": "prose",
+      "anchor": "story",
+      "content": {
+        "heading": "[[About story heading]]",
+        "paragraphs": [
+          "[[About paragraph 1]]",
+          "[[About paragraph 2]]",
+          "[[About paragraph 3]]"
+        ]
+      }
+    },
+    {
+      "type": "closing-cta",
+      "content": {
+        "heading": "[[About call to action heading]]",
+        "body": "[[About call to action text]]",
+        "action": {
+          "label": "[[About button label]]",
+          "href": "@booking"
+        }
+      }
+    }
+  ]
+}

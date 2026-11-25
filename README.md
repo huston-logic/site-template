@@ -17,6 +17,8 @@ Permanent architecture, security and content rules are in [`AGENTS.md`](./AGENTS
 | `/privacy` | Privacy policy (draft, needs review) |
 | `404` | Not found |
 
+Each page is one JSON file in `src/content/pages/` (`home.json` is `/`, `services.json` is `/services`). It holds the title, description and blocks. To take a page down, set its `status` to `"archived"`; the file stays. See [docs/BLOCKS.md](docs/BLOCKS.md) for the blocks, [docs/EDITING-LANES.md](docs/EDITING-LANES.md) for what a client can change, and [docs/CONVERT-TO-BLOCKS.md](docs/CONVERT-TO-BLOCKS.md) for an older site.
+
 ## Develop
 
 Requires Node 22.19+ and npm 10 (`>=10.9.2 <11`; matches `engines` in package.json; CI uses Node 22 with npm 10.9.9). There is no `engine-strict`, so `npm install` and `npm ci` only warn under npm 11, but a lockfile written by npm 11 can fail CI. If your default npm is 11, put `npx --yes npm@10.9.9` in front of them.
@@ -26,7 +28,7 @@ npx --yes npm@10.9.9 install   # or plain `npm install` when your npm is 10
 npm run dev          # http://localhost:4821
 ```
 
-All copy lives in typed modules under `src/content/`. Components are in `src/components/`, routes in `src/app/`.
+Copy lives in `src/content/`. Pages are JSON files in `src/content/pages/` (see Pages above); the other strings are typed modules there. Blocks are in `src/blocks/`, components in `src/components/`, routes in `src/app/`.
 
 ### Checks
 
@@ -37,8 +39,13 @@ npm run test:worker   # contact Worker tests (Node's built-in test runner; no ne
 npm run build         # static export to ./out
 npm run check:fast    # everything in check except the build
 npm run check:process # process caps and rules (docs/PROCESS.md, STATUS.md, plans, agent model:)
+npm run check:content # page files and blocks: links, limits, plain text, alt text (docs/BLOCKS.md)
+npm run check:design  # block styles use the design tokens only; motion rules
+npm run blocks:catalog  # regenerates docs/BLOCKS.md, docs/blocks.json and the section list in docs/EDITING-LANES.md
 npm run check         # check:fast, then build (the full check)
 ```
+
+`npm run compare:screens` compares a before and after screenshot pixel by pixel, used when an older site is converted to blocks (see [docs/CONVERT-TO-BLOCKS.md](docs/CONVERT-TO-BLOCKS.md)).
 
 CI runs the same checks on every pull request (`.github/workflows/ci.yml`).
 
@@ -80,7 +87,7 @@ npm run build
 npm run test:lighthouse
 ```
 
-`npm run build && npm run test:lighthouse` audits the built site with Lighthouse CI (mobile preset, median of 5 runs per page) against the eight indexable pages in `src/lib/routes.ts` (a `noindex` page cannot pass the SEO check, and the 404 page returns an error status). It serves `out/` through `scripts/preview.mjs`, so the headers in `public/_headers` apply, and uses the Google Chrome installed on your machine (or `CHROME_PATH`). Reports are written to `.lighthouseci/` (git-ignored). Accessibility and SEO must score 0.95 or higher, and best-practices and performance 0.9 or higher; all four fail the job (`lighthouserc.cjs`). The preview server does not compress files or set cache headers the way Cloudflare does, so its performance score understates the deployed site.
+`npm run build && npm run test:lighthouse` audits the built site with Lighthouse CI (mobile preset, median of 3 runs per page) against the indexable pages in `src/lib/routes.ts` plus the block showcase `/blocks`, which is noindex and so has no SEO assertion (a `noindex` page cannot pass the SEO check; the 404 page returns an error status). It serves `out/` through `scripts/preview.mjs`, so the headers in `public/_headers` apply, and uses the Google Chrome installed on your machine (or `CHROME_PATH`). Reports are written to `.lighthouseci/` (git-ignored). Accessibility and SEO must score 0.95 or higher, and best-practices and performance 0.9 or higher; all four fail the job (`lighthouserc.cjs`). The preview server does not compress files or set cache headers the way Cloudflare does, so its performance score understates the deployed site.
 
 In CI this is the `lighthouse` job in `.github/workflows/ci.yml`. It is a required check in the "Protect main" ruleset, so a red result blocks merge. Scores for every page are in the run's Summary, and the full HTML and JSON reports are the `lighthouse-reports` artifact (kept 14 days; open the `.report.html` for the failing URL to see which audits failed). If it fails with `NO_NAVSTART` (a Lighthouse trace-recording hiccup, not a site problem), click "Re-run failed jobs" on the run.
 
@@ -109,7 +116,7 @@ Scheduled runs only happen on the default branch, and GitHub disables schedules 
 |---|---|---|
 | Site URL | `NEXT_PUBLIC_SITE_URL` (see `.env.example`), default `https://[[DOMAIN]]` in `src/content/site.ts` | Used for canonical URLs, Open Graph, sitemap, robots and the homepage JSON-LD. Public value, not a secret. |
 | Contact email, scheduler URL, LinkedIn URL, Turnstile site key, sender names, Worker name, Sheet writer and tabs, rate limit | `site.config.ts` (`contact.*`, `domain.workerName`), re-exported by `src/content/providers.ts` and `site.ts` | `null` or `[[placeholder]]` renders a visible marker and fails `build:launch`. The Worker reads this file too (`worker/config.ts`). The Turnstile site key is public. Run `npm run sync:config` after editing; secrets are in [docs/SECRETS.md](docs/SECRETS.md). |
-| Content-Security-Policy | `public/_headers` | `https://challenges.cloudflare.com` is allowed in `script-src` and `frame-src` for Turnstile on the contact form, and `https://static.cloudflareinsights.com` (`script-src`) and `https://cloudflareinsights.com` (`connect-src`) for Cloudflare Web Analytics. Nothing else is loaded from outside. `_headers` covers static files only; the Worker sets its own headers on `/api/*`. |
+| Content-Security-Policy | `public/_headers` | `https://challenges.cloudflare.com` is allowed in `script-src` and `frame-src` for Turnstile on the contact form, and `https://static.cloudflareinsights.com` (`script-src`) and `https://cloudflareinsights.com` (`connect-src`) for Cloudflare Web Analytics. The video blocks add `https://www.youtube-nocookie.com` and `https://player.vimeo.com` to `frame-src` (and to the `autoplay` permission) so a pressed play button can swap in the player; the list is `embedOrigins` in `src/blocks/embeds.ts`, `npm run sync:config` writes it into `_headers`, and nothing is requested from either site before a visitor presses play. Nothing else is loaded from outside. `_headers` covers static files only; the Worker sets its own headers on `/api/*`. |
 | Worker settings | `wrangler.jsonc` (generated from `site.config.ts` by `npm run sync:config`) | Secret **names** only, never values. After changing it, run `npx wrangler types worker/worker-configuration.d.ts` (wrangler rejects the `[[Worker name]]` placeholder, so do this once the real Worker name is set; the committed types still list the old secret names until then). |
 | Framework step names, numbers, one-liners | `framework.steps` in `src/content/site.ts` | The only place "Scope it / Shape it / Ship it" is defined. Content strings use `{scope}`, `{shape}`, `{ship}`, `{steps}` tokens via `fw()` (`src/lib/framework.ts`). Rename a step here and every page follows. |
 
@@ -339,7 +346,8 @@ src/
     hl/           design primitives: buttons, cards, page hero, lists, FAQ, contact form
     layout/       header, nav, footer
     ui/           copy helpers (Text, Placeholder, JsonLd, BookCallButton)
-  content/        typed copy and site settings (single source of truth)
+  blocks/         the block library, its registry and renderer (site-blocks/ holds a site's own blocks)
+  content/        page files (pages/, one JSON file per page) and typed copy and site settings (single source of truth)
   lib/            fonts, metadata, Organization JSON-LD (homepage only), routes and text-token helpers
 scripts/          placeholder gate, static preview server, redirect checker (check-redirects.mjs)
 worker/           contact form Worker (POST /api/contact) and its tests
