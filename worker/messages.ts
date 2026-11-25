@@ -1,8 +1,11 @@
 import { needOptions } from "../src/content/contact-fields.ts";
 import type { ContactSubmission } from "../src/lib/contact-validation.ts";
 import { autoReplyFirstName } from "../src/lib/first-name.ts";
-import type { WorkerConfig } from "./config.ts";
-import type { Mode } from "./env.ts";
+import type { Destination, WorkerConfig } from "./config.ts";
+import type { Mode, SaveStatus } from "./env.ts";
+
+/** The most characters the Pipeline app accepts in `message`. */
+const PIPELINE_MESSAGE_MAX = 5000;
 
 /** "A website", "Help with a workflow", ... or "Partner" for the partner variant (it has no need field). */
 export function needLabel(submission: ContactSubmission): string {
@@ -18,8 +21,16 @@ function previewPrefix(mode: Mode): string {
   return mode === "production" ? "" : "[Preview] ";
 }
 
-/** The internal email to the site owner: plain text, every field labelled, plus whether the Sheet row was saved. */
-export function notificationEmail(config: WorkerConfig, s: ContactSubmission, mode: Mode, receivedAt: string, sheetSaved: boolean) {
+/** The notification line that says whether the contact reached its destination, so the owner knows when to add it by hand. */
+function saveLine(destination: Destination, status: SaveStatus): string {
+  const where = destination === "pipeline" ? "Pipeline app" : "Sheet";
+  if (status === "saved") return `${where}: saved`;
+  if (status === "skipped") return `${where}: not sent (preview)`;
+  return `${where}: NOT saved - add this one by hand`;
+}
+
+/** The internal email to the site owner: plain text, every field labelled, plus whether the Sheet row or the app lead was saved. */
+export function notificationEmail(config: WorkerConfig, s: ContactSubmission, mode: Mode, receivedAt: string, status: SaveStatus) {
   const subject = cap(`${previewPrefix(mode)}New note: ${needLabel(s)} from ${s.name}`, 120);
   const lines = [
     `Need: ${needLabel(s)}`,
@@ -35,7 +46,7 @@ export function notificationEmail(config: WorkerConfig, s: ContactSubmission, mo
     s.message,
     "",
     `Received: ${receivedAt}`,
-    sheetSaved ? "Sheet: saved" : "Sheet: NOT saved - add this one by hand",
+    saveLine(config.destination, status),
   ];
   if (mode !== "production") lines.push(`Mode: ${mode}`);
   return { subject, text: lines.join("\n") };
@@ -76,6 +87,23 @@ export function autoReplyEmail(config: WorkerConfig, s: ContactSubmission, mode:
 
 function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/**
+ * The Pipeline app has name, email, message, business and source only, so the other answers travel inside the message:
+ * the visitor's own words first, then one labelled line per answer given. Capped at the app's 5,000 characters.
+ */
+export function pipelineMessage(config: WorkerConfig, s: ContactSubmission): string {
+  const extras = [
+    ["Need", needLabel(s)],
+    ["Topic link", s.topic],
+    ["Uses today", s.tools],
+    ["Current website", s.website],
+    [`Heard about ${config.businessName}`, s.source],
+  ]
+    .filter(([, value]) => value)
+    .map(([label, value]) => `${label}: ${value}`);
+  return cap(extras.length > 0 ? `${s.message}\n\n${extras.join("\n")}` : s.message, PIPELINE_MESSAGE_MAX);
 }
 
 /** The Sheet row, in the header order: Received, Need, Topic, Name, Email, Business, Message, Tools, Website, Source, Mode. */
