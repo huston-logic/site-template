@@ -127,3 +127,29 @@ Opus planned and reviewed; Sonnet wrote the scripts and the hook proposals; Haik
 | Commits | 10 (5 in #24, 5 in #25) |
 | Time in checks | about 5 minutes (the installed hook ran the full check on each commit, plus timing runs) |
 | Time waiting on CI | 0: #24's CI ran while #25 was written; nothing waited on it. #24's slowest job, `lighthouse` (3 runs per page), took 3 min 35 s |
+
+## Record: Managed hosting and form routing run (2026-11-24, moved from STATUS.md unchanged)
+
+Process run, unattended, from Grant's approved brief (09 doc items H1 and H2). Plan:
+`docs/superpowers/plans/2026-11-24-managed-hosting-and-form-routing.md`. Sonnet planned, built and reviewed; Haiku drafted
+the docs; the review-code and review-security agents each read the code branch once.
+
+- #27 (docs): PROCESS.md rules 13 (hosting), 14 (own rate-limit ids), 15 (form contacts); `docs/HOSTING.md` register;
+  `docs/OFFBOARDING.md` (not yet rehearsed); managed-hosting changes to the launch checklist (section A, every proof
+  kept) and the onboarding checklist; README link.
+- #28 (code): `contact.destination`, `contact.pipelineUrl`, `contact.rateLimitIds`; `scripts/config-rules.mjs` (17
+  tests); the Worker posts to `<pipelineUrl>/intake` with `INTAKE_SECRET` (16 new Worker tests, plus 1 added after
+  review); `secrets.required` follows the destination; docs updated.
+- Judgment calls: the hosting fee is not written in the repo (business facts live in the master). Rule 15 is in #27 so the
+  two PRs do not both edit PROCESS.md. `contact.rateLimit.namespaceIds` was renamed `contact.rateLimitIds` and the
+  template keeps 1001/1002; `check:config` rejects them only once the Worker name is real. Previews never post to the
+  real app. The form's other answers are added to `message` (5,000 character cap, the email holds the whole note).
+  Review fix: `redirect: "manual"` instead of `"error"`, because the Workers runtime may reject `"error"`; this has not
+  been run in a real Worker. Not built: a third destination ("another tool the client names").
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | about 25 minutes (about 21:15 to 21:40, both PRs open and reviewed) |
+| Commits | 7 (2 in #27, 5 in #28) |
+| Time in checks | about 4 minutes (`check:fast` per commit, the full check on each push) |
+| Time waiting on CI | 0: nothing waited on it. #27's slowest job, `lighthouse`, took 3 min 31 s |

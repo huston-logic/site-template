@@ -111,6 +111,10 @@ npm run compare:screens
   reduced motion on. Check that all five pages are in the report. A change to the shared layout photographs every page.
 - `compare:screens` compares each before and after picture pixel by pixel. For every page at both widths it must say
   `identical`.
+- Soft glows and gradients can render a level or two differently from one run to the next, even for the same build
+  (measured on this template: up to 2 of 255 on one channel, only inside glows). If the only differences say "largest
+  channel difference 1 of 255" or "2 of 255", run the report again, or check with `node scripts/compare-screenshots.mjs
+  change-report --tolerance 2` after looking at the pictures, and say so in the PR. Anything larger is a real change.
 - If a page differs, find the cause and fix it. If the difference is a deliberate fix, explain it in the PR, with the
   page, the width and the number of changed pixels. Do not change a screenshot to make it match.
 
