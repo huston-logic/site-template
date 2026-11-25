@@ -329,12 +329,13 @@
   }
 }
 
-/* Entrance (spec 5.8): a block marked data-motion="enter" rises a little and fades in as it scrolls into view. A CSS
-   scroll-driven animation, so no JavaScript and no scroll listener; unsupported browsers and reduced motion show the
-   resting state. The timeline must come after the shorthand, which resets it. */
+/* Entrance (spec 5.8): a block marked data-motion="enter" rises a little as it scrolls into view. A CSS scroll-driven
+   animation, so no JavaScript and no scroll listener; unsupported browsers and reduced motion show the resting state.
+   No fade on purpose: text below the first screen stays at full contrast for any reader that does not scroll
+   (accessibility checkers, link previews, print). With a fade, Lighthouse read the /services FAQ at near-zero opacity.
+   The timeline must come after the shorthand, which resets it. */
 @keyframes hl-enter {
   from {
-    opacity: 0;
     translate: 0 var(--motion-enter-distance);
   }
 }

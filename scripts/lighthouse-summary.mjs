@@ -5,7 +5,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const matrix = require("../lighthouserc.cjs").ci.assert.assertMatrix;
+const config = require("../lighthouserc.cjs").ci;
+const matrix = config.assert.assertMatrix;
+const runsPerPage = config.collect.numberOfRuns;
 
 /** The assertions that apply to a page: the first matrix entry whose pattern matches its address. */
 const assertionsFor = (url) => matrix.find((entry) => new RegExp(entry.matchingUrlPattern).test(url))?.assertions ?? {};
@@ -42,7 +44,7 @@ const thresholds = categories
   .filter(Boolean)
   .join(", ");
 
-console.log("## Lighthouse (mobile, median of 5 runs)\n");
+console.log(`## Lighthouse (mobile, median of ${runsPerPage} runs)\n`);
 console.log(`Thresholds: ${thresholds}. ❌ fails the job, ⚠️ only warns. The block showcase (/blocks, noindex) has no SEO check.${chrome ? ` Browser: ${chrome}.` : ""}\n`);
 console.log(`| Page | ${categories.map(([, label]) => label).join(" | ")} |`);
 console.log(`|---|${categories.map(() => "---:").join("|")}|`);
