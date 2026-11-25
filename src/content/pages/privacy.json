@@ -1,0 +1,62 @@
+{
+  "path": "/privacy",
+  "title": "Privacy Policy | [[Business name]]",
+  "description": "[[Privacy page SEO description]]",
+  "status": "live",
+  "menu": {
+    "label": "Privacy",
+    "order": 10,
+    "places": [
+      "legal"
+    ]
+  },
+  "blocks": [
+    {
+      "type": "hero",
+      "content": {
+        "title": "Privacy Policy",
+        "intro": "[[NOTE: This privacy policy is a skeleton. It needs client and legal review before launch; remove this note when it is done.]]"
+      }
+    },
+    {
+      "type": "legal-sections",
+      "content": {
+        "sections": [
+          {
+            "heading": "Who we are",
+            "body": "[[Business name, legal name and contact details]]"
+          },
+          {
+            "heading": "Information we collect",
+            "body": "[[What the contact form, scheduling tool and analytics collect]]"
+          },
+          {
+            "heading": "How we use it",
+            "body": "[[Purposes for using the information]]"
+          },
+          {
+            "heading": "Who we share it with",
+            "body": "[[Service providers that process the information, and any other recipients]]"
+          },
+          {
+            "heading": "Cookies and analytics",
+            "body": "[[Cookies, analytics and bot-check services in use]]"
+          },
+          {
+            "heading": "How long we keep it",
+            "body": "[[Retention period]]"
+          },
+          {
+            "heading": "Your choices and rights",
+            "body": "[[How to access, correct or delete information, and any rights that apply]]"
+          },
+          {
+            "heading": "Contact",
+            "body": "[[Privacy contact details]]"
+          }
+        ],
+        "footnote": "[[Last updated date]]"
+      }
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "path": "/services",
+  "title": "[[Services page SEO title]]",
+  "description": "[[Services page SEO description]]",
+  "status": "live",
+  "menu": {
+    "label": "Services",
+    "order": 10,
+    "places": [
+      "header",
+      "footer"
+    ]
+  },
+  "blocks": [
+    {
+      "type": "hero",
+      "content": {
+        "eyebrow": "[[Services eyebrow]]",
+        "title": "[[Services headline]]",
+        "intro": "[[Services introduction]]"
+      }
+    },
+    {
+      "type": "highlights",
+      "anchor": "services",
+      "content": {
+        "heading": "[[Services list heading]]",
+        "items": [
+          {
+            "title": "[[Service 1 name]]",
+            "body": "[[Service 1 description]]"
+          },
+          {
+            "title": "[[Service 2 name]]",
+            "body": "[[Service 2 description]]"
+          },
+          {
+            "title": "[[Service 3 name]]",
+            "body": "[[Service 3 description]]"
+          }
+        ]
+      }
+    },
+    {
+      "type": "faq",
+      "anchor": "faq",
+      "content": {
+        "heading": "[[FAQ heading]]",
+        "items": [
+          {
+            "question": "[[Question 1]]",
+            "answer": "[[Answer 1]]"
+          },
+          {
+            "question": "[[Question 2]]",
+            "answer": "[[Answer 2]]"
+          }
+        ]
+      }
+    },
+    {
+      "type": "closing-cta",
+      "content": {
+        "heading": "[[Services call to action heading]]",
+        "body": "[[Services call to action text]]",
+        "action": {
+          "label": "[[Services button label]]",
+          "href": "@booking"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "path": "/",
+  "title": "[[Home page SEO title]]",
+  "description": "[[Home page SEO description]]",
+  "status": "live",
+  "blocks": [
+    {
+      "type": "hero",
+      "content": {
+        "eyebrow": "[[Hero eyebrow]]",
+        "title": "[[Hero headline]]",
+        "intro": "[[Hero subheading]]",
+        "action": {
+          "label": "[[Primary button label]]",
+          "href": "@booking"
+        }
+      }
+    },
+    {
+      "type": "highlights",
+      "anchor": "highlights",
+      "content": {
+        "heading": "[[Highlights section heading]]",
+        "items": [
+          {
+            "title": "[[Highlight 1 title]]",
+            "body": "[[Highlight 1 description]]"
+          },
+          {
+            "title": "[[Highlight 2 title]]",
+            "body": "[[Highlight 2 description]]"
+          },
+          {
+            "title": "[[Highlight 3 title]]",
+            "body": "[[Highlight 3 description]]"
+          }
+        ]
+      }
+    },
+    {
+      "type": "closing-cta",
+      "content": {
+        "heading": "[[Closing call to action heading]]",
+        "body": "[[Closing call to action text]]",
+        "action": {
+          "label": "[[Closing button label]]",
+          "href": "@booking"
+        },
+        "note": "[[Closing note]]"
+      }
+    }
+  ]
+}

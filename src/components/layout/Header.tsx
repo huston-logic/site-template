@@ -1,4 +1,5 @@
 import { Container } from "@/components/hl/Container";
+import { getMenu } from "@/lib/pages";
 import { HeaderNav } from "./HeaderNav";
 import { Logo } from "./Logo";
 
@@ -10,7 +11,7 @@ export function Header() {
         <div className="flex h-[60px] items-center md:h-[72px]">
           <Logo />
         </div>
-        <HeaderNav />
+        <HeaderNav items={getMenu("header")} />
       </Container>
     </header>
   );

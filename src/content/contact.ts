@@ -1,28 +1,9 @@
 import { honeypot, needOptions, sourceOptions } from "./contact-fields";
 
 /**
- * Contact page copy. Client-specific text is a double-bracket placeholder. The field option labels and limits live in
+ * Contact form, thank-you page and 404 copy (the contact page itself is src/content/pages/contact.json). Client-specific text is a double-bracket placeholder. The field option labels and limits live in
  * `contact-fields.ts`, which the Worker also reads (generic Worker: T4).
  */
-export const contactMeta = {
-  title: "[[Contact page SEO title]]",
-  description: "[[Contact page SEO description]]",
-};
-
-export const contactHero = {
-  eyebrow: "[[Contact eyebrow]]",
-  title: "[[Contact headline]]",
-  intro: "[[Contact introduction]]",
-};
-
-export const scheduler = {
-  heading: "[[Scheduler heading]]",
-  body: "[[Scheduler text]]",
-  buttonLabel: "[[Scheduler button label]]",
-  /** Shown instead of the button until `siteConfig.schedulerUrl` is set; fails the launch gate on purpose. */
-  placeholder: "[[Booking link not set yet]]",
-};
-
 export const noteForm = {
   heading: "[[Contact form heading]]",
   partnerHeading: "[[Partner contact form heading]]",
@@ -67,16 +48,6 @@ export const noteForm = {
     rateLimited: "Too many tries in a row. Wait a minute and try again.",
     failed: "[[Message shown when sending fails, with a fallback email address]]",
   },
-};
-
-export const whatHappensNext = {
-  heading: "[[What happens next heading]]",
-  steps: [
-    { lead: "[[Step 1 lead]]", body: "[[Step 1 description]]" },
-    { lead: "[[Step 2 lead]]", body: "[[Step 2 description]]" },
-    { lead: "[[Step 3 lead]]", body: "[[Step 3 description]]" },
-  ],
-  emailLabel: "[[Prefer email? label]]",
 };
 
 export const thanks = {

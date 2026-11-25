@@ -1,29 +1,28 @@
 import type { Metadata } from "next";
-import { Button } from "@/components/hl/Button";
-import { ClosingCta } from "@/components/hl/ClosingCta";
-import { PageHero } from "@/components/hl/PageHero";
-import { ReasonList } from "@/components/hl/ReasonList";
-import { bookCallHref } from "@/components/ui/BookCallButton";
+import { BlockRenderer } from "@/blocks/BlockRenderer";
 import { JsonLd } from "@/components/ui/JsonLd";
-import { closingCta, hero, highlights, homeMeta } from "@/content/home";
+import { getPage } from "@/lib/pages";
 import { pageMetadata } from "@/lib/metadata";
 import { organizationJsonLd } from "@/lib/site-organization";
 
-export const metadata: Metadata = pageMetadata({ ...homeMeta, path: "/" });
+function homePage() {
+  const page = getPage("/");
+  if (!page) throw new Error("The home page (src/content/pages/home.json) must be live.");
+  return page;
+}
 
-/** Home: one H1 (the hero), then a highlights list and the closing call to action. */
+export function generateMetadata(): Metadata {
+  const { title, description } = homePage();
+  return pageMetadata({ title, description, path: "/" });
+}
+
+/** Home: the blocks of home.json, with the Organization JSON-LD (this page only). */
 export default function HomePage() {
   const organization = organizationJsonLd();
   return (
-    <div className="relative overflow-x-clip">
+    <>
       {organization ? <JsonLd data={organization} /> : null}
-      <PageHero eyebrow={hero.eyebrow} title={hero.title} intro={hero.intro}>
-        <Button href={bookCallHref()}>{hero.cta}</Button>
-      </PageHero>
-      <ReasonList id="highlights" heading={highlights.heading} items={highlights.items} />
-      <ClosingCta heading={closingCta.heading} body={closingCta.body} note={closingCta.note}>
-        <Button href={bookCallHref()}>{closingCta.cta}</Button>
-      </ClosingCta>
-    </div>
+      <BlockRenderer blocks={homePage().blocks} />
+    </>
   );
 }

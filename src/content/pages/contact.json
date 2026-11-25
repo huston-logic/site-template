@@ -1,0 +1,55 @@
+{
+  "path": "/contact",
+  "title": "[[Contact page SEO title]]",
+  "description": "[[Contact page SEO description]]",
+  "status": "live",
+  "menu": {
+    "label": "Contact",
+    "order": 30,
+    "places": [
+      "header",
+      "footer"
+    ]
+  },
+  "blocks": [
+    {
+      "type": "hero",
+      "content": {
+        "eyebrow": "[[Contact eyebrow]]",
+        "title": "[[Contact headline]]",
+        "intro": "[[Contact introduction]]"
+      }
+    },
+    {
+      "type": "contact-form",
+      "content": {
+        "heading": "[[Scheduler heading]]",
+        "body": "[[Scheduler text]]",
+        "buttonLabel": "[[Scheduler button label]]",
+        "unsetNote": "[[Booking link not set yet]]"
+      }
+    },
+    {
+      "type": "steps",
+      "anchor": "next",
+      "content": {
+        "heading": "[[What happens next heading]]",
+        "steps": [
+          {
+            "lead": "[[Step 1 lead]]",
+            "body": "[[Step 1 description]]"
+          },
+          {
+            "lead": "[[Step 2 lead]]",
+            "body": "[[Step 2 description]]"
+          },
+          {
+            "lead": "[[Step 3 lead]]",
+            "body": "[[Step 3 description]]"
+          }
+        ],
+        "emailLabel": "[[Prefer email? label]]"
+      }
+    }
+  ]
+}
