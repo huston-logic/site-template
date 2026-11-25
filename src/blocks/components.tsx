@@ -7,6 +7,8 @@ import { HighlightsBlock } from "./library/highlights/HighlightsBlock";
 import { LegalSectionsBlock } from "./library/legal-sections/LegalSectionsBlock";
 import { ProseBlock } from "./library/prose/ProseBlock";
 import { StepsBlock } from "./library/steps/StepsBlock";
+import { VideoBlock } from "./library/video/VideoBlock";
+import { VideoGridBlock } from "./library/video-grid/VideoGridBlock";
 import type { BlockComponent } from "./types";
 
 export type { BlockComponent, BlockProps } from "./types";
@@ -21,5 +23,7 @@ export const blockComponents: Record<string, BlockComponent> = {
   "contact-form": ContactFormBlock,
   steps: StepsBlock,
   "legal-sections": LegalSectionsBlock,
+  video: VideoBlock,
+  "video-grid": VideoGridBlock,
   ...siteBlockComponents,
 };

@@ -9,6 +9,8 @@ import { highlightsDefinition } from "./library/highlights/definition.ts";
 import { legalSectionsDefinition } from "./library/legal-sections/definition.ts";
 import { proseDefinition } from "./library/prose/definition.ts";
 import { stepsDefinition } from "./library/steps/definition.ts";
+import { videoDefinition } from "./library/video/definition.ts";
+import { videoGridDefinition } from "./library/video-grid/definition.ts";
 import type { AnyBlockDefinition } from "./schema.ts";
 
 export const libraryBlocks: AnyBlockDefinition[] = [
@@ -20,6 +22,8 @@ export const libraryBlocks: AnyBlockDefinition[] = [
   contactFormDefinition,
   stepsDefinition,
   legalSectionsDefinition,
+  videoDefinition,
+  videoGridDefinition,
 ];
 
 export const registry: AnyBlockDefinition[] = [...libraryBlocks, ...siteBlocks];
