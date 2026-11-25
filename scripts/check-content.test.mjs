@@ -461,3 +461,24 @@ test("page files: read, sort, errors and live pages", () => {
   assert.deepEqual(livePages(root).map((p) => p.path), ["/"]);
   assert.ok(validatePages(files, registry, repo).some((p) => p.startsWith("about.json: is not valid JSON")));
 });
+
+test("registry problems: the real registry has none", async () => {
+  const { registry, libraryBlocks } = await import("../src/blocks/definitions.ts");
+  assert.deepEqual(validateRegistry(registry), []);
+  assert.deepEqual(
+    libraryBlocks.map((def) => def.type),
+    ["hero", "highlights", "prose", "faq", "closing-cta", "contact-form", "steps", "legal-sections"],
+  );
+});
+
+test("every library example validates", async () => {
+  const { libraryBlocks } = await import("../src/blocks/definitions.ts");
+  for (const def of libraryBlocks) {
+    assert.equal(def.source, "library", def.type);
+    assert.deepEqual(validateContent(def, def.example, `${def.type} example`, { repo, pages: null }), [], def.type);
+    assert.ok(def.description.length > 20 && def.variants.every((v) => v.description.length > 0), `${def.type} describes itself`);
+    const text = JSON.stringify(def.example);
+    assert.ok(!text.includes("[["), `${def.type} example has no placeholder`);
+    assert.ok(!/\$\d/.test(text), `${def.type} example has no price`);
+  }
+});
