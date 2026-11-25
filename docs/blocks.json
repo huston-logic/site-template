@@ -1,0 +1,914 @@
+{
+  "version": 1,
+  "generatedBy": "npm run blocks:catalog",
+  "pageRules": {
+    "pageFile": "One file per page in src/content/pages/. home.json is the home page (/); every other file is named after its one-segment path (services.json is /services). Paths are lowercase words joined by hyphens, one level deep, and each is used once.",
+    "pageKeys": [
+      {
+        "key": "path",
+        "required": true,
+        "rule": "\"/\" or a one-segment path like \"/services\". Must match the file name."
+      },
+      {
+        "key": "title",
+        "required": true,
+        "rule": "The page's search-result title, 1 to 70 characters."
+      },
+      {
+        "key": "description",
+        "required": true,
+        "rule": "The page's search-result description, 1 to 170 characters."
+      },
+      {
+        "key": "status",
+        "required": true,
+        "rule": "\"live\" or \"archived\"."
+      },
+      {
+        "key": "menu",
+        "required": false,
+        "rule": "Where the page appears in the menu: { label, order, places }."
+      },
+      {
+        "key": "blocks",
+        "required": true,
+        "rule": "The page's sections, in order: at most 20."
+      }
+    ],
+    "menuKeys": [
+      {
+        "key": "label",
+        "required": true,
+        "rule": "The words in the menu, 1 to 24 characters."
+      },
+      {
+        "key": "order",
+        "required": true,
+        "rule": "A number; lower numbers come first."
+      },
+      {
+        "key": "places",
+        "required": true,
+        "rule": "Any of \"header\", \"footer\", \"legal\"."
+      }
+    ],
+    "blockKeys": [
+      {
+        "key": "type",
+        "required": true,
+        "rule": "The name of a block in this catalog."
+      },
+      {
+        "key": "variant",
+        "required": false,
+        "rule": "One of the block's variants; the first is used when it is left out."
+      },
+      {
+        "key": "anchor",
+        "required": false,
+        "rule": "A lowercase name (letters, digits, hyphens; starts with a letter; at most 40 characters) that links can point to as /page#name. Unique on the page."
+      },
+      {
+        "key": "content",
+        "required": true,
+        "rule": "The block's fields, as listed in its entry."
+      }
+    ],
+    "status": {
+      "live": "The page is built, listed in the menu places it asks for, and in the sitemap.",
+      "archived": "The page leaves the build, the menu and the sitemap. The file and its content stay, and setting it back to live restores it. A link to an archived page fails the check."
+    },
+    "menu": {
+      "places": [
+        "header",
+        "footer",
+        "legal"
+      ],
+      "maxHeaderLinks": 6,
+      "rule": "A page appears in the menu only if it has a menu entry. At most 6 live pages may be in the header."
+    },
+    "firstBlock": "The first block must be a block whose position is \"first\" (the hero). It carries the page's one H1, so a page has exactly one.",
+    "focalAnimation": "At most one block per page may carry a signature (focal) animation.",
+    "text": "Text is plain. Only **bold** and [[placeholder]] marks are allowed. No HTML tags, no HTML entities, no markdown links and no control characters (line breaks, tabs, hidden characters).",
+    "links": {
+      "allowed": [
+        "An internal path (/name) or a path with an anchor (/name#anchor) that points to a live page, and to an anchor that exists on it.",
+        "An https:// address.",
+        "A mailto: address.",
+        "A tel: number.",
+        "\"@booking\": the site's booking link (the scheduler when set, otherwise /contact#book)."
+      ],
+      "never": [
+        "javascript:",
+        "data:",
+        "http:",
+        "//host"
+      ]
+    },
+    "images": {
+      "folder": "/images/",
+      "formats": [
+        "jpg",
+        "png",
+        "webp"
+      ],
+      "rule": "An image is { src, alt }. The file must exist under /images/ and be a jpg, png or webp. The alt text must really describe the picture, so it can't be empty or only a generic word.",
+      "genericAltWords": [
+        "image",
+        "img",
+        "photo",
+        "picture",
+        "graphic",
+        "icon",
+        "logo",
+        "alt",
+        "alt text",
+        "todo",
+        "tbd",
+        "untitled",
+        "placeholder"
+      ]
+    },
+    "video": {
+      "providers": [
+        "YouTube",
+        "Vimeo"
+      ],
+      "rule": "A video address must be from YouTube or Vimeo. The player is rebuilt from the video's id, not from the address that was pasted. Allowed player origins: https://www.youtube-nocookie.com, https://player.vimeo.com.",
+      "examples": [
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "https://vimeo.com/76979871"
+      ]
+    },
+    "reservedPaths": [
+      "/blocks",
+      "/api",
+      "/contact/thanks",
+      "/og.png",
+      "/icon.svg",
+      "/sitemap.xml",
+      "/robots.txt"
+    ],
+    "requiredLivePages": [
+      "/",
+      "/contact"
+    ],
+    "limits": {
+      "maxBlocksPerPage": 20,
+      "titleMax": 70,
+      "descriptionMax": 170
+    }
+  },
+  "blocks": [
+    {
+      "type": "hero",
+      "title": "Hero",
+      "description": "The top of a page: a small line above, the page headline, a short introduction and, if wanted, one button.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Left-aligned, with a soft glow in the top-right corner.",
+          "default": true
+        }
+      ],
+      "placement": {
+        "position": "first",
+        "maxPerPage": 1,
+        "rhythm": "hero",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "none",
+        "reason": "The first block is the first paint, so it shows at once and never waits on motion.",
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": null,
+      "fields": [
+        {
+          "name": "eyebrow",
+          "kind": "text",
+          "label": "Small line above the headline",
+          "required": false,
+          "max": 60
+        },
+        {
+          "name": "title",
+          "kind": "text",
+          "label": "Headline",
+          "help": "The page's one main heading.",
+          "required": true,
+          "max": 90
+        },
+        {
+          "name": "intro",
+          "kind": "text",
+          "label": "Introduction",
+          "required": false,
+          "max": 320
+        },
+        {
+          "name": "action",
+          "kind": "action",
+          "label": "Button",
+          "required": false,
+          "labelMax": 40
+        }
+      ],
+      "example": {
+        "eyebrow": "A short line that sets the scene",
+        "title": "A headline that says what this page is about",
+        "intro": "One or two sentences that say more about the page.",
+        "action": {
+          "label": "A label that says what the button does",
+          "href": "@booking"
+        }
+      }
+    },
+    {
+      "type": "highlights",
+      "title": "Highlights",
+      "description": "A heading and a set of short ideas, each with a title and a few lines of text. Good for services, reasons or features.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "two-column",
+          "description": "The ideas sit in two columns (one column on phones), with soft dividers.",
+          "default": true
+        },
+        {
+          "name": "three-column",
+          "description": "The ideas sit in three columns on wide screens, two on tablets, one on phones.",
+          "default": false
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 3,
+        "rhythm": "section",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": null,
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": true,
+          "max": 90
+        },
+        {
+          "name": "items",
+          "kind": "list",
+          "label": "Ideas",
+          "required": true,
+          "items": {
+            "min": 2,
+            "max": 9
+          },
+          "of": {
+            "kind": "object",
+            "label": "Idea",
+            "required": true,
+            "fields": [
+              {
+                "name": "title",
+                "kind": "text",
+                "label": "Title",
+                "required": true,
+                "max": 70
+              },
+              {
+                "name": "body",
+                "kind": "text",
+                "label": "Text",
+                "required": true,
+                "max": 280
+              }
+            ]
+          }
+        }
+      ],
+      "example": {
+        "heading": "A short heading that says what this section covers",
+        "items": [
+          {
+            "title": "A short title for the first idea",
+            "body": "A sentence or two that explains the first idea in plain words."
+          },
+          {
+            "title": "A short title for the second idea",
+            "body": "A sentence or two that explains the second idea in plain words."
+          },
+          {
+            "title": "A short title for the third idea",
+            "body": "A sentence or two that explains the third idea in plain words."
+          }
+        ]
+      }
+    },
+    {
+      "type": "prose",
+      "title": "Text section",
+      "description": "A heading with a few paragraphs under it. Good for a story, a background or a longer explanation.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Paragraphs in a comfortable reading width.",
+          "default": true
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 4,
+        "rhythm": "section",
+        "joinsHero": true
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": null,
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": true,
+          "max": 90
+        },
+        {
+          "name": "paragraphs",
+          "kind": "list",
+          "label": "Paragraphs",
+          "required": true,
+          "items": {
+            "min": 1,
+            "max": 8
+          },
+          "of": {
+            "kind": "text",
+            "label": "Paragraph",
+            "required": true,
+            "max": 900
+          }
+        }
+      ],
+      "example": {
+        "heading": "A short heading that says what this section covers",
+        "paragraphs": [
+          "A paragraph of plain text that describes itself.",
+          "A second paragraph, also plain text, that continues the thought."
+        ]
+      }
+    },
+    {
+      "type": "faq",
+      "title": "Questions and answers",
+      "description": "A heading and a list of questions that open to show their answers.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Questions open and close one by one; works without JavaScript.",
+          "default": true
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 1,
+        "rhythm": "section",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": null,
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": true,
+          "max": 90
+        },
+        {
+          "name": "items",
+          "kind": "list",
+          "label": "Questions",
+          "required": true,
+          "items": {
+            "min": 1,
+            "max": 12
+          },
+          "of": {
+            "kind": "object",
+            "label": "Question",
+            "required": true,
+            "fields": [
+              {
+                "name": "question",
+                "kind": "text",
+                "label": "Question",
+                "required": true,
+                "max": 140
+              },
+              {
+                "name": "answer",
+                "kind": "text",
+                "label": "Answer",
+                "required": true,
+                "max": 900
+              }
+            ]
+          }
+        }
+      ],
+      "example": {
+        "heading": "A short heading that introduces the questions",
+        "items": [
+          {
+            "question": "A question a visitor might ask?",
+            "answer": "A plain answer that describes itself."
+          },
+          {
+            "question": "Another question a visitor might ask?",
+            "answer": "A second plain answer."
+          }
+        ]
+      }
+    },
+    {
+      "type": "closing-cta",
+      "title": "Closing call to action",
+      "description": "The last block on a page: a heading, a line of text and one button that says what to do next.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Left-aligned, with a soft glow that blends it into the page.",
+          "default": true
+        }
+      ],
+      "placement": {
+        "position": "last",
+        "maxPerPage": 1,
+        "rhythm": "section",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": null,
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": true,
+          "max": 90
+        },
+        {
+          "name": "body",
+          "kind": "text",
+          "label": "Text",
+          "required": false,
+          "max": 280
+        },
+        {
+          "name": "action",
+          "kind": "action",
+          "label": "Button",
+          "required": true,
+          "labelMax": 40
+        },
+        {
+          "name": "note",
+          "kind": "text",
+          "label": "Small note under the button",
+          "required": false,
+          "max": 160
+        }
+      ],
+      "example": {
+        "heading": "A short heading that invites the next step",
+        "body": "One or two plain sentences that say what happens next.",
+        "action": {
+          "label": "A label that says what the button does",
+          "href": "/contact"
+        },
+        "note": "A small reassuring line"
+      }
+    },
+    {
+      "type": "contact-form",
+      "title": "Contact form",
+      "description": "A booking column next to the site's contact form. The form itself is wired to the site's own settings.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "default",
+          "description": "The booking column on the left, the form on the right (stacked on phones).",
+          "default": true
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 1,
+        "rhythm": "compact",
+        "joinsHero": true
+      },
+      "motion": {
+        "entrance": "none",
+        "reason": "People type here, so the form stays still and is usable the moment it appears.",
+        "signature": null
+      },
+      "fixedAnchor": "book",
+      "interactive": null,
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Booking heading",
+          "required": true,
+          "max": 60
+        },
+        {
+          "name": "body",
+          "kind": "text",
+          "label": "Booking text",
+          "required": true,
+          "max": 400
+        },
+        {
+          "name": "buttonLabel",
+          "kind": "text",
+          "label": "Booking button label",
+          "required": true,
+          "max": 40
+        },
+        {
+          "name": "unsetNote",
+          "kind": "text",
+          "label": "Note shown while no booking link is set",
+          "help": "Visitors see this instead of a working button until the site's booking link is set up.",
+          "required": true,
+          "max": 120
+        }
+      ],
+      "example": {
+        "heading": "A short heading about booking a time",
+        "body": "A sentence or two that says what a booking is for.",
+        "buttonLabel": "A label that says what the button does",
+        "unsetNote": "A note that says the booking link is not set up yet"
+      }
+    },
+    {
+      "type": "steps",
+      "title": "Numbered steps",
+      "description": "A heading and a short numbered list that says what happens, step by step. It can end with an email line.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Numbers in green on the left, text in a comfortable reading width.",
+          "default": true
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 2,
+        "rhythm": "compact",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": null,
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": true,
+          "max": 90
+        },
+        {
+          "name": "steps",
+          "kind": "list",
+          "label": "Steps",
+          "required": true,
+          "items": {
+            "min": 2,
+            "max": 6
+          },
+          "of": {
+            "kind": "object",
+            "label": "Step",
+            "required": true,
+            "fields": [
+              {
+                "name": "lead",
+                "kind": "text",
+                "label": "Bold opening words",
+                "required": true,
+                "max": 80
+              },
+              {
+                "name": "body",
+                "kind": "text",
+                "label": "Text",
+                "required": true,
+                "max": 400
+              }
+            ]
+          }
+        },
+        {
+          "name": "emailLabel",
+          "kind": "text",
+          "label": "Words before the email address",
+          "help": "When given, the line shows the site's email address after these words.",
+          "required": false,
+          "max": 80
+        }
+      ],
+      "example": {
+        "heading": "A short heading that says what happens next",
+        "steps": [
+          {
+            "lead": "The first step.",
+            "body": "A sentence that describes the first step."
+          },
+          {
+            "lead": "The second step.",
+            "body": "A sentence that describes the second step."
+          }
+        ]
+      }
+    },
+    {
+      "type": "legal-sections",
+      "title": "Policy sections",
+      "description": "A run of titled sections for a policy or terms page, with an optional line at the end such as a last-updated date.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Sections one after another in a comfortable reading width.",
+          "default": true
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 1,
+        "rhythm": "section",
+        "joinsHero": true
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": null,
+      "fields": [
+        {
+          "name": "sections",
+          "kind": "list",
+          "label": "Sections",
+          "required": true,
+          "items": {
+            "min": 1,
+            "max": 20
+          },
+          "of": {
+            "kind": "object",
+            "label": "Section",
+            "required": true,
+            "fields": [
+              {
+                "name": "heading",
+                "kind": "text",
+                "label": "Section title",
+                "required": true,
+                "max": 90
+              },
+              {
+                "name": "body",
+                "kind": "text",
+                "label": "Section text",
+                "required": true,
+                "max": 3000
+              }
+            ]
+          }
+        },
+        {
+          "name": "footnote",
+          "kind": "text",
+          "label": "Line at the end",
+          "required": false,
+          "max": 160
+        }
+      ],
+      "example": {
+        "sections": [
+          {
+            "heading": "A short title for the first section",
+            "body": "Plain text that describes what this section covers."
+          },
+          {
+            "heading": "A short title for the second section",
+            "body": "More plain text for the second section."
+          }
+        ],
+        "footnote": "A short line at the end of the page"
+      }
+    },
+    {
+      "type": "video",
+      "title": "Video",
+      "description": "One video from YouTube or Vimeo, with a title and a short caption. It plays on the page when a visitor presses play.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "wide",
+          "description": "As wide as the page column.",
+          "default": true
+        },
+        {
+          "name": "inset",
+          "description": "Narrower and centered, the width of a reading column.",
+          "default": false
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 4,
+        "rhythm": "section",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": "The play button swaps in the player only when it is pressed, so nothing loads from YouTube or Vimeo before that.",
+      "fields": [
+        {
+          "name": "url",
+          "kind": "video",
+          "label": "Video address",
+          "help": "A YouTube or Vimeo address.",
+          "required": true
+        },
+        {
+          "name": "title",
+          "kind": "text",
+          "label": "Title",
+          "required": true,
+          "max": 80
+        },
+        {
+          "name": "caption",
+          "kind": "text",
+          "label": "Caption",
+          "required": false,
+          "max": 200
+        },
+        {
+          "name": "poster",
+          "kind": "image",
+          "label": "Cover picture",
+          "help": "Shown before play. Without one the video shows a plain dark panel.",
+          "required": false
+        }
+      ],
+      "example": {
+        "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+        "title": "A short title that says what the video shows",
+        "caption": "A sentence that says what to expect before pressing play."
+      }
+    },
+    {
+      "type": "video-grid",
+      "title": "Video grid",
+      "description": "Two to six videos from YouTube or Vimeo side by side, each with a title and a short caption.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "two-column",
+          "description": "The videos sit in two columns (one column on phones).",
+          "default": true
+        },
+        {
+          "name": "three-column",
+          "description": "The videos sit in three columns on wide screens, two on tablets, one on phones.",
+          "default": false
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 2,
+        "rhythm": "section",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": "The play button swaps in the player only when it is pressed, so nothing loads from YouTube or Vimeo before that.",
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": false,
+          "max": 90
+        },
+        {
+          "name": "videos",
+          "kind": "list",
+          "label": "Videos",
+          "required": true,
+          "items": {
+            "min": 2,
+            "max": 6
+          },
+          "of": {
+            "kind": "object",
+            "label": "Video",
+            "required": true,
+            "fields": [
+              {
+                "name": "url",
+                "kind": "video",
+                "label": "Video address",
+                "help": "A YouTube or Vimeo address.",
+                "required": true
+              },
+              {
+                "name": "title",
+                "kind": "text",
+                "label": "Title",
+                "required": true,
+                "max": 80
+              },
+              {
+                "name": "caption",
+                "kind": "text",
+                "label": "Caption",
+                "required": false,
+                "max": 200
+              },
+              {
+                "name": "poster",
+                "kind": "image",
+                "label": "Cover picture",
+                "required": false
+              }
+            ]
+          }
+        }
+      ],
+      "example": {
+        "heading": "A short heading that introduces the videos",
+        "videos": [
+          {
+            "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+            "title": "A short title for the first video",
+            "caption": "A sentence about the first video."
+          },
+          {
+            "url": "https://vimeo.com/1084537",
+            "title": "A short title for the second video",
+            "caption": "A sentence about the second video."
+          }
+        ]
+      }
+    }
+  ]
+}

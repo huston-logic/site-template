@@ -12,15 +12,18 @@ export type PageIndex = ReadonlyMap<string, { status: string; anchors: ReadonlyS
 export type Context = { repo: Repo; pages: PageIndex | null };
 export type PageFile = { file: string; data: unknown; error?: string };
 
-const PAGE_KEYS = ["path", "title", "description", "status", "menu", "blocks"];
+export const PAGE_KEYS = ["path", "title", "description", "status", "menu", "blocks"];
 const MENU_KEYS = ["label", "order", "places"];
 const BLOCK_KEYS = ["type", "variant", "anchor", "content"];
 const PATH_RE = /^(?:\/|\/[a-z0-9]+(?:-[a-z0-9]+)*)$/;
 const ANCHOR_RE = /^[a-z][a-z0-9-]{0,39}$/;
 const KEBAB_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const IMAGE_RE = /^\/images\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_.-]+\.(?:jpe?g|png|webp)$/i;
-const MAX_HEADER_LINKS = 6;
-const MAX_BLOCKS = 20;
+export const MAX_HEADER_LINKS = 6;
+export const TITLE_MAX = 70;
+export const DESCRIPTION_MAX = 170;
+export const MENU_LABEL_MAX = 24;
+export const MAX_BLOCKS = 20;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -296,7 +299,7 @@ function checkMenu(menu: unknown, file: string, out: string[]): void {
   const label = menu["label"];
   if (label !== undefined) {
     if (typeof label !== "string") out.push(`${file}: menu "label" must be text.`);
-    else if (label.trim().length < 1 || label.length > 24) out.push(`${file}: menu "label" is ${label.length} characters; it takes 1 to 24.`);
+    else if (label.trim().length < 1 || label.length > MENU_LABEL_MAX) out.push(`${file}: menu "label" is ${label.length} characters; it takes 1 to ${MENU_LABEL_MAX}.`);
     else {
       const bad = textProblem(label);
       if (bad) out.push(`${file}: menu "label" ${bad}.`);
@@ -429,8 +432,8 @@ export function validatePages(files: readonly PageFile[], registry: readonly Any
         else fileByPath.set(path, file);
       }
     }
-    checkString(data, "title", 1, 70, file, out);
-    checkString(data, "description", 1, 170, file, out);
+    checkString(data, "title", 1, TITLE_MAX, file, out);
+    checkString(data, "description", 1, DESCRIPTION_MAX, file, out);
     const status = data["status"];
     if (status !== undefined && status !== "live" && status !== "archived") out.push(`${file}: "status" must be "live" or "archived".`);
     if (data["menu"] !== undefined) {

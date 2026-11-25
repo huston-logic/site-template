@@ -1,0 +1,403 @@
+# Blocks
+
+<!-- This file is generated. Do not edit it by hand; run `npm run blocks:catalog`. -->
+
+This file is generated from the block library (`src/blocks/` and `src/site-blocks/`). Do not edit it by hand: run
+`npm run blocks:catalog`. The same facts for programs are in `docs/blocks.json`. `npm run check:content` fails when
+either file is out of date.
+
+A page is one file in `src/content/pages/` with an ordered list of blocks. Each block is a designed section: pick a
+type, optionally a variant, and fill in its content.
+
+## Page rules
+
+- **Page file.** One file per page in src/content/pages/. home.json is the home page (/); every other file is named after its one-segment path (services.json is /services). Paths are lowercase words joined by hyphens, one level deep, and each is used once.
+- **Page keys.** `path`: "/" or a one-segment path like "/services". Must match the file name. `title`: The page's search-result title, 1 to 70 characters. `description`: The page's search-result description, 1 to 170 characters. `status`: "live" or "archived". `menu` (optional): Where the page appears in the menu: { label, order, places }. `blocks`: The page's sections, in order: at most 20.
+- **Menu.** `label`: The words in the menu, 1 to 24 characters. `order`: A number; lower numbers come first. `places`: Any of "header", "footer", "legal". A page appears in the menu only if it has a menu entry. At most 6 live pages may be in the header.
+- **Block keys.** `type`: The name of a block in this catalog. `variant` (optional): One of the block's variants; the first is used when it is left out. `anchor` (optional): A lowercase name (letters, digits, hyphens; starts with a letter; at most 40 characters) that links can point to as /page#name. Unique on the page. `content`: The block's fields, as listed in its entry.
+- **Status.** `live`: the page is built, listed in the menu places it asks for, and in the sitemap. `archived`: the page leaves the build, the menu and the sitemap. The file and its content stay, and setting it back to live restores it. A link to an archived page fails the check.
+- **Required pages.** `/` and `/contact` must exist and stay live. Reserved paths no page may take: `/blocks`, `/api`, `/contact/thanks`, `/og.png`, `/icon.svg`, `/sitemap.xml`, `/robots.txt`.
+- **The first block.** The first block must be a block whose position is "first" (the hero). It carries the page's one H1, so a page has exactly one.
+- **Focal animation.** At most one block per page may carry a signature (focal) animation.
+- **Length.** At most 20 blocks on a page.
+- **Text.** Text is plain. Only **bold** and [[placeholder]] marks are allowed. No HTML tags, no HTML entities, no markdown links and no control characters (line breaks, tabs, hidden characters).
+- **Links.** Allowed: An internal path (/name) or a path with an anchor (/name#anchor) that points to a live page, and to an anchor that exists on it. An https:// address. A mailto: address. A tel: number. "@booking": the site's booking link (the scheduler when set, otherwise /contact#book). Never: `javascript:`, `data:`, `http:`, `//host`, or any other kind of address (a `//host` address has no scheme).
+- **Images.** An image is { src, alt }. The file must exist under /images/ and be a jpg, png or webp. The alt text must really describe the picture, so it can't be empty or only a generic word. Formats: jpg, png, webp. Alt text that is only one of these words is rejected: image, img, photo, picture, graphic, icon, logo, alt, alt text, todo, tbd, untitled, placeholder.
+- **Video.** A video address must be from YouTube or Vimeo. The player is rebuilt from the video's id, not from the address that was pasted. Allowed player origins: https://www.youtube-nocookie.com, https://player.vimeo.com.
+
+## Hero (`hero`)
+
+The top of a page: a small line above, the page headline, a short introduction and, if wanted, one button.
+
+**Where it can go:** first on the page, once.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `default` (default): Left-aligned, with a soft glow in the top-right corner.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `eyebrow` | Small line above the headline | no | up to 60 characters |
+| `title` | Headline. The page's one main heading. | yes | up to 90 characters |
+| `intro` | Introduction | no | up to 320 characters |
+| `action` | Button | no | button words up to 40 characters, and a link |
+
+**Motion:** No entrance motion. The first block is the first paint, so it shows at once and never waits on motion.
+
+**Example:**
+
+```json
+{
+  "eyebrow": "A short line that sets the scene",
+  "title": "A headline that says what this page is about",
+  "intro": "One or two sentences that say more about the page.",
+  "action": {
+    "label": "A label that says what the button does",
+    "href": "@booking"
+  }
+}
+```
+
+## Highlights (`highlights`)
+
+A heading and a set of short ideas, each with a title and a few lines of text. Good for services, reasons or features.
+
+**Where it can go:** anywhere, up to 3 times.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `two-column` (default): The ideas sit in two columns (one column on phones), with soft dividers.
+- `three-column`: The ideas sit in three columns on wide screens, two on tablets, one on phones.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `items` | Ideas | yes | 2 to 9 items |
+| `items[].title` | Title | yes | up to 70 characters |
+| `items[].body` | Text | yes | up to 280 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that says what this section covers",
+  "items": [
+    {
+      "title": "A short title for the first idea",
+      "body": "A sentence or two that explains the first idea in plain words."
+    },
+    {
+      "title": "A short title for the second idea",
+      "body": "A sentence or two that explains the second idea in plain words."
+    },
+    {
+      "title": "A short title for the third idea",
+      "body": "A sentence or two that explains the third idea in plain words."
+    }
+  ]
+}
+```
+
+## Text section (`prose`)
+
+A heading with a few paragraphs under it. Good for a story, a background or a longer explanation.
+
+**Where it can go:** anywhere, up to 4 times; it sits close under the hero.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `default` (default): Paragraphs in a comfortable reading width.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `paragraphs` | Paragraphs | yes | 1 to 8 items, each up to 900 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that says what this section covers",
+  "paragraphs": [
+    "A paragraph of plain text that describes itself.",
+    "A second paragraph, also plain text, that continues the thought."
+  ]
+}
+```
+
+## Questions and answers (`faq`)
+
+A heading and a list of questions that open to show their answers.
+
+**Where it can go:** anywhere, once.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `default` (default): Questions open and close one by one; works without JavaScript.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `items` | Questions | yes | 1 to 12 items |
+| `items[].question` | Question | yes | up to 140 characters |
+| `items[].answer` | Answer | yes | up to 900 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that introduces the questions",
+  "items": [
+    {
+      "question": "A question a visitor might ask?",
+      "answer": "A plain answer that describes itself."
+    },
+    {
+      "question": "Another question a visitor might ask?",
+      "answer": "A second plain answer."
+    }
+  ]
+}
+```
+
+## Closing call to action (`closing-cta`)
+
+The last block on a page: a heading, a line of text and one button that says what to do next.
+
+**Where it can go:** last on the page, once.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `default` (default): Left-aligned, with a soft glow that blends it into the page.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `body` | Text | no | up to 280 characters |
+| `action` | Button | yes | button words up to 40 characters, and a link |
+| `note` | Small note under the button | no | up to 160 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that invites the next step",
+  "body": "One or two plain sentences that say what happens next.",
+  "action": {
+    "label": "A label that says what the button does",
+    "href": "/contact"
+  },
+  "note": "A small reassuring line"
+}
+```
+
+## Contact form (`contact-form`)
+
+A booking column next to the site's contact form. The form itself is wired to the site's own settings.
+
+**Where it can go:** anywhere, once; it sits close under the hero.
+
+**Fixed anchor:** `#book` (links can point to it; it cannot be changed).
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `default` (default): The booking column on the left, the form on the right (stacked on phones).
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Booking heading | yes | up to 60 characters |
+| `body` | Booking text | yes | up to 400 characters |
+| `buttonLabel` | Booking button label | yes | up to 40 characters |
+| `unsetNote` | Note shown while no booking link is set. Visitors see this instead of a working button until the site's booking link is set up. | yes | up to 120 characters |
+
+**Motion:** No entrance motion. People type here, so the form stays still and is usable the moment it appears.
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading about booking a time",
+  "body": "A sentence or two that says what a booking is for.",
+  "buttonLabel": "A label that says what the button does",
+  "unsetNote": "A note that says the booking link is not set up yet"
+}
+```
+
+## Numbered steps (`steps`)
+
+A heading and a short numbered list that says what happens, step by step. It can end with an email line.
+
+**Where it can go:** anywhere, up to 2 times.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `default` (default): Numbers in green on the left, text in a comfortable reading width.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `steps` | Steps | yes | 2 to 6 items |
+| `steps[].lead` | Bold opening words | yes | up to 80 characters |
+| `steps[].body` | Text | yes | up to 400 characters |
+| `emailLabel` | Words before the email address. When given, the line shows the site's email address after these words. | no | up to 80 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that says what happens next",
+  "steps": [
+    {
+      "lead": "The first step.",
+      "body": "A sentence that describes the first step."
+    },
+    {
+      "lead": "The second step.",
+      "body": "A sentence that describes the second step."
+    }
+  ]
+}
+```
+
+## Policy sections (`legal-sections`)
+
+A run of titled sections for a policy or terms page, with an optional line at the end such as a last-updated date.
+
+**Where it can go:** anywhere, once; it sits close under the hero.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `default` (default): Sections one after another in a comfortable reading width.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `sections` | Sections | yes | 1 to 20 items |
+| `sections[].heading` | Section title | yes | up to 90 characters |
+| `sections[].body` | Section text | yes | up to 3000 characters |
+| `footnote` | Line at the end | no | up to 160 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "sections": [
+    {
+      "heading": "A short title for the first section",
+      "body": "Plain text that describes what this section covers."
+    },
+    {
+      "heading": "A short title for the second section",
+      "body": "More plain text for the second section."
+    }
+  ],
+  "footnote": "A short line at the end of the page"
+}
+```
+
+## Video (`video`)
+
+One video from YouTube or Vimeo, with a title and a short caption. It plays on the page when a visitor presses play.
+
+**Where it can go:** anywhere, up to 4 times.
+
+**Needs JavaScript:** The play button swaps in the player only when it is pressed, so nothing loads from YouTube or Vimeo before that.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `wide` (default): As wide as the page column.
+- `inset`: Narrower and centered, the width of a reading column.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `url` | Video address. A YouTube or Vimeo address. | yes | a YouTube or Vimeo address |
+| `title` | Title | yes | up to 80 characters |
+| `caption` | Caption | no | up to 200 characters |
+| `poster` | Cover picture. Shown before play. Without one the video shows a plain dark panel. | no | a picture under /images/ with real alt text |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+  "title": "A short title that says what the video shows",
+  "caption": "A sentence that says what to expect before pressing play."
+}
+```
+
+## Video grid (`video-grid`)
+
+Two to six videos from YouTube or Vimeo side by side, each with a title and a short caption.
+
+**Where it can go:** anywhere, up to 2 times.
+
+**Needs JavaScript:** The play button swaps in the player only when it is pressed, so nothing loads from YouTube or Vimeo before that.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `two-column` (default): The videos sit in two columns (one column on phones).
+- `three-column`: The videos sit in three columns on wide screens, two on tablets, one on phones.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | no | up to 90 characters |
+| `videos` | Videos | yes | 2 to 6 items |
+| `videos[].url` | Video address. A YouTube or Vimeo address. | yes | a YouTube or Vimeo address |
+| `videos[].title` | Title | yes | up to 80 characters |
+| `videos[].caption` | Caption | no | up to 200 characters |
+| `videos[].poster` | Cover picture | no | a picture under /images/ with real alt text |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that introduces the videos",
+  "videos": [
+    {
+      "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+      "title": "A short title for the first video",
+      "caption": "A sentence about the first video."
+    },
+    {
+      "url": "https://vimeo.com/1084537",
+      "title": "A short title for the second video",
+      "caption": "A sentence about the second video."
+    }
+  ]
+}
+```

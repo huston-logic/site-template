@@ -12,7 +12,10 @@ const { readPageFiles } = await load("src/lib/page-files.ts");
 
 const repo = { imageExists: (src) => existsSync(join(root, "public", src)) };
 const files = readPageFiles(root);
+const { catalogProblem } = await import("./blocks-catalog.mjs");
 const problems = [...validateRegistry(registry, repo), ...validatePages(files, registry, repo)];
+const stale = catalogProblem(registry, root);
+if (stale) problems.push(stale);
 
 if (problems.length > 0) {
   console.error(`Content check failed (${problems.length}):`);
