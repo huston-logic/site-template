@@ -22,7 +22,8 @@ export function EnterObserver() {
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
+          // A block already above the screen (after a jump to an anchor) is placed at once, not left waiting low.
+          if (!entry.isIntersecting && entry.boundingClientRect.bottom > 0) continue;
           reveal(entry.target);
           observer.unobserve(entry.target);
         }

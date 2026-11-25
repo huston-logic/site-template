@@ -16,7 +16,7 @@ type, optionally a variant, and fill in its content.
 - **Menu.** `label`: The words in the menu, 1 to 24 characters. `order`: A number; lower numbers come first. `places`: Any of "header", "footer", "legal". A page appears in the menu only if it has a menu entry. At most 6 live pages may be in the header.
 - **Block keys.** `type`: The name of a block in this catalog. `variant` (optional): One of the block's variants; the first is used when it is left out. `anchor` (optional): A lowercase name (letters, digits, hyphens; starts with a letter; at most 40 characters) that links can point to as /page#name. Unique on the page. `content`: The block's fields, as listed in its entry.
 - **Status.** `live`: the page is built, listed in the menu places it asks for, and in the sitemap. `archived`: the page leaves the build, the menu and the sitemap. The file and its content stay, and setting it back to live restores it. A link to an archived page fails the check.
-- **Required pages.** `/` and `/contact` must exist and stay live. Reserved paths no page may take: `/blocks`, `/api`, `/contact/thanks`, `/og.png`, `/icon.svg`, `/sitemap.xml`, `/robots.txt`.
+- **Required pages.** `/` and `/contact` must exist and stay live. Reserved paths no page may take: `/blocks`, `/api`, `/contact/thanks`, `/og.png`, `/icon.svg`, `/sitemap.xml`, `/robots.txt`, `/404`, `/index`, `/_not-found`, `/_next`.
 - **The first block.** The first block must be a block whose position is "first" (the hero). It carries the page's one H1, so a page has exactly one.
 - **Focal animation.** At most one block per page may carry a signature (focal) animation.
 - **Length.** At most 20 blocks on a page.
@@ -69,7 +69,7 @@ A heading and a set of short ideas, each with a title and a few lines of text. G
 **Variants** (set with `variant`; the first is used when it is left out):
 
 - `two-column` (default): The ideas sit in two columns (one column on phones), with soft dividers.
-- `three-column`: The ideas sit in three columns on wide screens, two on tablets, one on phones.
+- `three-column`: The ideas sit in three columns on wide screens (with three or more ideas), two on tablets, one on phones.
 
 **Fields** (inside `content`):
 
@@ -367,13 +367,13 @@ Two to six videos from YouTube or Vimeo side by side, each with a title and a sh
 **Variants** (set with `variant`; the first is used when it is left out):
 
 - `two-column` (default): The videos sit in two columns (one column on phones).
-- `three-column`: The videos sit in three columns on wide screens, two on tablets, one on phones.
+- `three-column`: The videos sit in three columns on wide screens (with three or more videos), two on tablets, one on phones.
 
 **Fields** (inside `content`):
 
 | Field | What it is | Required | Limits |
 | --- | --- | --- | --- |
-| `heading` | Heading | no | up to 90 characters |
+| `heading` | Heading. Names the group of videos for everyone, including screen reader users. | yes | up to 90 characters |
 | `videos` | Videos | yes | 2 to 6 items |
 | `videos[].url` | Video address. A YouTube or Vimeo address. | yes | a YouTube or Vimeo address |
 | `videos[].title` | Title | yes | up to 80 characters |
@@ -397,6 +397,11 @@ Two to six videos from YouTube or Vimeo side by side, each with a title and a sh
       "url": "https://vimeo.com/1084537",
       "title": "A short title for the second video",
       "caption": "A sentence about the second video."
+    },
+    {
+      "url": "https://youtu.be/aqz-KE-bpKQ",
+      "title": "A short title for the third video",
+      "caption": "A sentence about the third video."
     }
   ]
 }

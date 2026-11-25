@@ -13,7 +13,7 @@ export function VideoBlock({ content, variant, anchor }: BlockProps<ContentOf<ty
     <div id={anchor} className="scroll-mt-24">
       <Container>
         <div className={variant === "inset" ? "mx-auto max-w-faq" : undefined}>
-          <VideoFacade video={video} title={content.title} caption={content.caption} poster={content.poster} />
+          <VideoFacade video={video} title={content.title} caption={content.caption} poster={content.poster} large={variant !== "inset"} />
         </div>
       </Container>
     </div>

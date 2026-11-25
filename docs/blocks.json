@@ -147,7 +147,11 @@
       "/og.png",
       "/icon.svg",
       "/sitemap.xml",
-      "/robots.txt"
+      "/robots.txt",
+      "/404",
+      "/index",
+      "/_not-found",
+      "/_next"
     ],
     "requiredLivePages": [
       "/",
@@ -239,7 +243,7 @@
         },
         {
           "name": "three-column",
-          "description": "The ideas sit in three columns on wide screens, two on tablets, one on phones.",
+          "description": "The ideas sit in three columns on wide screens (with three or more ideas), two on tablets, one on phones.",
           "default": false
         }
       ],
@@ -824,7 +828,7 @@
         },
         {
           "name": "three-column",
-          "description": "The videos sit in three columns on wide screens, two on tablets, one on phones.",
+          "description": "The videos sit in three columns on wide screens (with three or more videos), two on tablets, one on phones.",
           "default": false
         }
       ],
@@ -846,7 +850,8 @@
           "name": "heading",
           "kind": "text",
           "label": "Heading",
-          "required": false,
+          "help": "Names the group of videos for everyone, including screen reader users.",
+          "required": true,
           "max": 90
         },
         {
@@ -906,6 +911,11 @@
             "url": "https://vimeo.com/1084537",
             "title": "A short title for the second video",
             "caption": "A sentence about the second video."
+          },
+          {
+            "url": "https://youtu.be/aqz-KE-bpKQ",
+            "title": "A short title for the third video",
+            "caption": "A sentence about the third video."
           }
         ]
       }

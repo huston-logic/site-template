@@ -47,7 +47,7 @@ Each section below is one block you can place on a page. The list says what each
 
 <!-- blocks:start -->
 - **Hero**: The top of a page: a small line above, the page headline, a short introduction and, if wanted, one button.
-- **Highlights**: A heading and a set of short ideas, each with a title and a few lines of text. Good for services, reasons or features. (You can choose a look: **two-column**, the ideas sit in two columns, one column on phones, with soft dividers; **three-column**, the ideas sit in three columns on wide screens, two on tablets, one on phones.)
+- **Highlights**: A heading and a set of short ideas, each with a title and a few lines of text. Good for services, reasons or features. (You can choose a look: **two-column**, the ideas sit in two columns, one column on phones, with soft dividers; **three-column**, the ideas sit in three columns on wide screens, with three or more ideas, two on tablets, one on phones.)
 - **Text section**: A heading with a few paragraphs under it. Good for a story, a background or a longer explanation.
 - **Questions and answers**: A heading and a list of questions that open to show their answers.
 - **Closing call to action**: The last block on a page: a heading, a line of text and one button that says what to do next.
@@ -55,7 +55,7 @@ Each section below is one block you can place on a page. The list says what each
 - **Numbered steps**: A heading and a short numbered list that says what happens, step by step. It can end with an email line.
 - **Policy sections**: A run of titled sections for a policy or terms page, with an optional line at the end such as a last-updated date.
 - **Video**: One video from YouTube or Vimeo, with a title and a short caption. It plays on the page when a visitor presses play. (You can choose a look: **wide**, as wide as the page column; **inset**, narrower and centered, the width of a reading column.)
-- **Video grid**: Two to six videos from YouTube or Vimeo side by side, each with a title and a short caption. (You can choose a look: **two-column**, the videos sit in two columns, one column on phones; **three-column**, the videos sit in three columns on wide screens, two on tablets, one on phones.)
+- **Video grid**: Two to six videos from YouTube or Vimeo side by side, each with a title and a short caption. (You can choose a look: **two-column**, the videos sit in two columns, one column on phones; **three-column**, the videos sit in three columns on wide screens, with three or more videos, two on tablets, one on phones.)
 <!-- blocks:end -->
 
 ## Lane 2: Do it yourself once it is built

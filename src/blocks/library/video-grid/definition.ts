@@ -6,7 +6,7 @@ export const videoGridDefinition = defineBlock({
   description: "Two to six videos from YouTube or Vimeo side by side, each with a title and a short caption.",
   source: "library",
   fields: {
-    heading: { kind: "text", label: "Heading", max: 90, required: false },
+    heading: { kind: "text", label: "Heading", max: 90, help: "Names the group of videos for everyone, including screen reader users." },
     videos: {
       kind: "list",
       label: "Videos",
@@ -26,7 +26,7 @@ export const videoGridDefinition = defineBlock({
   },
   variants: [
     { name: "two-column", description: "The videos sit in two columns (one column on phones)." },
-    { name: "three-column", description: "The videos sit in three columns on wide screens, two on tablets, one on phones." },
+    { name: "three-column", description: "The videos sit in three columns on wide screens (with three or more videos), two on tablets, one on phones." },
   ],
   placement: { position: "any", maxPerPage: 2, rhythm: "section" },
   motion: { entrance: "default" },
@@ -36,6 +36,7 @@ export const videoGridDefinition = defineBlock({
     videos: [
       { url: "https://www.youtube.com/watch?v=aqz-KE-bpKQ", title: "A short title for the first video", caption: "A sentence about the first video." },
       { url: "https://vimeo.com/1084537", title: "A short title for the second video", caption: "A sentence about the second video." },
+      { url: "https://youtu.be/aqz-KE-bpKQ", title: "A short title for the third video", caption: "A sentence about the third video." },
     ],
   },
 });

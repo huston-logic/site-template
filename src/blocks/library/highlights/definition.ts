@@ -24,7 +24,7 @@ export const highlightsDefinition = defineBlock({
   },
   variants: [
     { name: "two-column", description: "The ideas sit in two columns (one column on phones), with soft dividers." },
-    { name: "three-column", description: "The ideas sit in three columns on wide screens, two on tablets, one on phones." },
+    { name: "three-column", description: "The ideas sit in three columns on wide screens (with three or more ideas), two on tablets, one on phones." },
   ],
   placement: { position: "any", maxPerPage: 3, rhythm: "section" },
   motion: { entrance: "default" },

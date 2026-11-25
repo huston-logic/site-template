@@ -27,5 +27,6 @@ export default async function SlugPage({ params }: Props) {
   const { slug } = await params;
   const page = getPage(`/${slug}`);
   if (!page) notFound();
-  return <BlockRenderer blocks={page.blocks} />;
+  // Keyed by path: moving between two pages of this route gives fresh block wrappers, so each page gets its entrance.
+  return <BlockRenderer key={page.path} blocks={page.blocks} />;
 }

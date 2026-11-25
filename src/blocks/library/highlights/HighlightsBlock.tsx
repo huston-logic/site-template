@@ -7,7 +7,8 @@ import type { highlightsDefinition } from "./definition";
 
 /** A titled list of items (docs/STYLE-GUIDE.md §7.21): a grid, fading dividers, no cards. */
 export function HighlightsBlock({ content, variant, anchor, headingId }: BlockProps<ContentOf<typeof highlightsDefinition.fields>>) {
-  const three = variant === "three-column";
+  // Three columns only when there are three or more items, so two never sit beside an empty column.
+  const three = variant === "three-column" && content.items.length >= 3;
   return (
     <section id={anchor} aria-labelledby={headingId} className="scroll-mt-24">
       <Container>
