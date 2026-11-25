@@ -6,6 +6,7 @@ what enforces it. `npm run check:process` fails if a rule has no "Why" or this f
 ## Where facts live
 
 - This repo, `huston-logic/site-template`, owns the website build rules (this file, `docs/PROCESS.md`), its status (`docs/STATUS.md`) and the handbook (`docs/pipeline/`, the technical reference).
+- Blocks and what a client can change: `docs/BLOCKS.md` (generated from the block registry) and `docs/EDITING-LANES.md`.
 - Client site repos follow these rules. Change them here first, then port them to the client repos.
 - Business facts (offers, prices, priorities, clients, feature order) live in the Google Doc "00 Huston Logic: Source of Truth" and the "09 Feature Requests" doc. Find them there and do not copy them into this repo. No links to them are recorded here, so the docs are named only.
 
@@ -115,6 +116,13 @@ what enforces it. `npm run check:process` fails if a rule has no "Why" or this f
 - **Why:** The owner works from their Pipeline app, so a contact should land where they already look. The Sheet stays as the fallback because it needs no other product.
 - **Decided:** Grant, 2026-11-24
 - **Enforced by:** `npm run check:config` (the destination, its URL and its secret names), the Worker tests (`npm run test:worker`), and `wrangler.jsonc`'s `secrets.required`, which follows the destination.
+
+### 16. A new block passes the block gate
+
+- **What:** A block joins the library (or a site's own `src/site-blocks/`) only with: its registry entry (the definition: description, fields with their limits, variants, placement and motion); an example that passes the content check; a place in the showcase (`/blocks`, added automatically from the registry); passing `npm run check:design` (tokens and motion) and `npm run check:content`; and a design critique from screenshots of the showcase at 1440 and 390 pixels wide.
+- **Why:** A client builds pages from these blocks by chatting, and nobody reviews each client page. So every block must look designed on its own, at both widths, with any content inside its limits.
+- **Decided:** Grant, 2026-11-25
+- **Enforced by:** `npm run check:content` (registry, example, catalog), `npm run check:design` (tokens and motion), the `a11y` and `lighthouse` jobs (they cover the showcase), and the design critique (convention, no automatic check).
 
 ## What still stops for Grant
 
