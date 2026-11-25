@@ -102,3 +102,28 @@ release is in it. Without `--before`, npm picked about 20 transitive versions th
 - T1c: Playwright 1.65.0, not 1.65.1 (1.65.1 was 5 days old).
 - Branches were made one at a time in the main checkout, not in worktrees. `gh pr merge --auto --squash` was blocked by
   the owner-only hook until #16, so the PRs before it were merged by hand.
+
+## Record: Website process run (2026-11-24, moved from STATUS.md unchanged)
+
+Process run, unattended, from Grant's approved brief. Plan: `docs/superpowers/plans/2026-11-24-website-process.md`.
+Opus planned and reviewed; Sonnet wrote the scripts and the hook proposals; Haiku drafted the docs.
+
+- #24: `npm run check:fast` (everything in `check` except the build); `npm run check` is now `check:fast` then
+  `build`; `npm run check:process` with 11 tests; Lighthouse `numberOfRuns` 5 to 3 (no threshold touched); STATUS.md
+  cut down, old file kept in `docs/history/`.
+- #25: `docs/PROCESS.md` (Where facts live, 12 rules, what still stops for Grant, before and after timings);
+  `docs/LAUNCH-CHECKLIST.md` moved from `incoming/` (formatting only) and linked from the README; CLAUDE.md "Autonomous
+  runs" rewritten; one line at the top of `docs/pipeline/README.md`.
+- Owner-only proposals in the scratchpad (Needs Grant, item 2). Hook selftest: 104 cases today, 132 with the
+  proposals, none removed.
+- Judgment calls: #25 is stacked on #24 because `check:process` needs `docs/PROCESS.md` and a short STATUS.md
+  to pass, so #24 carries both. CLAUDE.md lines outside "Autonomous runs" that said "full check on every commit" or
+  described the old STATUS changelog were updated to match. The README keeps its site-specific launch items under a
+  pointer to the full checklist. No auto-merge was enabled: the brief did not call this an autonomous run.
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | 16 minutes (13:04 to 13:20, both PRs open) |
+| Commits | 10 (5 in #24, 5 in #25) |
+| Time in checks | about 5 minutes (the installed hook ran the full check on each commit, plus timing runs) |
+| Time waiting on CI | 0: #24's CI ran while #25 was written; nothing waited on it. #24's slowest job, `lighthouse` (3 runs per page), took 3 min 35 s |
