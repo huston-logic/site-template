@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { LoadedItem } from "../collections/schema.ts";
 
 /** What the renderer hands every block component. `content` is already checked against the block's fields. */
 export type BlockProps<C> = {
@@ -11,6 +12,10 @@ export type BlockProps<C> = {
   headingId: string;
   /** True when this block holds the page's single H1 (the first block). */
   primary: boolean;
+  /** The visible items of the block's collection (see `collection` in its definition), in the collection's order. Always passed; empty for a block that lists nothing. */
+  items: readonly LoadedItem[];
+  /** The page of a paged list this view shows (1 and up), for the post index on /blog/page/<n>. */
+  page?: number;
 };
 
 /** Any block component. `never` lets each component keep its own content type. */

@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BlockRenderer } from "@/blocks/BlockRenderer";
+import { BLOG_PATH } from "@/lib/blog";
 import { getPage, getPages } from "@/lib/pages";
 import { pageMetadata } from "@/lib/metadata";
 
 type Props = { params: Promise<{ slug: string }> };
 
-// Only the live pages in src/content/pages are built; any other address is the 404.
+// Only the live pages in src/content/pages are built; any other address is the 404. /blog has its own route (src/app/(site)/blog).
 export const dynamicParams = false;
 
 export function generateStaticParams() {
   return getPages()
-    .filter((page) => page.path !== "/")
+    .filter((page) => page.path !== "/" && page.path !== BLOG_PATH)
     .map((page) => ({ slug: page.path.slice(1) }));
 }
 

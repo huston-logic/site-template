@@ -4,7 +4,7 @@
 // LHCI config files must be CommonJS. Node >= 22.18 loads the TypeScript route list natively; keep src/lib/routes.ts
 // free of imports and TypeScript-only syntax so this keeps working.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { indexableRoutes, showcaseRoute } = require("./src/lib/routes.ts");
+const { auditRoutes, showcaseRoute } = require("./src/lib/routes.ts");
 
 const origin = "http://localhost:4822";
 
@@ -12,12 +12,12 @@ const origin = "http://localhost:4822";
 // page files and no menu; then only those pages are audited. Unset (every other run) means every page, as before.
 // The thresholds below are the same either way.
 const lane = (process.env.CONTENT_LANE_ROUTES ?? "").split(",").filter((route) => route.startsWith("/"));
-const routes = lane.length > 0 ? lane : [...indexableRoutes, showcaseRoute];
+const routes = lane.length > 0 ? lane : [...auditRoutes, showcaseRoute];
 
 module.exports = {
   ci: {
     collect: {
-      // The indexable pages plus the block showcase (noindex, so it has its own assertions below). The 404 page returns an error status.
+      // The audited pages (the pages, the newest post and blog page 2) plus the block showcase (noindex, so it has its own assertions below). The 404 page returns an error status.
       url: routes.map((route) => origin + route),
       numberOfRuns: 3,
       startServerCommand: "npm run preview",
