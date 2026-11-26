@@ -138,6 +138,7 @@ export function buildChangeList(
   after: ReadonlyMap<string, unknown>,
   ids: BlockIds,
   registry: readonly AnyBlockDefinition[],
+  moved: readonly string[] = [],
 ): string {
   const definition = (block: unknown) => registry.find((d) => d.type === (isObject(block) ? block.type : undefined));
   const title = (block: unknown) => definition(block)?.title ?? (isObject(block) ? String(block.type) : "unknown");
@@ -185,7 +186,10 @@ export function buildChangeList(
 
     const survivors = newIds.map((id, i) => ({ id, at: i + 1 })).filter((s): s is { id: string; at: number } => s.id !== null);
     const oldPos = (id: string) => oldIds.indexOf(id) + 1;
-    const still = stationary(survivors.map((s) => oldPos(s.id)));
+    const hinted = new Set(moved);
+    const rest = survivors.filter((s) => !hinted.has(s.id)).map((s) => oldPos(s.id));
+    const hintFits = moved.length > 0 && rest.every((pos, i) => i === 0 || rest[i - 1] < pos);
+    const still = hintFits ? new Set(rest) : stationary(survivors.map((s) => oldPos(s.id)));
     for (const s of survivors) {
       if (!still.has(oldPos(s.id))) lines.push(`  Block "${title(oldBlocks[oldPos(s.id) - 1])}" moves from block ${oldPos(s.id)} to block ${s.at}.`);
     }

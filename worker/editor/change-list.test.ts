@@ -25,11 +25,11 @@ const hours = () =>
     ],
   });
 
-function run(ops: unknown[], pages: unknown[] = [hours()]): { text: string; placeholders: string[] } {
+function run(ops: unknown[], pages: unknown[] = [hours()], hinted = true): { text: string; placeholders: string[] } {
   const before = new Map(pages.map((p) => [(p as { path: string }).path, p]));
   const result = applyOperations(before, ops);
   assert.ok(result.ok, result.ok ? "" : result.problems.join("; "));
-  return { text: buildChangeList(before, result.after, result.ids, registry), placeholders: addedPlaceholders(before, result.after) };
+  return { text: buildChangeList(before, result.after, result.ids, registry, hinted ? result.moved : []), placeholders: addedPlaceholders(before, result.after) };
 }
 
 test("a changed answer names the block, list and entry with the field labels", () => {
@@ -55,9 +55,19 @@ test("a nested action field uses its labels", () => {
 });
 
 test("a move says from block 4 to block 3", () => {
-  const { text } = run([{ op: "move_block", page: "/hours", from: 4, to: 3 }]);
+  const { text } = run([{ op: "move_block", page: "/hours", from: 4, to: 3 }], [hours()], false);
   assert.match(text, /Block "[^"]+" moves from block 4 to block 3\./);
   assert.doesNotMatch(text, /was:/);
+});
+
+test("a move reports the block that was moved", () => {
+  const { text } = run([{ op: "move_block", page: "/hours", from: 3, to: 2 }]);
+  assert.match(text, /Block "Questions and answers" moves from block 3 to block 2\./);
+  assert.doesNotMatch(text, /Closing/);
+  const three = page("/c", { blocks: [{ type: "hero", content: { title: "H" } }, { type: "closing-cta", content: { heading: "Call", body: "Soon", action: { label: "Book", href: "@booking" } } }, faq(3)] });
+  const ops = [{ op: "move_block", page: "/c", from: 3, to: 2 }];
+  assert.match(run(ops, [three], true).text, /Block "Questions and answers" moves from block 3 to block 2\./);
+  assert.match(run(ops, [three], false).text, /moves from block 2 to block 3\./);
 });
 
 test("a removal quotes the removed text", () => {

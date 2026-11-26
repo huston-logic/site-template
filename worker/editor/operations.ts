@@ -22,7 +22,7 @@ export type Operation =
   | { op: "restore_page"; page: string };
 
 export type ApplyResult =
-  | { ok: true; after: Map<string, unknown>; touched: string[]; ids: BlockIds }
+  | { ok: true; after: Map<string, unknown>; touched: string[]; moved: string[]; ids: BlockIds }
   | { ok: false; problems: string[] };
 
 type Json = Record<string, unknown>;
@@ -141,10 +141,11 @@ export function applyOperations(pages: ReadonlyMap<string, unknown>, ops: unknow
     }
   }
 
+  const moved: string[] = [];
   for (const [index, raw] of ops.entries()) {
     const name = isObject(raw) && typeof raw.op === "string" ? raw.op : "unknown";
     try {
-      applyOne(raw, work, ids, pages);
+      applyOne(raw, work, ids, pages, moved);
     } catch (error) {
       if (!(error instanceof Problem)) throw error;
       return { ok: false, problems: [`Operation ${index + 1} (${name}): ${error.message}`] };
@@ -155,10 +156,10 @@ export function applyOperations(pages: ReadonlyMap<string, unknown>, ops: unknow
   const after = new Map<string, unknown>(work);
   const afterIds = new Map<string, (string | null)[]>();
   for (const [path, page] of work) afterIds.set(path, ids.get(path) ?? (Array.isArray(page.blocks) ? page.blocks.map(() => null) : []));
-  return { ok: true, after, touched, ids: { before, after: afterIds } };
+  return { ok: true, after, touched, moved, ids: { before, after: afterIds } };
 }
 
-function applyOne(raw: unknown, work: Map<string, Json>, ids: Map<string, (string | null)[]>, original: ReadonlyMap<string, unknown>): void {
+function applyOne(raw: unknown, work: Map<string, Json>, ids: Map<string, (string | null)[]>, original: ReadonlyMap<string, unknown>, moved: string[]): void {
   if (!isObject(raw)) return refuse("an operation must be an object with an op field.");
   const op = raw.op;
   if (typeof op !== "string" || !OP_NAMES.includes(op)) {
@@ -217,6 +218,7 @@ function applyOne(raw: unknown, work: Map<string, Json>, ids: Map<string, (strin
     const [block] = blocks.splice(from - 1, 1);
     blocks.splice(to - 1, 0, block);
     const [id] = blockIds.splice(from - 1, 1);
+    if (id !== null && !moved.includes(id)) moved.push(id);
     blockIds.splice(to - 1, 0, id);
   }
   ids.set(path, blockIds);

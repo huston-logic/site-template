@@ -166,7 +166,7 @@ test("Move the FAQ above the contact section.", async () => {
       "Proposal p0000001: FAQ above the contact form",
       "",
       'Page /contact ("Contact"):',
-      '  Block "Contact form" moves from block 2 to block 3.',
+      '  Block "Questions and answers" moves from block 3 to block 2.',
       "",
       "Nothing has changed yet. Show this list to the owner exactly as written. Publish only after they say yes to it.",
     ].join("\n"),

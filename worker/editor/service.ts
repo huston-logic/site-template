@@ -260,7 +260,7 @@ export function createEditor(deps: EditorDeps): Editor {
           pagesTree: snapshot.pagesTree,
           imagesTree: snapshot.imagesTree,
           files: filesFor(snapshot, applied.after, applied.touched),
-          changeList: buildChangeList(snapshot.pages, applied.after, applied.ids, registry),
+          changeList: buildChangeList(snapshot.pages, applied.after, applied.ids, registry, applied.moved),
         });
       });
     },
