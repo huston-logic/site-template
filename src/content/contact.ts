@@ -1,4 +1,4 @@
-import { honeypot, needOptions, sourceOptions } from "./contact-fields";
+import { honeypot, needOptions, sourceOptions } from "./contact-fields.ts";
 
 /**
  * Contact form, thank-you page and 404 copy (the contact page itself is src/content/pages/contact.json). Client-specific text is a double-bracket placeholder. The field option labels and limits live in

@@ -5,7 +5,9 @@ import { join } from "node:path";
 import { registry } from "@/blocks/definitions";
 import type { MenuPlace, PageData } from "@/blocks/schema";
 import { validatePages } from "@/blocks/validate";
+import { thanks } from "@/content/contact";
 import { readPageFiles } from "./page-files";
+import { thanksPageLinks } from "./thanks-links";
 
 export type MenuItem = { label: string; href: string };
 
@@ -14,7 +16,7 @@ let cached: PageData[] | null = null;
 function load(): PageData[] {
   const root = process.cwd();
   const files = readPageFiles(root);
-  const problems = validatePages(files, registry, { imageExists: (src) => existsSync(join(root, "public", src)) });
+  const problems = validatePages(files, registry, { imageExists: (src) => existsSync(join(root, "public", src)) }, { links: thanksPageLinks(thanks) });
   if (problems.length > 0) {
     throw new Error(`The page files have ${problems.length} problem${problems.length === 1 ? "" : "s"}:\n${problems.map((p) => `  - ${p}`).join("\n")}`);
   }

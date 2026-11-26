@@ -24,7 +24,14 @@ const sources = {
   "src/app/(site)/privacy/page.tsx": 'import { privacy } from "@/content/privacy";',
   "src/app/(site)/contact/thanks/page.tsx": 'import { thanks } from "@/content/contact";',
   "src/app/(site)/layout.tsx": 'import { SiteChrome } from "@/components/layout/SiteChrome";',
-  "src/components/layout/SiteChrome.tsx": 'import { nav } from "@/content/nav";',
+  "src/components/layout/SiteChrome.tsx": 'import { nav } from "@/content/nav";\nimport { Footer } from "./Footer";',
+  "src/components/layout/Footer.tsx": "export function Footer() {}",
+  "src/components/hl/Accordion.tsx": "export function Accordion() {}",
+  "src/blocks/library/faq/Faq.tsx": 'import { Accordion } from "@/components/hl/Accordion";',
+  "src/blocks/library/video/VideoFacade.tsx": 'import { Play } from "@/components/hl/Play";',
+  "src/blocks/library/video-grid/VideoGridBlock.tsx": 'import { VideoFacade } from "../video/VideoFacade";',
+  "src/components/hl/Play.tsx": "export function Play() {}",
+  "src/site-blocks/hero/Hero.tsx": "export function Hero() {}",
   "src/components/hl/Button.tsx": "export function Button() {}",
   "src/components/hl/Hero.tsx": 'import { homeBackdrop } from "@/content/home-art";',
   "src/content/home.ts": 'export const homeHero = { image: "/images/home/hero.jpg" };',
@@ -127,9 +134,37 @@ test("a page that used the block only before the change is still photographed", 
 });
 
 test("any other file under src/blocks or src/site-blocks reaches every page", () => {
-  for (const path of ["src/blocks/BlockRenderer.tsx", "src/blocks/schema.ts", "src/blocks/components.tsx", "src/site-blocks/definitions.ts", "src/site-blocks/hero/Hero.tsx"]) {
+  for (const path of ["src/blocks/BlockRenderer.tsx", "src/blocks/schema.ts", "src/blocks/components.tsx", "src/site-blocks/definitions.ts", "src/site-blocks/components.tsx"]) {
     assert.deepEqual(routes(change(["M", path])), [...allRoutes].sort(), path);
   }
+});
+
+test("a component used only by the FAQ block maps to pages using faq and /blocks", () => {
+  assert.deepEqual(routes(change(["M", "src/components/hl/Accordion.tsx"])), ["/blocks", "/services"]);
+});
+
+const withVideoGrid = { ...pagesBefore, "/about": live("hero", "video-grid") };
+const routesWith = (files) => pages(files, withVideoGrid, withVideoGrid).map((p) => p.route);
+
+test("a change to video/VideoFacade.tsx reaches pages using video-grid too", () => {
+  assert.deepEqual(routesWith(change(["M", "src/blocks/library/video/VideoFacade.tsx"])), ["/about", "/blocks"]);
+});
+
+test("a component imported only by video/ reaches video-grid pages too", () => {
+  assert.deepEqual(routesWith(change(["M", "src/components/hl/Play.tsx"])), ["/about", "/blocks"]);
+});
+
+test("a direct edit under src/site-blocks/<type>/ maps like a library block", () => {
+  const head = { ...pagesBefore, "/about": live("prose") };
+  assert.deepEqual(pages(change(["M", "src/site-blocks/hero/Hero.tsx"]), head, head).map((p) => p.route), ["/", "/blocks", "/contact", "/privacy", "/services"]);
+});
+
+test("a layout component still reaches every page", () => {
+  assert.deepEqual(routes(change(["M", "src/components/layout/Footer.tsx"])), [...allRoutes].sort());
+});
+
+test("worker/ changes photograph nothing", () => {
+  assert.deepEqual(routes(change(["M", "worker/contact.ts"], ["M", "worker/editor/tools.ts"], ["M", "src/lib/first-name.test.ts"], ["M", "scripts/finish-build.test.mjs"])), []);
 });
 
 test("pageInfoFromTexts reads status and block types from page file texts, skipping files that are not JSON", () => {
