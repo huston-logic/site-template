@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fontsModule } from "../../src/brand/fonts.ts";
 import { paletteCss } from "../../src/brand/palette.ts";
-import type { Palette } from "../../src/brand/contrast-pairs.ts";
+import { CONTRAST_PAIRS, type Palette } from "../../src/brand/contrast-pairs.ts";
 import { blogFiles, seedSite } from "./test-support.ts";
 import { aiApp, JPEG, makeUploadsEditor, pdfBytes, type Called, type UploadsEditor } from "./uploads-test-support.ts";
 
@@ -392,7 +392,7 @@ test('6. "Change our brand color to a darker green."', async () => {
   assert.match(proposed.text, /Brand settings:/);
   assert.ok(proposed.text.includes("Brand color (green): #1e4fa3 → #1f6b3a"), proposed.text);
   for (const token of ["greenDeep", "greenEdge", "tint", "glow", "mint"]) assert.ok(proposed.text.includes(`(${token}): `), `${token} is listed`);
-  assert.match(proposed.text, /All 20 color pairs keep AA contrast\./);
+  assert.match(proposed.text, new RegExp(`All ${CONTRAST_PAIRS.length} color pairs keep AA contrast\\.`));
   assert.doesNotMatch(proposed.text, /Accent color/);
 
   const early = await ai("publish_change", { proposal_id: proposalId(proposed), owner_confirmation: "Yes." });
@@ -423,7 +423,7 @@ test("a brand color that makes text hard to read is refused with the failing pai
 
   const retry = await ai("propose_change", { summary: "Nearest shade", operations: [{ op: "set_brand_color", role: "brand", value: suggestion[1] }] });
   assert.equal(retry.isError, false, retry.text);
-  assert.match(retry.text, /All 20 color pairs keep AA contrast\./);
+  assert.match(retry.text, new RegExp(`All ${CONTRAST_PAIRS.length} color pairs keep AA contrast\\.`));
 });
 
 test("an accent color is judged the same way, and only the accent changes", async () => {
@@ -607,7 +607,7 @@ test("list_collections, get_collection, get_item and get_settings tell the AI wh
   assert.equal((await ai("get_item", { collection: "posts", slug: "missing" })).isError, true);
 
   const settings = await ai("get_settings", { name: "brand" });
-  assert.match(settings.text, /Contrast: all 20 color pairs keep their minimum/);
+  assert.match(settings.text, new RegExp(`Contrast: all ${CONTRAST_PAIRS.length} color pairs keep their minimum`));
   assert.match(settings.text, /display font: outfit\. Options: outfit, manrope, sora, dm-sans, plus-jakarta-sans, fraunces\./);
   assert.match((await ai("get_settings", { name: "notice" })).text, /"endsOn": null/);
 

@@ -92,6 +92,10 @@ function templateDocuments(): Record<string, string> {
     if (!existsSync(new URL(dir, REPO))) continue;
     for (const file of readdirSync(new URL(dir, REPO))) if (file.endsWith(".json")) files[`${dir}/${file}`] = template(`${dir}/${file}`);
   }
+  // Example items may hold photos; the seeded site needs those image files to exist, as blogFiles does for posts.
+  for (const text of Object.values(files)) {
+    for (const [, src] of text.matchAll(/"src": "(\/images\/[^"]+)"/g)) files[`public${src}`] = "image-bytes";
+  }
   return files;
 }
 
