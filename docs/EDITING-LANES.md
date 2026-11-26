@@ -28,9 +28,11 @@ waiting for your yes, your recent changes (with Withdraw or Undo), and how to co
 Ask for any of these in plain words.
 
 - **Change any words.** Headings, paragraphs, buttons, questions and answers. Works today.
-- **Swap or add photos** where a section takes one. Works today for video cover images. A section built around a
-  photo (for example a photo beside text) is not in the library yet: see Lane 3. With each photo, give a short
-  description of what it shows. The description is for people who cannot see the photo.
+- **Swap or add photos** where a section takes one. Works today. Upload the photos on your owner page (under Your
+  uploads), then ask your AI app to use them. Give each photo a short description of what it shows. The description is
+  for people who cannot see the photo.
+- **Offer a PDF to download**, such as a price sheet. Works today. Upload the PDF on your owner page, then ask your AI
+  app for a button or a link to it.
 - **Add, remove or reorder sections** on a page, using the sections listed below. Works today.
 - **Add a new page** made from those sections. Works today.
 - **Add a page to the menu.** The menu has a header, a footer and a legal line. Works today.
@@ -39,7 +41,8 @@ Ask for any of these in plain words.
 - **Change prices, contact details and your privacy text** written in your pages. These are your business facts.
   Huston Logic does not review them before they go live. Works today. (The email address and booking link the whole
   site uses, in the header, footer and contact form, are site settings: see Lane 3.)
-- **Add a YouTube or Vimeo video**, or a grid of videos. Works today.
+- **Add a YouTube or Vimeo video**, or a grid of videos. Works today. Upload the video to YouTube or Vimeo first, not to
+  your site: uploads refuse video files.
 
 ### The check on every change
 
@@ -51,6 +54,7 @@ example:
 - A video link is not from YouTube or Vimeo.
 - A photo has no description, or its description is only a file name.
 - A photo still holds hidden camera or location data.
+- A PDF holds a script or an attached file.
 
 ### Your sections
 
