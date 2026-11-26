@@ -30,6 +30,16 @@ test("every active name is refused", () => {
   }
 });
 
+test("a NUL after the name ends it, so /JS followed by NUL is refused", () => {
+  assert.deepEqual(checkPdf(pdf("<< /S /JS\u0000(alert(1)) >>"), MAX), { ok: false, reason: "active" });
+});
+
+test("the newer active names are refused", () => {
+  for (const name of ["GoToR", "GoToE", "Rendition", "Movie", "Sound"]) {
+    assert.deepEqual(checkPdf(pdf(`<< /S /${name} >>`), MAX), { ok: false, reason: "active" }, name);
+  }
+});
+
 test("a #-escaped name is decoded before the check", () => {
   assert.deepEqual(checkPdf(pdf("<< /S /J#61vaScript >>"), MAX), { ok: false, reason: "active" });
   assert.deepEqual(checkPdf(pdf("<< /#4aS (x) >>"), MAX), { ok: false, reason: "active" });

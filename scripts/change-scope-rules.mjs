@@ -65,7 +65,7 @@ export const rules = {
   pdfFile: /^public\/files\/[a-z0-9]+(?:-[a-z0-9]+)*\.pdf$/,
   maxPdfBytes: 10 * 1000 * 1000,
   /** PDF names (written /Name in the file) that run code or carry files. Matched whole, after #xx escapes are decoded. */
-  pdfActiveNames: ["JavaScript", "JS", "Launch", "EmbeddedFile", "EmbeddedFiles", "RichMedia", "XFA", "AA", "SubmitForm", "ImportData"],
+  pdfActiveNames: ["JavaScript", "JS", "Launch", "EmbeddedFile", "EmbeddedFiles", "RichMedia", "XFA", "AA", "SubmitForm", "ImportData", "GoToR", "GoToE", "Rendition", "Movie", "Sound"],
   /** Where a PDF's address (such as /files/price-sheet.pdf) is looked for: it must be used. No alt text is needed. */
   fileReferenceDir: "src",
   /** Why anything else in public/files/ is tier 3. */

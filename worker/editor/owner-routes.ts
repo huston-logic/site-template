@@ -153,7 +153,7 @@ export async function handleOwner(request: Request, ctx: OwnerContext): Promise<
     if (request.headers.get("Origin") !== config.siteUrl || (site !== null && site !== "same-origin")) return refuse();
     if (path === "/owner/uploads") {
       if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("multipart/form-data")) return refuse();
-      const post = await postUploads(request, editor, config.uploads.maxPhotoBytes);
+      const post = await postUploads(request, editor, config.uploads);
       if ((request.headers.get("accept") ?? "").includes("application/json")) return uploadsJson(post);
       if (post.kind === "refused") return home([{ name: "Upload", ok: false, message: post.message }], post.status === 413 ? 413 : 400);
       return home(post.results, post.ok ? 200 : 400);

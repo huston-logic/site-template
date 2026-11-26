@@ -16,7 +16,14 @@ export type ConvertResult =
   | { ok: true; web: Uint8Array; preview: Uint8Array; width: number; height: number }
   | { ok: false; reason: "not_image" | "too_detailed" | "quota" | "damaged" };
 
-const streamOf = (bytes: Uint8Array): ReadableStream<Uint8Array> => new Blob([bytes as Uint8Array<ArrayBuffer>]).stream();
+/** A one-chunk stream over the same bytes (no copy), for each Images call. */
+const streamOf = (bytes: Uint8Array): ReadableStream<Uint8Array> =>
+  new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
 
 const isQuota = (error: unknown): boolean => {
   if (typeof error !== "object" || error === null) return false;
