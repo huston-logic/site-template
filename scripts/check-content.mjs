@@ -1,6 +1,6 @@
 // `npm run check:content`: judges the page files (src/content/pages/*.json) against the block registry, in plain words.
 // Prints "Content check passed (N pages, M blocks)" or every problem, and exits 1 when there is one.
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -12,7 +12,8 @@ const { readPageFiles } = await load("src/lib/page-files.ts");
 const { thanks } = await load("src/content/contact.ts");
 const { thanksPageLinks } = await load("src/lib/thanks-links.ts");
 
-const repo = { imageExists: (src) => existsSync(join(root, "public", src)) };
+const pdfs = new Set(existsSync(join(root, "public/files")) ? readdirSync(join(root, "public/files")).filter((name) => name.endsWith(".pdf")) : []);
+const repo = { imageExists: (src) => existsSync(join(root, "public", src)), fileExists: (href) => pdfs.has(href.replace(/^\/files\//, "")) };
 const files = readPageFiles(root);
 const { catalogProblem } = await import("./blocks-catalog.mjs");
 const problems = [...validateRegistry(registry, repo), ...validatePages(files, registry, repo, { links: thanksPageLinks(thanks) })];

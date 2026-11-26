@@ -3,6 +3,8 @@ import { thanks } from "../../src/content/contact.ts";
 import { thanksPageLinks } from "../../src/lib/thanks-links.ts";
 import type { WorkerConfig } from "../config.ts";
 import type { EditorEnv } from "../env.ts";
+import { log } from "../env.ts";
+import { createUploadStore } from "../uploads/store.ts";
 import { createGitHub } from "./github.ts";
 import { createEditor } from "./service.ts";
 import type { Editor } from "./types.ts";
@@ -27,6 +29,12 @@ export function buildEditor(config: WorkerConfig, env: EditorEnv, deps: { fetch?
     ...(deps.fetch ? { fetch: deps.fetch } : {}),
     now: () => now().getTime(),
   });
+  const { uploads } = editor;
+  let store;
+  if (uploads.enabled) {
+    if (env.UPLOADS && env.IMAGES) store = createUploadStore({ bucket: env.UPLOADS, images: env.IMAGES, kv: env.EDITOR_KV, config: uploads, now });
+    else log("uploads_not_configured");
+  }
   return createEditor({
     config: editor,
     github: githubClient,
@@ -35,6 +43,7 @@ export function buildEditor(config: WorkerConfig, env: EditorEnv, deps: { fetch?
     registry,
     thanksLinks: thanksPageLinks(thanks),
     now,
+    ...(store ? { uploads: store } : {}),
     ...(deps.fetch ? { fetch: deps.fetch } : {}),
   });
 }

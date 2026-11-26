@@ -128,6 +128,11 @@
   --container-heading: 17em;
   --container-title: 18em;
 
+  /* Photo shapes (width / height): aspect-photo-3-2, -4-3, -4-5. The square and 16:9 use Tailwind's own. */
+  --aspect-photo-3-2: 3 / 2;
+  --aspect-photo-4-3: 4 / 3;
+  --aspect-photo-4-5: 4 / 5;
+
   /* The two-column breakpoint (split:). */
   --breakpoint-split: 900px;
 
