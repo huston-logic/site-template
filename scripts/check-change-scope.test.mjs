@@ -50,7 +50,7 @@ test("a change to page files, content modules, images and nav is tier 1", () => 
     file("src/content/pages/about.json"),
     file("src/content/pages/our-team.json", "A"),
     file("src/content/pages/home.json"),
-    file("src/content/contact.ts"),
+    file("src/content/video.ts"),
     file("src/content/nav.ts"),
     image("public/images/team/photo.jpg", jpg),
   ]);
@@ -71,6 +71,7 @@ const tier3 = [
   [".claude/settings.json", "Claude"],
   ["src/components/hl/Button.tsx", "shared component"],
   ["src/content/site.ts", "wiring"],
+  ["src/content/contact.ts", "wiring"],
   ["src/content/providers.ts", "wiring"],
   ["src/content/auto-reply.ts", "wiring"],
   ["src/content/contact-fields.ts", "wiring"],
@@ -118,7 +119,7 @@ test("deleting or renaming a page file is tier 3: archive the page instead", () 
 });
 
 test("deleting a content module or an image stays tier 1", () => {
-  assert.equal(run([file("src/content/contact.ts", "D"), file("public/images/a.jpg", "D")]).tier, 1);
+  assert.equal(run([file("src/content/video.ts", "D"), file("public/images/a.jpg", "D")]).tier, 1);
 });
 
 // ---- images ---------------------------------------------------------------------------------------------------

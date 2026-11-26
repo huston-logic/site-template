@@ -21,7 +21,8 @@ export const rules = {
   /** Copy modules: src/content/<name>.ts, top level only, no dots in the name (so *.test.ts and *.d.ts are not copy). */
   contentFile: /^src\/content\/[A-Za-z0-9_-]+\.ts$/,
   /** Modules inside src/content that are wiring, not copy: they re-export settings, read process.env or feed the Worker. */
-  contentWiring: ["src/content/site.ts", "src/content/providers.ts", "src/content/auto-reply.ts", "src/content/contact-fields.ts"],
+  // contact.ts reads the contact form's field words from src/content/forms/contact.json (the contact form's wiring), so it is code, not copy.
+  contentWiring: ["src/content/site.ts", "src/content/providers.ts", "src/content/auto-reply.ts", "src/content/contact-fields.ts", "src/content/contact.ts"],
   /** Photos live here. Added, changed and deleted files are tier 1, subject to the image rules below. */
   imageDir: "public/images/",
   /** Single files a client change may edit besides the content modules: the menu labels. */
@@ -124,7 +125,7 @@ export const rules = {
     [/^src\/forms\//, "form rules (code)"],
     [/^src\/blocks\/|^src\/site-blocks\//, "a block's design (code)"],
     [/^src\/lib\//, "site code"],
-    [/^src\/content\/(site|providers|auto-reply|contact-fields)\.ts$/, "site wiring, not copy"],
+    [/^src\/content\/(site|providers|auto-reply|contact-fields|contact)\.ts$/, "site wiring, not copy"],
     [/^src\/content\/collections\//, "not an item file: an item is src/content/collections/<kind>/<slug>.json, with a known kind and a slug of lowercase words joined by hyphens, directly in that folder"],
     [/^src\/content\/pages\//, "not a page file: a page is src/content/pages/<name>.json, lowercase words joined by hyphens, directly in that folder"],
     [/./, "not on the client-change allow-list"],
