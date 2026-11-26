@@ -79,7 +79,7 @@ test("acceptance 1: on a phone, several photos post (plain form and script), and
   const plain = await call(ctx, "/owner/uploads", { body: multipart(photo("IMG_0001.jpg"), photo("IMG_0002.jpg"), photo("IMG_0003.jpg")), headers: { "user-agent": "iPhone" } });
   assert.equal(plain.status, 200);
   const page = await plain.text();
-  for (const name of ["IMG_0001.jpg", "IMG_0002.jpg", "IMG_0003.jpg"]) assert.match(page, new RegExp(`Uploaded: ${name}\\.`));
+  for (const name of ["IMG_0001.jpg", "IMG_0002.jpg", "IMG_0003.jpg"]) assert.match(page, new RegExp(`Uploaded &quot;${name.replace(".jpg", "")}`));
   assert.equal(page.match(/<img src="\/owner\/uploads\/up\d{6}\/preview"/g)?.length, 3);
   // The script path: one file per request, JSON back.
   const viaScript = await call(ctx, "/owner/uploads", { body: multipart(photo("Shop front.jpg")), headers: JSON_ACCEPT });
@@ -127,7 +127,7 @@ test("a PDF is listed as a document tile, with its facts", async () => {
   const page = await (await call(ctx, "/owner")).text();
   assert.match(page, /<div class="thumb doc"><span>PDF<\/span><\/div>/);
   assert.match(page, /<h3>Price sheet<\/h3>/);
-  assert.match(page, /PDF, 1 KB, 1 page/);
+  assert.match(page, /PDF \u00B7 1 KB \u00B7 1 page/);
   assert.match(page, /Removed in 30 days/);
 });
 
@@ -187,7 +187,7 @@ test("a video is refused with the YouTube and Vimeo words, on both paths", async
   assert.match(((await json.json()) as { message: string }).message, /YouTube or Vimeo/);
   const page = await call(ctx, "/owner/uploads", { body: multipart(clip) });
   assert.equal(page.status, 400);
-  assert.match(await page.text(), /Not uploaded: Holiday\.mp4\. Videos can&#39;t be uploaded here\./);
+  assert.match(await page.text(), /“Holiday\.mp4” was not uploaded\. Videos can&#39;t be uploaded here\./);
 });
 
 test("a mixed post is 200 with a line for each file", async () => {
@@ -195,8 +195,8 @@ test("a mixed post is 200 with a line for each file", async () => {
   const page = await call(ctx, "/owner/uploads", { body: multipart(photo("Good.jpg"), new File([MP4], "Bad.mp4")) });
   assert.equal(page.status, 200);
   const text = await page.text();
-  assert.match(text, /Uploaded: Good\.jpg\./);
-  assert.match(text, /Not uploaded: Bad\.mp4\./);
+  assert.match(text, /Uploaded &quot;Good/);
+  assert.match(text, /\u201CBad\.mp4\u201D was not uploaded\./);
 });
 
 test("previews go only to the owner; unknown ids and PDFs are a plain 404", async () => {

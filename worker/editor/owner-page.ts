@@ -126,14 +126,24 @@ code{overflow-wrap:anywhere;background:${c("silver", "#f5f5f4")};border:1px soli
 .plain{list-style:none}
 .uploads{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5rem,1fr));gap:.75rem;margin:1.25rem 0 0;list-style:none}
 .uploads[hidden]{display:none}
-.up{margin:0;padding:.625rem;display:flex;flex-direction:column;gap:.125rem}
-.up h3{font-size:.9375rem;overflow-wrap:anywhere}
-.up .btn{width:100%}
+.up{margin:0;padding:.5rem;display:flex;flex-direction:column;gap:.25rem}
+.up h3{font-size:.9375rem;margin:.25rem 0 0;overflow-wrap:anywhere}
+.up .meta{font-size:.875rem}
+.up-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:auto;padding-top:.25rem}
+.up-actions .btn{min-height:44px;padding:.5rem .75rem;font-size:.9375rem;flex:1 1 auto}
+.up-actions details{flex:1 1 auto}
+.up-actions details[open]{flex-basis:100%}
+summary.btn{list-style:none;width:100%}
+summary.btn::-webkit-details-marker{display:none}
+.rename-form{display:flex;flex-direction:column;gap:.25rem;margin:.5rem 0 0}
+.rename-form label{font-size:.875rem;font-weight:600}
+.rename-form .btn{width:100%}
+.btn[aria-disabled=true]{opacity:.6;cursor:default}
+#upload-progress:focus{outline:none}
+.results h3,#upload-progress h3{font-size:1rem;margin:0 0 .5rem}
 .thumb{aspect-ratio:4/3;border-radius:6px;overflow:hidden;background:${c("silver", "#f5f5f4")};border:1px solid ${line}}
 .thumb img{display:block;width:100%;height:100%;object-fit:cover}
 .doc{display:flex;align-items:center;justify-content:center;font-weight:700;color:${ink2}}
-.rename{display:flex;flex-direction:column;gap:.25rem;margin:.25rem 0}
-.rename label{font-size:.875rem;font-weight:600}
 input[type=text],input[type=file]{font:inherit;color:${ink};min-height:44px;width:100%;padding:.5rem .625rem;border:1px solid ${ink2};border-radius:8px;background:${white}}
 input:focus-visible{outline:3px solid ${c("rust", "#9a3412")};outline-offset:2px}
 .upload-form{display:flex;flex-direction:column;gap:.5rem;margin:0 0 1rem}
@@ -145,7 +155,7 @@ progress{width:100%;height:.75rem;accent-color:${c("green", "#1e4fa3")}}
 .results li{margin:.25rem 0;overflow-wrap:anywhere}
 .files{display:flex;flex-wrap:wrap;gap:.75rem;list-style:none;margin:0 0 1rem}
 .files li{width:9rem}
-.files p{margin:.25rem 0 0;font-size:.875rem;overflow-wrap:anywhere}
+.files p{margin:.25rem 0 0;font-weight:600;font-size:.875rem;overflow-wrap:anywhere}
 .warn{border:2px solid ${c("rust", "#9a3412")};border-radius:8px;padding:.75rem;margin:1rem 0}
 `;
 }
@@ -265,7 +275,7 @@ const plural = (count: number, word: string): string => `${count} ${word}${count
 
 function thumbnail(upload: { id: string; name: string; kind: "photo" | "pdf" }): string {
   return upload.kind === "photo"
-    ? `<div class="thumb"><img src="/owner/uploads/${e(upload.id)}/preview" alt="${e(upload.name)}" width="480" height="360" loading="lazy"></div>`
+    ? `<div class="thumb"><img src="/owner/uploads/${e(upload.id)}/preview" alt="" width="480" height="360" loading="lazy"></div>`
     : `<div class="thumb doc"><span>PDF</span></div>`;
 }
 
@@ -273,19 +283,24 @@ function uploadCard(upload: UploadView, nowMs: number): string {
   const facts = [upload.kind === "photo" ? "Photo" : "PDF", sizeLabel(upload.bytes)];
   if (upload.kind === "pdf" && upload.pages) facts.push(plural(upload.pages, "page"));
   const days = Math.max(1, Math.ceil((Date.parse(upload.expiresAt) - nowMs) / 86_400_000));
+  facts.push(`Removed in ${plural(days, "day")}`);
   return `<li class="card up">
 ${thumbnail(upload)}
 <h3>${e(upload.name)}</h3>
-<p class="muted">${e(facts.join(", "))}</p>
+<p class="muted meta">${e(facts.join(" \u00B7 "))}</p>
 ${upload.onSite ? `<p><span class="tag">On your site</span></p>` : ""}
-<p class="muted">Removed in ${e(plural(days, "day"))}</p>
-<form class="rename" method="post" action="/owner/uploads/rename">
+<div class="up-actions">
+<details class="rename">
+<summary class="btn">Rename<span class="sr"> ${e(upload.name)}</span></summary>
+<form class="rename-form" method="post" action="/owner/uploads/rename">
 <input type="hidden" name="id" value="${e(upload.id)}">
 <label for="rename-${e(upload.id)}">Name<span class="sr"> of ${e(upload.name)}</span></label>
 <input type="text" id="rename-${e(upload.id)}" name="name" value="${e(upload.name)}" maxlength="80" autocomplete="off">
-<button class="btn" type="submit" aria-label="Rename ${e(upload.name)}">Rename</button>
+<button class="btn" type="submit" aria-label="Save name for ${e(upload.name)}">Save</button>
 </form>
+</details>
 <a class="btn" href="/owner/uploads/remove?upload=${encodeURIComponent(upload.id)}" aria-label="Remove: ${e(upload.name)}">Remove</a>
+</div>
 </li>`;
 }
 
@@ -294,8 +309,8 @@ function uploadsSection(section: UploadsSection): string {
   const { limits } = section;
   const nowMs = Date.parse(section.now);
   const results = section.results && section.results.length > 0
-    ? `<div class="results" role="status"><ul class="plain" role="list">${section.results
-        .map((line) => `<li>${line.ok ? "Uploaded" : "Not uploaded"}: ${e(line.name)}. ${e(line.message)}</li>`)
+    ? `<div class="results" id="upload-results" tabindex="-1" role="${section.results.some((line) => !line.ok) ? "alert" : "status"}" aria-labelledby="upload-results-title"><h3 id="upload-results-title">Upload results</h3><ul class="plain" role="list">${section.results
+        .map((line) => `<li>${line.ok ? e(line.message ? line.message.replace(/^Added /, "Uploaded ") : `Uploaded \u201C${line.name}\u201D.`) : `\u201C${e(line.name)}\u201D was not uploaded. ${e(line.message)}`}</li>`)
         .join("")}</ul></div>`
     : "";
   const items = section.items;
@@ -308,7 +323,7 @@ ${results}<form class="upload-form" id="upload-form" method="post" enctype="mult
 <p class="muted" id="upload-limits">Photos up to ${e(megabytes(limits.photoBytes))} MB and PDFs up to ${e(megabytes(limits.pdfBytes))} MB. Unused uploads are removed after ${e(String(limits.expireDays))} days. A PDF keeps its document properties, such as the author's name.</p>
 <div><button class="btn primary" type="submit">Upload</button></div>
 </form>
-<div id="upload-progress"></div>
+<div id="upload-progress" tabindex="-1"></div>
 <p class="muted" id="upload-status" aria-live="polite"></p>
 ${list}
 <ul class="uploads" id="upload-grid" role="list"${empty ? " hidden" : ""}>${items ? items.map((u) => uploadCard(u, nowMs)).join("\n") : ""}</ul>`;
@@ -346,7 +361,7 @@ ${recent}
 function confirmFiles(proposal: ProposalView): string {
   if (proposal.uploads.length === 0) return "";
   const tiles = proposal.uploads
-    .map((u) => `<li>${thumbnail(u)}${u.kind === "pdf" ? `<p>${e(u.name)}</p>` : ""}</li>`)
+    .map((u) => `<li>${thumbnail(u)}<p>${e(u.name)}</p></li>`)
     .join("");
   return `<h2>Photos and files in this change</h2>\n<ul class="files" role="list">${tiles}</ul>\n`;
 }
@@ -355,7 +370,7 @@ export function renderRemoveConfirm(data: RemoveData): string {
   const u = data.upload;
   const body = `<h1>Remove \u201C${e(u.name)}\u201D?</h1>
 <p>This can't be undone. Pages that already show it keep it.</p>
-<ul class="files" role="list"><li>${thumbnail(u)}</li></ul>
+<ul class="files" role="list"><li>${thumbnail(u)}<p>${e(u.name)}</p></li></ul>
 <div class="actions">
 ${postForm("/owner/uploads/remove", { upload: u.id }, "Remove", true)}
 <a class="btn" href="/owner">Keep it</a>

@@ -24,7 +24,7 @@ export function GalleryBlock({ content, variant, anchor, headingId }: BlockProps
             <Text>{content.intro}</Text>
           </p>
         ) : null}
-        <ul aria-labelledby={headingId} className={`mt-10 grid items-start gap-x-4 gap-y-8 md:gap-x-6 md:gap-y-10 ${columns.grid}`}>
+        <ul role="list" className={`mt-10 grid items-start gap-x-4 gap-y-8 md:gap-x-6 md:gap-y-10 ${columns.grid}`}>
           {content.photos.map((photo, index) => (
             <li key={index}>
               <figure>

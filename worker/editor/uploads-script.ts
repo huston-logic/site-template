@@ -11,6 +11,10 @@ export const UPLOADS_SCRIPT = String.raw`"use strict";
   var live = document.getElementById("upload-status");
   if (!form || !input || !grid || !rows || !live || !window.XMLHttpRequest || !window.FormData) return;
   var button = form.querySelector("button[type=submit]");
+  var busy = false;
+  var alertBox = el("div", "sr");
+  alertBox.setAttribute("role", "alert");
+  live.parentNode.insertBefore(alertBox, live.nextSibling);
   var DAY = 86400000;
 
   function el(tag, className, text) {
@@ -35,7 +39,7 @@ export const UPLOADS_SCRIPT = String.raw`"use strict";
       var thumb = el("div", "thumb");
       var img = document.createElement("img");
       img.setAttribute("src", "/owner/uploads/" + upload.id + "/preview");
-      img.setAttribute("alt", upload.name);
+      img.setAttribute("alt", "");
       img.setAttribute("width", "480");
       img.setAttribute("height", "360");
       img.setAttribute("loading", "lazy");
@@ -47,13 +51,23 @@ export const UPLOADS_SCRIPT = String.raw`"use strict";
       item.appendChild(tile);
     }
     item.appendChild(el("h3", "", upload.name));
-    var facts = (upload.kind === "photo" ? "Photo" : "PDF") + ", " + size(upload.bytes);
-    if (upload.kind === "pdf" && upload.pages) facts += ", " + plural(upload.pages, "page");
-    item.appendChild(el("p", "muted", facts));
+    var facts = [upload.kind === "photo" ? "Photo" : "PDF", size(upload.bytes)];
+    if (upload.kind === "pdf" && upload.pages) facts.push(plural(upload.pages, "page"));
     var days = Math.max(1, Math.ceil((Date.parse(upload.expiresAt) - Date.now()) / DAY));
-    item.appendChild(el("p", "muted", "Removed in " + plural(days, "day")));
+    facts.push("Removed in " + plural(days, "day"));
+    item.appendChild(el("p", "muted meta", facts.join(" \u00B7 ")));
+    if (upload.onSite) {
+      var tagWrap = el("p", "");
+      tagWrap.appendChild(el("span", "tag", "On your site"));
+      item.appendChild(tagWrap);
+    }
 
-    var rename = el("form", "rename");
+    var actions = el("div", "up-actions");
+    var details = el("details", "rename");
+    var summary = el("summary", "btn", "Rename");
+    summary.appendChild(el("span", "sr", " " + upload.name));
+    details.appendChild(summary);
+    var rename = el("form", "rename-form");
     rename.setAttribute("method", "post");
     rename.setAttribute("action", "/owner/uploads/rename");
     var hidden = document.createElement("input");
@@ -70,19 +84,21 @@ export const UPLOADS_SCRIPT = String.raw`"use strict";
     text.setAttribute("value", upload.name);
     text.setAttribute("maxlength", "80");
     text.setAttribute("autocomplete", "off");
-    var save = el("button", "btn", "Rename");
+    var save = el("button", "btn", "Save");
     save.setAttribute("type", "submit");
-    save.setAttribute("aria-label", "Rename " + upload.name);
+    save.setAttribute("aria-label", "Save name for " + upload.name);
     rename.appendChild(hidden);
     rename.appendChild(label);
     rename.appendChild(text);
     rename.appendChild(save);
-    item.appendChild(rename);
+    details.appendChild(rename);
+    actions.appendChild(details);
 
     var remove = el("a", "btn", "Remove");
     remove.setAttribute("href", "/owner/uploads/remove?upload=" + encodeURIComponent(upload.id));
     remove.setAttribute("aria-label", "Remove: " + upload.name);
-    item.appendChild(remove);
+    actions.appendChild(remove);
+    item.appendChild(actions);
     return item;
   }
 
@@ -115,15 +131,16 @@ export const UPLOADS_SCRIPT = String.raw`"use strict";
         row.bar.value = 1;
         row.status.textContent = "Uploaded.";
         addCard(data.upload);
-        finish(true);
+        finish(true, "");
       } else {
-        row.status.textContent = data && data.message ? data.message : "That file didn't upload. Try again.";
-        finish(false);
+        var message = data && data.message ? data.message : "That file didn't upload. Try again.";
+        row.status.textContent = message;
+        finish(false, message);
       }
     };
     xhr.onerror = function () {
       row.status.textContent = "The connection dropped. Try this file again.";
-      finish(false);
+      finish(false, "The connection dropped. Try this file again.");
     };
     var body = new FormData();
     body.append("file", file, file.name);
@@ -131,14 +148,25 @@ export const UPLOADS_SCRIPT = String.raw`"use strict";
   }
 
   form.addEventListener("submit", function (event) {
+    if (busy) {
+      event.preventDefault();
+      return;
+    }
     var files = Array.prototype.slice.call(input.files || []);
     if (files.length === 0) return;
     event.preventDefault();
-    if (button) button.disabled = true;
+    busy = true;
+    if (button) button.setAttribute("aria-disabled", "true");
     rows.textContent = "";
     live.textContent = "";
+    alertBox.textContent = "";
     var done = 0;
     var ok = 0;
+    var heading = el("h3", "", "Upload results");
+    heading.id = "upload-progress-title";
+    rows.setAttribute("role", "group");
+    rows.setAttribute("aria-labelledby", "upload-progress-title");
+    rows.appendChild(heading);
     var list = el("ul", "plain");
     list.setAttribute("role", "list");
     rows.appendChild(list);
@@ -158,15 +186,20 @@ export const UPLOADS_SCRIPT = String.raw`"use strict";
     function next() {
       if (done === entries.length) {
         input.value = "";
-        if (button) button.disabled = false;
+        busy = false;
+        if (button) button.removeAttribute("aria-disabled");
+        rows.focus();
         return;
       }
       var entry = entries[done];
       entry.status.textContent = "Uploading";
-      send(entry.file, entry, function (success) {
+      send(entry.file, entry, function (success, message) {
         done += 1;
         if (success) ok += 1;
-        live.textContent = ok + " of " + entries.length + " uploaded" + (done === entries.length && ok < entries.length ? ". Some files need another look." : "");
+        if (!success) alertBox.appendChild(el("p", "", "\u201C" + entry.file.name + "\u201D: " + message));
+        live.textContent =
+          (success ? "Uploaded " + entry.file.name + ". " : "") +
+          ok + " of " + entries.length + " uploaded" + (done === entries.length && ok < entries.length ? ". Some files need another look." : "");
         next();
       });
     }
