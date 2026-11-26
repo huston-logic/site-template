@@ -86,6 +86,8 @@ const template = (path: string): string => readFileSync(new URL(path, REPO), "ut
 function templateDocuments(): Record<string, string> {
   const files: Record<string, string> = {};
   for (const name of ["business", "brand", "notice"]) files[`src/content/${name}.json`] = template(`src/content/${name}.json`);
+  files["src/content/forms/contact.json"] = template("src/content/forms/contact.json");
+  files["src/forms/registry.generated.ts"] = template("src/forms/registry.generated.ts");
   for (const kind of COLLECTION_KINDS) {
     if (kind === "posts") continue;
     const dir = `src/content/collections/${kind}`;
@@ -145,6 +147,7 @@ export const registry: AnyBlockDefinition[] = [
   ...libraryRegistry,
   ...[
     stub("post-index", "Post list", { emptyText: { kind: "text", label: "Text when there are no posts", max: 120 } }, { emptyText: "No posts yet." }, ["list", "cards"]),
+    stub("form", "Form", { form: { kind: "form", label: "Form" }, heading: { kind: "text", label: "Heading", max: 60, required: false } }, { form: "showcase-example" }, ["stacked", "beside"]),
     stub("latest-posts", "Latest posts", { heading: { kind: "text", label: "Heading", max: 90 }, count: { kind: "number", label: "How many", min: 1, max: 6, required: false } }, { heading: "Latest posts" }, ["cards", "list"]),
   ].filter((block) => !libraryRegistry.some((real) => real.type === block.type)),
 ];
