@@ -42,6 +42,7 @@ export function buildEditor(config: WorkerConfig, env: EditorEnv, deps: { fetch?
     assets: env.ASSETS,
     registry,
     thanksLinks: thanksPageLinks(thanks),
+    formSettings: config.forms,
     now,
     ...(store ? { uploads: store } : {}),
     ...(deps.fetch ? { fetch: deps.fetch } : {}),
