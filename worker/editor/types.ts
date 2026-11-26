@@ -46,6 +46,10 @@ export interface Editor {
   viewUpload(id: string): Promise<ToolResult>;
   /** Removes an upload; refused while a waiting proposal uses it. */
   removeUpload(id: string): Promise<ToolResult>;
+  /** Adds an upload for the owner page; a refusal is plain text with isError (data null). */
+  addUpload(bytes: Uint8Array, fileName: string): Promise<ToolResult<UploadView | null>>;
+  /** Renames an upload for the owner page. */
+  renameUpload(id: string, name: string): Promise<ToolResult<UploadView | null>>;
   /** The preview JPEG bytes of a photo upload for the owner page, or null. */
   uploadPreview(id: string): Promise<Uint8Array | null>;
 }

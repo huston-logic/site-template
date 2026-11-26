@@ -21,3 +21,7 @@ export const tooBigPhoto = (bytes: number, max: number): string => `This photo i
 export const tooBigPdf = (bytes: number, max: number): string => `This PDF is ${formatMb(bytes)} MB; the most this site takes is ${formatMb(max)} MB.`;
 export const inboxFull = (max: number): string => `Your uploads are full (${formatMb(max)} MB). Remove some you no longer need, then try again.`;
 export const dailyCap = (max: number): string => `You've uploaded ${max} files today, the daily limit. Try again tomorrow.`;
+
+export const CHOOSE_FIRST = "Choose a photo or PDF first.";
+export const NOT_RECEIVED = "That upload didn't come through. Try again, or add the files one at a time.";
+export const tooMuchAtOnce = (cap: number): string => `That's more than ${formatMb(cap)} MB at once. Choose fewer files, or add them one at a time.`;

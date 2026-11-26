@@ -48,6 +48,7 @@ function fakeEditor(): Fake {
   state.editor = {
     waiting: async () => (note("waiting"), state.waiting),
     recent: async () => (note("recent"), state.recent),
+    uploads: async () => (note("uploads"), result("Uploads aren't set up on this site yet.", [], true)),
     publish: async (id: string, words: string) => (note(`publish:${id}:${words}`), result("Change 13 was opened.", {})),
     discard: async (id: string) => (note(`discard:${id}`), result("Proposal discarded.", {})),
     undo: async (n: number) => (note(`undo:${n}`), state.undo),
@@ -130,13 +131,15 @@ test("the home page renders from data, with the exact security headers, and a GE
   assert.equal(response.headers.get("referrer-policy"), "no-referrer");
   assert.equal(
     response.headers.get("content-security-policy"),
-    "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
   );
   const page = await response.text();
+  assert.doesNotMatch(page, /<script/, "no script tag while uploads are not set up");
+  assert.match(page, /Uploads aren't set up on this site yet\./);
   assert.match(page, /Update the hours/);
   assert.match(page, /Change 12: Update hours/);
   assert.match(page, /owner@example\.test/);
-  assert.deepEqual(fake.calls.sort(), ["recent", "waiting"]);
+  assert.deepEqual(fake.calls.sort(), ["recent", "uploads", "waiting"]);
 });
 
 test("a chunked POST body over 8 KB with no Content-Length is refused without being read whole", async () => {
