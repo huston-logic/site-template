@@ -7,7 +7,7 @@ import contactJson from "../content/forms/contact.json" with { type: "json" };
 import { validateContact } from "../lib/contact-validation.ts";
 import { answerLines, emailOf, nameOf, organizationOf } from "./answers.ts";
 import { CONTACT_BODY_BYTES, contactDefinitionFor } from "./contact.ts";
-import { CONTACT_FORM_ID, DEFAULT_FORM_SETTINGS, SHOWCASE_FORM_ID } from "./schema.ts";
+import { CONTACT_FORM_ID, DEFAULT_FORM_SETTINGS } from "./schema.ts";
 import { showcaseForm } from "./showcase.ts";
 import { formProblems, parseForm, validateSubmission } from "./validate.ts";
 
