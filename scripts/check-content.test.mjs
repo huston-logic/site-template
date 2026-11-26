@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -487,7 +487,7 @@ test("registry problems: the real registry has none", async () => {
   assert.deepEqual(validateRegistry(registry), []);
   assert.deepEqual(
     libraryBlocks.map((def) => def.type),
-    ["hero", "highlights", "prose", "faq", "closing-cta", "contact-form", "steps", "legal-sections", "video", "video-grid"],
+    ["hero", "highlights", "prose", "faq", "closing-cta", "contact-form", "steps", "legal-sections", "video", "video-grid", "photo-text", "gallery"],
   );
 });
 
@@ -495,7 +495,9 @@ test("every library example validates", async () => {
   const { libraryBlocks } = await import("../src/blocks/definitions.ts");
   for (const def of libraryBlocks) {
     assert.equal(def.source, "library", def.type);
-    assert.deepEqual(validateContent(def, def.example, `${def.type} example`, { repo, pages: null }), [], def.type);
+    // The showcase photos are real files in public/images/examples/.
+    const libraryRepo = { ...repo, imageExists: (src) => repo.imageExists(src) || existsSync(new URL(`../public${src}`, import.meta.url)) };
+    assert.deepEqual(validateContent(def, def.example, `${def.type} example`, { repo: libraryRepo, pages: null }), [], def.type);
     assert.ok(def.description.length > 20 && def.variants.every((v) => v.description.length > 0), `${def.type} describes itself`);
     const text = JSON.stringify(def.example);
     assert.ok(!text.includes("[["), `${def.type} example has no placeholder`);

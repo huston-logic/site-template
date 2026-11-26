@@ -63,7 +63,7 @@ The top of a page: a small line above, the page headline, a short introduction a
 
 ## Highlights (`highlights`)
 
-A heading and a set of short ideas, each with a title and a few lines of text. Good for services, reasons or features.
+A heading and a set of short ideas, each with a title and a few lines of text, and optionally a photo above each. Good for services, reasons or features.
 
 **Where it can go:** anywhere, up to 3 times.
 
@@ -77,9 +77,10 @@ A heading and a set of short ideas, each with a title and a few lines of text. G
 | Field | What it is | Required | Limits |
 | --- | --- | --- | --- |
 | `heading` | Heading | yes | up to 90 characters |
-| `items` | Ideas | yes | 2 to 9 items |
+| `items` | Ideas | yes | 2 to 9 items (give every item image, or none) |
 | `items[].title` | Title | yes | up to 70 characters |
 | `items[].body` | Text | yes | up to 280 characters |
+| `items[].image` | Photo. Cropped to a 3 by 2 shape. Give every idea a photo, or none. | no | a picture under /images/ with real alt text, shape 3:2 |
 
 **Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
 
@@ -403,6 +404,122 @@ Two to six videos from YouTube or Vimeo side by side, each with a title and a sh
       "url": "https://youtu.be/aqz-KE-bpKQ",
       "title": "A short title for the third video",
       "caption": "A sentence about the third video."
+    }
+  ]
+}
+```
+
+## Photo with text (`photo-text`)
+
+One photo beside a heading, a few paragraphs and an optional button. Good for an about section, a place or a service.
+
+**Where it can go:** anywhere, up to 4 times.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `photo-start` (default): The photo sits on the left on wide screens, the text on the right. On phones the photo is above the text.
+- `photo-end`: The photo sits on the right on wide screens, the text on the left. On phones the photo is above the text.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `image` | Photo. Cropped to a 4 by 3 shape. | yes | a picture under /images/ with real alt text, shape 4:3 |
+| `heading` | Heading | yes | up to 90 characters |
+| `paragraphs` | Paragraphs | yes | 1 to 4 items, each up to 600 characters |
+| `action` | Button | no | button words up to 40 characters, and a link |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "image": {
+    "src": "/images/examples/vase-and-pears.jpg",
+    "alt": "Abstract still life: a pale vase and two pears in soft window light"
+  },
+  "heading": "A short heading that says what the photo is about",
+  "paragraphs": [
+    "A few sentences that tell the story behind the photo in plain words.",
+    "A second paragraph for the detail a visitor would ask about next."
+  ],
+  "action": {
+    "label": "A short button label",
+    "href": "/contact"
+  }
+}
+```
+
+## Photo gallery (`gallery`)
+
+Two to twelve photos in a grid, each with an optional caption. The photos do not open larger.
+
+**Where it can go:** anywhere, up to 2 times.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `three-column` (default): The photos sit three across on wide screens and two across on tablets and phones.
+- `two-column`: The photos sit two across on wide screens and tablets, and one across on phones.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading. Names the group of photos for everyone, including screen reader users. | yes | up to 90 characters |
+| `intro` | Introduction | no | up to 280 characters |
+| `photos` | Photos | yes | 2 to 12 items |
+| `photos[].image` | Photo. Cropped to a 3 by 2 shape. | yes | a picture under /images/ with real alt text, shape 3:2 |
+| `photos[].caption` | Caption | no | up to 140 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that names the photos",
+  "intro": "A sentence that says what the photos show.",
+  "photos": [
+    {
+      "image": {
+        "src": "/images/examples/vase-and-pears.jpg",
+        "alt": "Abstract still life: a pale vase and two pears in soft window light"
+      },
+      "caption": "A short caption for the first photo."
+    },
+    {
+      "image": {
+        "src": "/images/examples/bowl-and-lemons.jpg",
+        "alt": "Abstract still life: a shallow bowl with three lemons on a pale table"
+      },
+      "caption": "A short caption for the second photo."
+    },
+    {
+      "image": {
+        "src": "/images/examples/jug-and-cups.jpg",
+        "alt": "Abstract still life: a tall jug beside two small cups in morning light"
+      }
+    },
+    {
+      "image": {
+        "src": "/images/examples/stacked-books.jpg",
+        "alt": "Abstract still life: a stack of books with a round glass paperweight on top"
+      },
+      "caption": "A short caption for the fourth photo."
+    },
+    {
+      "image": {
+        "src": "/images/examples/candle-and-plate.jpg",
+        "alt": "Abstract still life: a candle in front of a plate, with a long soft shadow"
+      },
+      "caption": "A short caption for the fifth photo."
+    },
+    {
+      "image": {
+        "src": "/images/examples/window-light.jpg",
+        "alt": "Abstract still life: a round stool and a plant pot beneath a bright window"
+      }
     }
   ]
 }
