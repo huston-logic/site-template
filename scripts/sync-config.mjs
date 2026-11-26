@@ -1,11 +1,12 @@
-// Generates the four files that cannot import site.config.ts, from site.config.ts:
-//   wrangler.jsonc, public/_headers, the :root palette in src/app/hl.css, src/lib/fonts.ts.
+// Generates the files that cannot import TypeScript:
+//   from site.config.ts: wrangler.jsonc, public/_headers;
+//   from src/content/brand.json: the palette src/app/palette.css and the fonts module src/lib/fonts.ts.
 // `node scripts/sync-config.mjs` writes them; `--check` regenerates in memory and exits 1 with a diff if a committed
 // file differs. It never writes anywhere else (never .claude/ or .github/).
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { configProblems, wranglerText } from "./config-rules.mjs";
+import { brandFiles, configProblems, driftedFiles, wranglerText } from "./config-rules.mjs";
 
 const root = new URL("..", import.meta.url).pathname;
 const { siteConfig: c } = await import(pathToFileURL(join(root, "site.config.ts")).href);
@@ -14,7 +15,6 @@ const { siteConfig: c } = await import(pathToFileURL(join(root, "site.config.ts"
 const { embedOrigins } = await import(pathToFileURL(join(root, "src/blocks/embeds.ts")).href);
 
 const unique = (list) => [...new Set(list)];
-const kebab = (key) => key.replace(/([a-z0-9])([A-Z0-9])/g, "$1-$2").toLowerCase();
 
 // The checks on site.config.ts and the secret names (by destination, docs/SECRETS.md) live in config-rules.mjs.
 const problems = configProblems(c);
@@ -95,88 +95,36 @@ https://:version.:subdomain.workers.dev/*
 `;
 }
 
-function hlCss() {
-  const file = join(root, "src/app/hl.css");
-  let css = readFileSync(file, "utf8");
-  for (const [key, value] of Object.entries(c.theme.colors)) {
-    const re = new RegExp(`^(  --hl-${kebab(key)}: )[^;]+;`, "m");
-    if (!re.test(css)) throw new Error(`src/app/hl.css has no --hl-${kebab(key)} token for theme.colors.${key}`);
-    css = css.replace(re, `$1${value};`);
-  }
-  return css;
+let brand;
+try {
+  brand = JSON.parse(readFileSync(join(root, "src/content/brand.json"), "utf8"));
+} catch (error) {
+  console.error(`\nConfig check failed: src/content/brand.json cannot be read: ${error.message}\n`);
+  process.exit(1);
 }
-
-function fonts() {
-  const { display, body, accent } = c.theme.fonts;
-  const ident = (family) => family.replace(/\s+/g, "_");
-  const weight = (f) => (f.weights && f.weights !== "variable" ? `\n  weight: ${JSON.stringify(f.weights)},` : "");
-  const names = [display, body, accent].map((f) => ident(f.family)).sort();
-  return `import { ${names.join(", ")} } from "next/font/google";
-
-// Design v3 fonts (docs/STYLE-GUIDE.md §3). Each is self-hosted at build time by next/font; no third-party font tags.
-// Preloaded: ${display.family} (header and every heading) and ${body.family} (body) render above the fold on every page.
-
-/** Display and UI: headings, nav, buttons, eyebrows, labels. One variable file (wght 100 to 900). */
-export const outfit = ${ident(display.family)}({
-  subsets: ["latin"],${weight(display)}
-  variable: "--hl-outfit",
-  display: "swap",
-  preload: true,
-  fallback: ["ui-sans-serif", "system-ui", "sans-serif"],
-});
-
-/** Body text. One variable file. */
-export const inter = ${ident(body.family)}({
-  subsets: ["latin"],${weight(body)}
-  variable: "--font-inter",
-  display: "swap",
-  preload: true,
-});
-
-/** The second voice: ${accent.family} ${accent.style} only, never roman. */
-export const newsreader = ${ident(accent.family)}({
-  subsets: ["latin"],
-  style: [${JSON.stringify(accent.style)}],${accent.axes?.length ? `\n  axes: ${JSON.stringify(accent.axes)},` : ""}
-  variable: "--font-newsreader",
-  display: "swap",
-  preload: true,
-});
-`;
+let fromBrand;
+try {
+  fromBrand = brandFiles(brand);
+} catch (error) {
+  console.error(`\nConfig check failed: src/content/brand.json: ${error.message}\n`);
+  process.exit(1);
 }
 
 const generated = {
   "wrangler.jsonc": wrangler(),
   "public/_headers": headers(),
-  "src/app/hl.css": hlCss(),
-  "src/lib/fonts.ts": fonts(),
+  ...fromBrand,
 };
 
-function diff(expected, actual) {
-  const a = actual.split("\n");
-  const e = expected.split("\n");
-  const out = [];
-  for (let i = 0; i < Math.max(a.length, e.length) && out.length < 12; i++) {
-    if (a[i] !== e[i]) {
-      out.push(`    line ${i + 1}`, `      committed: ${a[i] ?? "(missing)"}`, `      generated: ${e[i] ?? "(missing)"}`);
-    }
-  }
-  return out.join("\n");
-}
-
 if (process.argv.includes("--check")) {
-  const drifted = [];
-  for (const [path, expected] of Object.entries(generated)) {
-    const file = join(root, path);
-    const actual = existsSync(file) ? readFileSync(file, "utf8") : "";
-    if (actual !== expected) drifted.push(`  - ${path}\n${diff(expected, actual)}`);
-  }
+  const drifted = driftedFiles(generated, (path) => (existsSync(join(root, path)) ? readFileSync(join(root, path), "utf8") : null));
   if (drifted.length > 0) {
-    console.error(`\nConfig check failed: ${drifted.length} generated file(s) differ from site.config.ts\n`);
+    console.error(`\nConfig check failed: ${drifted.length} generated file(s) differ from site.config.ts or src/content/brand.json\n`);
     console.error(drifted.join("\n\n"));
     console.error("\nRun `npm run sync:config` and commit the result.\n");
     process.exit(1);
   }
-  console.log("Config check passed: generated files match site.config.ts.");
+  console.log("Config check passed: generated files match site.config.ts and src/content/brand.json.");
 } else {
   for (const [path, content] of Object.entries(generated)) {
     const file = join(root, path);

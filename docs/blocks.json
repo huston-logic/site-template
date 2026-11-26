@@ -1148,6 +1148,49 @@
           }
         ]
       }
+    },
+    {
+      "type": "business-details",
+      "title": "Business details",
+      "description": "A heading and the business's address, phone, email and opening hours, read from the business details settings (business.json), so they are written once and stay the same everywhere. Parts that are empty are left out.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "columns",
+          "description": "Address, contact and hours side by side on wide screens, stacked on phones.",
+          "default": true
+        },
+        {
+          "name": "compact",
+          "description": "Address, contact and hours in one narrow column.",
+          "default": false
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 1,
+        "rhythm": "section",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": null,
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": true,
+          "max": 90
+        }
+      ],
+      "example": {
+        "heading": "Where to find me"
+      }
     }
   ]
 }

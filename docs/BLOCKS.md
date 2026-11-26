@@ -524,3 +524,30 @@ Two to twelve photos in a grid, each with an optional caption. The photos do not
   ]
 }
 ```
+
+## Business details (`business-details`)
+
+A heading and the business's address, phone, email and opening hours, read from the business details settings (business.json), so they are written once and stay the same everywhere. Parts that are empty are left out.
+
+**Where it can go:** anywhere, once.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `columns` (default): Address, contact and hours side by side on wide screens, stacked on phones.
+- `compact`: Address, contact and hours in one narrow column.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "Where to find me"
+}
+```

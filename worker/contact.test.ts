@@ -26,8 +26,8 @@ const FIXTURE: WorkerSiteConfig = {
     schedulerUrl: "https://example.test/book",
     sheetWriter: "service-account",
     sheetTabs: { production: "Submissions", preview: "Preview" },
+    emailColors: { green: "#112233", ink: "#223344", ink2: "#334455", rust: "#445566", line: "#556677" },
   },
-  theme: { colors: { green: "#112233", ink: "#223344", ink2: "#334455", rust: "#445566", line: "#556677" } },
 };
 
 function makeWorker(contact: Partial<WorkerSiteConfig["contact"]> = {}, domain: Partial<WorkerSiteConfig["domain"]> = {}) {
@@ -569,8 +569,7 @@ describe("client values come from the config", () => {
       business: { name: "[[Business name]]", tagline: "[[Tagline]]" },
       owner: { name: "[[Owner name]]", role: "[[Owner role]]" },
       domain: { url: "https://example.com" },
-      contact: { siteEmail: null },
-      theme: { colors: { green: "#1e4fa3", ink: "#1c1917", ink2: "#44403c", rust: "#9a3412", line: "#d6d3d1" } },
+      contact: { siteEmail: null, emailColors: { green: "#1e4fa3", ink: "#1c1917", ink2: "#44403c", rust: "#9a3412", line: "#d6d3d1" } },
     });
     assert.ok(reply.signatureHtml.includes("[[Owner name]]") && !reply.signatureHtml.includes("mailto:"));
     assert.deepEqual(reply.signatureText.slice(0, 4), ["[[Owner name]]", "[[Owner role]], [[Business name]]", "[[Tagline]]", "example.com"]);

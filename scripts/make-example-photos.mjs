@@ -1,14 +1,12 @@
 // One-off generator for the showcase photos in public/images/examples/: six abstract still lifes drawn in HTML from the
-// theme palette in site.config.ts and saved as JPEG with the installed Google Chrome (no browser download).
+// palette in src/content/brand.json and saved as JPEG with the installed Google Chrome (no browser download).
 // Run: node scripts/make-example-photos.mjs   then: npm run strip:images -- --all
-import { mkdirSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { chromium } from "@playwright/test";
 
 const root = new URL("..", import.meta.url).pathname;
-const { siteConfig } = await import(pathToFileURL(join(root, "site.config.ts")).href);
-const c = siteConfig.theme.colors;
+const c = JSON.parse(readFileSync(join(root, "src/content/brand.json"), "utf8")).colors;
 const out = join(root, "public/images/examples");
 mkdirSync(out, { recursive: true });
 

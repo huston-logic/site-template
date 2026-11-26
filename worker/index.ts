@@ -59,7 +59,7 @@ function createProvider(origin: string): OAuthProvider<ProviderEnv> {
           editor: buildEditor(workerConfig, env),
           config,
           oauth,
-          theme: siteConfig.theme.colors,
+          theme: siteConfig.editor.pageColors,
           ...(env.EDITOR_RATE_LIMIT ? { rateLimit: env.EDITOR_RATE_LIMIT } : {}),
         });
       },

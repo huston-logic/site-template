@@ -126,7 +126,7 @@ Animation is CSS only (no library), in `src/app/hl.css`, following `docs/STYLE-G
 
 ## Placeholders and launch gate
 
-Anything only [[OWNER_NAME]] can supply is written as `[[double brackets]]` in `src/content/*` and renders as a highlighted marker on the page. Provider-dependent values (`email`, `schedulerUrl`, `linkedInUrl`, `turnstileSiteKey`) stay `null` in `site.config.ts` until set.
+Anything only [[OWNER_NAME]] can supply is written as `[[double brackets]]` in `src/content/*` and renders as a highlighted marker on the page. Provider-dependent values (`email`, `schedulerUrl`, `turnstileSiteKey`) stay `null` in `site.config.ts` until set.
 
 ```bash
 npm run check:placeholders   # lists every unresolved item, exits 1 while any remain
@@ -330,7 +330,7 @@ If a production build itself fails, nothing is deployed and the old version stay
 The full launch checklist, with an owner and a proof for every item, is [docs/LAUNCH-CHECKLIST.md](docs/LAUNCH-CHECKLIST.md). The items below are this site's own content checks; do them as well.
 
 - [ ] Domain, DNS and business email working; `NEXT_PUBLIC_SITE_URL` set to the final domain
-- [ ] `email`, `schedulerUrl`, `linkedInUrl`, `turnstileSiteKey` set in `site.config.ts`
+- [ ] `email`, `schedulerUrl`, `turnstileSiteKey` set in `site.config.ts`; `src/content/business.json` and `brand.json` hold no placeholder
 - [ ] `npm run check:placeholders` passes (photos, screenshots, titles, location, background wording, musician line, certifications, privacy date)
 - [ ] Contact form tested end to end on desktop and phone on the live domain: the notification email to the site address, the automatic reply (SPF, DKIM and DMARC all PASS in "Show original"), the Sheet row or Pipeline app lead; then delete the test row
 - [ ] Scheduler wired and its CSP origin added

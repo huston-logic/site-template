@@ -4,7 +4,9 @@ import { Container } from "@/components/hl/Container";
 import { HlLink } from "@/components/hl/HlLink";
 import { Text } from "@/components/ui/Text";
 import { siteConfig } from "@/content/site";
+import { contactLines, socialLinks } from "@/lib/chrome-view";
 import { getMenu } from "@/lib/pages";
+import { getBusiness } from "@/lib/settings";
 import { Logo } from "./Logo";
 
 const linkClass = "inline-flex min-h-11 items-center font-ui text-[16px] font-medium text-ink";
@@ -13,6 +15,9 @@ const linkClass = "inline-flex min-h-11 items-center font-ui text-[16px] font-me
 export function Footer() {
   const footerLinks = getMenu("footer");
   const legalLinks = getMenu("legal");
+  const business = getBusiness();
+  const { phone, email } = contactLines(business);
+  const socials = socialLinks(business);
   return (
     <footer className="hl-footer relative overflow-hidden pb-12 pt-24">
       <Container className="relative">
@@ -40,20 +45,39 @@ export function Footer() {
           </nav>
 
           <ul>
-            {siteConfig.email ? (
+            {phone ? (
               <li>
-                <HlLink href={`mailto:${siteConfig.email}`} className={linkClass}>
-                  <ArrowLabel>{siteConfig.email}</ArrowLabel>
-                </HlLink>
+                {phone.href ? (
+                  <HlLink href={phone.href} className={linkClass}>
+                    <ArrowLabel>{phone.text}</ArrowLabel>
+                  </HlLink>
+                ) : (
+                  <span className={linkClass}>
+                    <Text>{phone.text}</Text>
+                  </span>
+                )}
               </li>
             ) : null}
-            {siteConfig.linkedInUrl ? (
+            {email ? (
               <li>
-                <HlLink href={siteConfig.linkedInUrl} className={linkClass}>
-                  <ArrowLabel>LinkedIn</ArrowLabel>
-                </HlLink>
+                {email.href ? (
+                  <HlLink href={email.href} className={linkClass}>
+                    <ArrowLabel>{email.text}</ArrowLabel>
+                  </HlLink>
+                ) : (
+                  <span className={linkClass}>
+                    <Text>{email.text}</Text>
+                  </span>
+                )}
               </li>
             ) : null}
+            {socials.map((social) => (
+              <li key={social.url}>
+                <HlLink href={social.url} className={linkClass}>
+                  <ArrowLabel>{social.label}</ArrowLabel>
+                </HlLink>
+              </li>
+            ))}
           </ul>
         </div>
 
@@ -66,7 +90,7 @@ export function Footer() {
               ·{" "}
             </span>
           ))}
-          &copy; {siteConfig.copyrightYear} <Text>{siteConfig.name}</Text>
+          &copy; {siteConfig.copyrightYear} <Text>{business.name}</Text>
         </p>
       </Container>
     </footer>

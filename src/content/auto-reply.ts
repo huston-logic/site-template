@@ -2,7 +2,7 @@ import { siteConfig } from "../../site.config.ts";
 
 /**
  * The automatic reply the contact Worker sends (docs/website-plan.md B7b), as HTML and plain text with the same words.
- * The signature (names, email, domain, tagline) and the inline colors come from site.config.ts; the body below is the
+ * The signature (names, email, domain, tagline) and the inline colors (`contact.emailColors`) come from site.config.ts; the body below is the
  * copy to edit for each client. This module imports only the import-free config, because the Worker bundles it.
  * worker/messages.ts fills `{firstName}` and `{bookingUrl}`; the first name is the only visitor input in the email.
  */
@@ -12,8 +12,7 @@ export interface AutoReplyConfig {
   business: { name: string; tagline: string };
   owner: { name: string; role: string };
   domain: { url: string };
-  contact: { siteEmail: string | null };
-  theme: { colors: { green: string; ink: string; ink2: string; rust: string; line: string } };
+  contact: { siteEmail: string | null; emailColors: { green: string; ink: string; ink2: string; rust: string; line: string } };
 }
 
 function escapeHtml(value: string): string {
@@ -27,8 +26,8 @@ function displayHost(url: string): string {
 
 /** Builds the reply content. It never throws: placeholder or null config values just show up as text (or are left out). */
 export function buildAutoReply(config: AutoReplyConfig) {
-  const { business, owner, domain, contact, theme } = config;
-  const c = theme.colors;
+  const { business, owner, domain, contact } = config;
+  const c = contact.emailColors;
   const email = contact.siteEmail;
   const host = displayHost(domain.url);
   const role = `${owner.role}, ${business.name}`;

@@ -2,14 +2,14 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
 import { siteConfig } from "@/content/site";
-import { siteConfig as base } from "../../../site.config";
+import { getBrand, getBusiness } from "@/lib/settings";
 
 export const dynamic = "force-static";
 
 const size = { width: 1200, height: 630 };
 
-// Hex values come from site.config.ts, the same source as the tokens in src/app/hl.css. ImageResponse cannot read CSS variables.
-const { silver, ink, ink2, green, rust } = base.theme.colors;
+// Hex values come from brand.json, the same source as the tokens in src/app/palette.css. ImageResponse cannot read CSS variables.
+const { silver, ink, ink2, green, rust } = getBrand().colors;
 const color = { silver, ink, ink2, green, rust };
 
 /** Social preview card (CLIENT: replace the circle with the client's mark), generated at build time and served as /og.png. */
@@ -36,7 +36,7 @@ export async function GET() {
       >
         <div style={{ width: 280, height: 280, borderRadius: 140, background: color.green }} />
         <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-          <div style={{ fontSize: 112, fontWeight: 600, lineHeight: 1.05, letterSpacing: -2 }}>{siteConfig.name}</div>
+          <div style={{ fontSize: 112, fontWeight: 600, lineHeight: 1.05, letterSpacing: -2 }}>{getBusiness().name}</div>
           <div style={{ width: 96, height: 8, background: color.rust, margin: "32px 0" }} />
           <div style={{ fontSize: 44, fontWeight: 400, lineHeight: 1.25, color: color.ink2 }}>
             {siteConfig.tagline}

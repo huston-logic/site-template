@@ -21,6 +21,8 @@ export interface WorkerSiteConfig extends AutoReplyConfig {
     fromName: string;
     replyFromName: string;
     schedulerUrl: string | null;
+    /** The colors the automatic reply uses inline (`contact.emailColors`); wiring, not read from brand.json. */
+    emailColors: { green: string; ink: string; ink2: string; rust: string; line: string };
     sheetWriter: SheetWriter;
     sheetTabs: { production: string; preview: string };
     /** Optional so a config without it means "sheet". */
