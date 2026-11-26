@@ -189,3 +189,46 @@ screenshots of `/blocks` at 1440 and 390 wide. One PR (one feature area).
 | Commits | 13 |
 | Time in checks | about 20 minutes (`check:fast` per commit, 4 cold builds, 3 a11y runs, 3 Lighthouse runs, 4 screenshot reports) |
 | Time waiting on CI | 0: auto-merge is queued; nothing waited on CI |
+
+## Record: Owner sign-in and chat tools (2026-11-25) run, moved from STATUS.md unchanged (2026-11-25)
+
+Process run, unattended, from Grant's brief. Design: `docs/superpowers/specs/2026-11-25-owner-chat-tools-design.md`
+(rulings marked "Ruling", builder-check answers included). Plan: `docs/superpowers/plans/2026-11-25-owner-chat-tools.md`.
+Opus designed, coordinated and did the correctness review; Sonnet implemented (the two leftovers and the owner page in
+their own git worktrees, in parallel with the editor work); Haiku read the Pipeline app's sign-in and wrote the docs.
+Two PRs: #30 (leftovers, merged) and #31 (site editor, open, auto-merge queued).
+
+- **Checks:** full `npm run check` passes (244 Worker tests, 432 script tests, content and design checks, build);
+  `npm run test:a11y` passes locally (78, owner page at 390 and 1440 included); the Worker bundles (406 KB).
+- **Reviews:** #30: review-code and review-security (1 medium, 4 low, all fixed). #31: review-security (nothing High or
+  Critical), review-code, review-a11y, an Opus correctness review, and a design critique of the owner page; all
+  findings fixed in two fix waves or recorded as rulings.
+- **Judgment calls:** consent page inside the Access-protected `/owner/connect` (no Access for SaaS app); hand-written
+  MCP, no SDK; drafts in KV for 3 days, history stays in git; one change in flight; the owner's yes is relayed by their
+  AI app (the brief's direction; risk written down); a "clean" auto-merge answer never merges directly (fail closed);
+  "Remove the second testimonial" is tested on a highlights list (no testimonial block exists).
+- **Speed:** required CI takes about 4 minutes per PR (Lighthouse is the slowest job, 6 pages x 3 runs); yes-to-live is
+  that plus the Workers Builds deploy, not yet measured live. The fast lane would cut Lighthouse to the changed pages.
+- **New dependencies:** `@cloudflare/workers-oauth-provider` 1.2.4 (exact, 34 days old, Worker only).
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | about 95 minutes (about 16:20 to 17:55, both PRs open and reviewed) |
+| Commits | 24 (6 in #30, 18 in #31) plus 2 merge commits |
+| Time in checks | about 10 minutes (`check:fast` per commit, 3 full checks, one local a11y run) |
+| Time waiting on CI | about 3 minutes (B5 waited for #30's last checks; other work filled the rest) |
+
+## Record: For the master lines up to the owner sign-in run (moved from STATUS.md unchanged, 2026-11-25)
+
+- Website build rules now live in docs/PROCESS.md in huston-logic/site-template; the master links to it.
+- Website docs describe managed hosting and offboarding; template sites can send form contacts to a Pipeline app copy.
+- Website pages are now data: each page is a list of designed sections, so most client changes are data a check can verify.
+- Clients change their own words, prices, contact details, legal text, links and pages; these no longer wait for Huston Logic review.
+- Pages are archived, never deleted, and can be restored.
+- A new section design joins a site's library only after the block gate: example, showcase, token and motion checks, and a design review at desktop and phone width.
+- Every site can show YouTube and Vimeo videos; nothing loads from those sites until a visitor presses play.
+- Clients get a plain "what you can change" guide in three lanes: do it yourself, do it once it is built, Huston Logic builds it.
+- Site owners can change their pages by chatting with their own AI app; the site checks each change, shows exactly what will change, and publishes only after the owner says yes.
+- Only the owner emails Huston Logic lists for a site can sign in; each site can write only its own pages, in its own repo.
+- Requests the site's sections cannot handle are recorded for Huston Logic automatically.
+- The block showcase now appears on preview sites only, never on a live site.
