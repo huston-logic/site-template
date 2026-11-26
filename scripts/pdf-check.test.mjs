@@ -1,0 +1,62 @@
+// Tests for scripts/pdf-check.mjs: the byte checks for a PDF added under public/files/.
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { rules } from "./change-scope-rules.mjs";
+import { pdfNames, pdfProblem } from "./pdf-check.mjs";
+
+/** A tiny well-formed PDF, with `extra` placed inside the catalog dictionary. */
+const pdf =(extra = "") =>
+  Buffer.from(`%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R ${extra}>>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n`, "latin1");
+
+test("a plain PDF passes", () => {
+  assert.equal(pdfProblem(pdf(), rules), null);
+});
+
+test("it must start with %PDF-", () => {
+  assert.match(pdfProblem(Buffer.from("<html>hi</html>\n%%EOF"), rules), /not really a PDF/);
+  assert.match(pdfProblem(Buffer.from(" %PDF-1.4\n%%EOF"), rules), /not really a PDF/);
+  assert.match(pdfProblem(Buffer.alloc(0), rules), /not really a PDF/);
+});
+
+test("%%EOF must be within the last 1024 bytes", () => {
+  const nearEnd = Buffer.concat([pdf(), Buffer.alloc(1000, 0x20)]);
+  assert.equal(pdfProblem(nearEnd, rules), null);
+  const tooFar = Buffer.concat([pdf(), Buffer.alloc(2000, 0x20)]);
+  assert.match(pdfProblem(tooFar, rules), /cut off/);
+  assert.match(pdfProblem(Buffer.from("%PDF-1.4\n1 0 obj\n"), rules), /cut off/);
+});
+
+test("it may not be over the size limit, and exactly the limit is fine", () => {
+  const padded = (size) => Buffer.concat([pdf().subarray(0, 9), Buffer.alloc(size - pdf().length, 0x20), pdf().subarray(9)]);
+  assert.match(pdfProblem(padded(rules.maxPdfBytes + 1), { ...rules }), /over the 10 MB limit/);
+  const small = { ...rules, maxPdfBytes: 5000 };
+  assert.equal(pdfProblem(padded(5000), small), null);
+  assert.match(pdfProblem(padded(5001), small), /over the/);
+});
+
+test("every active name is refused, and the message names the fix", () => {
+  for (const name of rules.pdfActiveNames) {
+    const problem = pdfProblem(pdf(`/${name} 5 0 R `), rules);
+    assert.match(problem, new RegExp(`/${name}\\b`), name);
+    assert.match(problem, /Save it again as a plain PDF \(Print, then Save as PDF\)/);
+  }
+});
+
+test("#xx escapes are decoded, so a disguised name still counts", () => {
+  assert.match(pdfProblem(pdf("/J#61vaScript 5 0 R "), rules), /\/JavaScript/);
+  assert.match(pdfProblem(pdf("/#4A#53 5 0 R "), rules), /\/JS/);
+  assert.match(pdfProblem(pdf("/Embedded#46ile << >> "), rules), /\/EmbeddedFile/);
+});
+
+test("names are matched whole: /JSFoo is not /JS, /AAPL is not /AA, /Launcher is not /Launch", () => {
+  assert.equal(pdfProblem(pdf("/JSFoo 1 /AAPL 2 /Launcher 3 /EmbeddedFilesX 4 "), rules), null);
+});
+
+test("a name followed straight by a delimiter still counts", () => {
+  assert.match(pdfProblem(pdf("/S/JavaScript/JS(alert(1)) "), rules), /\/JavaScript, \/JS/);
+  assert.match(pdfProblem(pdf("<</AA<</O 1 0 R>>>> "), rules), /\/AA/);
+});
+
+test("pdfNames decodes escapes and splits on delimiters", () => {
+  assert.deepEqual([...pdfNames(Buffer.from("/A#42C/Foo<</Bar[/Baz]"))].sort(), ["ABC", "Bar", "Baz", "Foo"]);
+});
