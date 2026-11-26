@@ -3,7 +3,7 @@
 // CI and preview builds keep /blocks so the accessibility and Lighthouse checks still scan it.
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 /** Writes <outDir>/site-version.json and, when env.WORKERS_CI_BRANCH is the production branch, removes the showcase. */
 export function finishBuild({ outDir, env, productionBranch }) {
@@ -17,7 +17,7 @@ export function finishBuild({ outDir, env, productionBranch }) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const root = new URL("..", import.meta.url).pathname;
+  const root = fileURLToPath(new URL("..", import.meta.url));
   const { siteConfig } = await import(pathToFileURL(join(root, "site.config.ts")).href);
   const result = finishBuild({ outDir: join(root, "out"), env: process.env, productionBranch: siteConfig.domain.productionBranch });
   console.log(`Build stamp: ${result.commit ?? "no commit known"}${result.showcaseRemoved ? "; /blocks removed (production build)" : ""}`);
