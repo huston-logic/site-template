@@ -8,9 +8,11 @@
 
 ## 2. Color
 [[PALETTE: every token name, hex value and use; AA contrast pairs checked]]
+Contrast pairs: every foreground and background pair the design uses is listed in src/brand/contrast-pairs.ts; a brand change must pass all of them.
 
 ## 3. Typography
 [[TYPE: fonts (loaded through next/font only), scale, weights, line heights]]
+Fonts come from the curated list in src/brand/fonts.ts; the chosen fonts are in src/content/brand.json.
 
 ## 4. Space, shape, depth, grid
 [[SPACING_SHAPE_DEPTH_GRID: container width, gutters, radii, shadows]]

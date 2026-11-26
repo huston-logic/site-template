@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { siteConfig } from "@/content/site";
 import { inter, newsreader, outfit } from "@/lib/fonts";
-import { OG_IMAGE_ALT, OG_IMAGE_PATH } from "@/lib/metadata";
-import { siteConfig as base } from "../../site.config";
+import { OG_IMAGE_PATH, ogImages, siteName } from "@/lib/metadata";
+import { getBrand } from "@/lib/settings";
+import "./palette.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,15 +16,15 @@ export const metadata: Metadata = {
   authors: [{ name: siteConfig.founder }],
   openGraph: {
     type: "website",
-    siteName: siteConfig.name,
+    siteName: siteName(),
     locale: "en_US",
-    images: [{ url: OG_IMAGE_PATH, width: 1200, height: 630, alt: OG_IMAGE_ALT }],
+    images: ogImages(),
   },
   twitter: { card: "summary_large_image", images: [OG_IMAGE_PATH] },
 };
 
 export const viewport: Viewport = {
-  themeColor: base.theme.colors.silver,
+  themeColor: getBrand().colors.silver,
   width: "device-width",
   initialScale: 1,
 };

@@ -45,19 +45,19 @@ function scanConfig(value, path) {
 }
 scanConfig(config, "");
 
-// Optional on purpose: legalName (falls back to the business name), brand.logo (empty means no logo in the JSON-LD),
+// Phone, email, address, socials and the logo are not here: they are in src/content/business.json and brand.json, which the
+// scan of src/content above covers like the rest of the copy.
+// Optional on purpose: legalName (falls back to the business name),
 // prices.website (empty means none published),
 // the csp.extra* lists and the analytics flag.
 const requiredKeys = [
   "business.name", "business.tagline", "business.oneLiner",
-  "owner.name", "owner.givenName", "owner.familyName", "owner.role", "owner.phone", "owner.regionLine",
+  "owner.name", "owner.givenName", "owner.familyName", "owner.role", "owner.regionLine",
   "domain.url", "domain.workerName", "domain.previewHostSuffix",
   "contact.siteEmail", "contact.fromName", "contact.replyFromName", "contact.schedulerUrl", "contact.bookingFallbackPath",
-  "contact.linkedInUrl", "contact.turnstileSiteKey", "contact.sheetWriter", "contact.sheetTabs.production", "contact.sheetTabs.preview",
+  "contact.turnstileSiteKey", "contact.sheetWriter", "contact.sheetTabs.production", "contact.sheetTabs.preview",
   "contact.rateLimitIds.production", "contact.rateLimitIds.preview",
   ...(config.contact.destination === "pipeline" ? ["contact.pipelineUrl"] : []),
-  ...Object.keys(config.theme.colors).map((k) => `theme.colors.${k}`),
-  "theme.fonts.display.family", "theme.fonts.body.family", "theme.fonts.accent.family",
 ];
 for (const key of requiredKeys) {
   const value = key.split(".").reduce((obj, part) => obj?.[part], config);

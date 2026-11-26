@@ -5,7 +5,8 @@ import { Eyebrow } from "./Eyebrow";
 import { Glow } from "./Glow";
 
 type HeroContentProps = {
-  eyebrow?: string;
+  /** A string is rendered with `Text`; a node (for example a date in a `time`) is used as given. */
+  eyebrow?: ReactNode;
   /** The page's single H1. A string is rendered with `Text`, so [[placeholders]] show as markers. */
   title: ReactNode;
   intro?: ReactNode;
@@ -25,7 +26,7 @@ export function HeroContent({ eyebrow, title, intro, children, headingLevel = "h
     <Container className="relative z-10">
       {eyebrow ? (
         <Eyebrow>
-          <Text>{eyebrow}</Text>
+          {asText(eyebrow)}
         </Eyebrow>
       ) : null}
       <Heading id={headingId} className={`${eyebrow ? "mt-4.5 " : ""}max-w-title font-ui text-page-title font-bold`}>

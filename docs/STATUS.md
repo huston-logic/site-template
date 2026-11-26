@@ -10,17 +10,17 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 - **Repo:** `huston-logic/site-template`, a GitHub template (`is_template` is true). Default branch `main`, ruleset
   "Protect main" active, "Allow auto-merge" on.
 - **Live:** not checked from the repo; client sites deploy from their own repos.
-- **Merged:** PRs #1 to #31, all merged except #3 (Dependabot, closed unmerged). #31 (the site editor) merged on
+- **Merged:** PRs #1 to #32, all merged except #3 (Dependabot, closed unmerged). #32 (uploads and photos) merged on
   2026-11-25.
-- **Open:** #32, uploads and photos (`feat/uploads-and-photos`), queued for auto-merge behind the required checks.
-- **Site editor (in `main`):** owners change their pages by chatting with their own AI app; off by default
-  (`editor.enabled: false`), built and tested against mocks only. `docs/EDITING.md`.
-- **Uploads and photos (in #32):** an "Your uploads" section on `/owner` (several photos from a phone, thumbnails,
-  rename, remove; works without JavaScript); phone photos (HEIC included) become web-ready WebP through the Cloudflare
-  Images binding; a private R2 inbox per site, 30-day expiry; AI tools `list_uploads`, `view_upload`, `remove_upload`
-  and `upload:<id>` in proposals; new `photo-text` and `gallery` blocks and photos on `highlights`; PDF downloads with
-  scope-check rules. Off by default (`editor.uploads.enabled: false`); mocks only. Setup: `docs/EDITING.md`, "Set up
-  uploads on one site".
+- **Open:** #33, collections and brand settings (`feat/collections-and-brand`), queued for auto-merge behind the
+  required checks.
+- **Site editor and uploads (in `main`):** owners change pages and add photos and PDFs by chatting; both off by default
+  (`editor.enabled`, `editor.uploads.enabled`), built and tested against mocks only. `docs/EDITING.md`.
+- **Collections and brand settings (in #33):** a blog (post pages, drafts, a paginated list, an RSS feed), videos,
+  podcast episodes (Spotify and Apple Podcasts players that load nothing until play), testimonials and team, each item
+  one JSON file; seven new sections (latest posts, post index, videos, episodes, testimonials, team, business details);
+  owner-editable business details, brand colors (contrast-checked), curated fonts, a logo from an upload, and a
+  site-wide notice; 4 new AI tools and 4 new operations. All works by chat once the editor is on. Mocks only.
 - **Still open per `docs/TEMPLATE.md`:** template README polish, and deciding which Huston content rules in AGENTS.md
   stay as template defaults.
 
@@ -28,51 +28,61 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 
 In order:
 
-1. Check that #32 merged. "Needs your eyes": AGENTS.md (upload paths, uploads security bullet, `src/lib/pdf-scan.ts`
-   allowed in the Worker), package.json (one test glob; no dependency change), site.config.ts (`editor.uploads`, off),
-   public/_headers (generated `/files/*` block).
-2. Your working copy of `.github/workflows/ci.yml` still holds the uncommitted content and design check steps from an
-   earlier run. Either commit them on their own branch and PR, or do item 3, whose file already includes them.
-3. Decide the content fast lane: read `docs/proposals/content-fast-lane.md`. To adopt it: first change the "Protect
-   main" ruleset to add `change-scope` as a required check, then on a new branch run
+1. Check that #33 merged. "Needs your eyes": AGENTS.md (Worker-allowed modules, files the editor writes, palette and
+   fonts now generated from `src/content/brand.json`, LinkedIn now a social link), package.json (test globs only; no
+   dependency change), README (CSP origins for Spotify and Apple Podcasts), site.config.ts (`theme`, `brand.logo`,
+   `owner.phone` and `contact.linkedInUrl` removed; `business.timeZone`, `contact.emailColors` and `editor.pageColors`
+   added), lighthouserc.cjs (reads `auditRoutes`; no threshold changed), public/_headers (two player origins).
+2. Decide [docs/proposals/lighthouse-compression.md](proposals/lighthouse-compression.md): the Lighthouse test server
+   sends files uncompressed (Cloudflare compresses them), so a page led by a photo on a phone (a blog post with a lead
+   photo, or a photo section right under a short hero) scores 77 to 79 and fails the required `lighthouse` check,
+   although the live site is fast. With gzip in `scripts/preview.mjs` it scored 90 and every other page 100. It changes
+   CI behavior, so it is yours; no threshold changes. Until then an owner's post with a lead photo can stay stuck.
+3. For each client site, set the new per-client values: `business.timeZone` in `site.config.ts` (an IANA zone, for the
+   notice's end date), the palette, fonts and logo in `src/content/brand.json`, the business details in
+   `src/content/business.json`, then `npm run sync:config`. Remove or archive the template's example posts, videos,
+   episodes, testimonials and team member the site does not use (the launch gate fails on their placeholders).
+4. Your working copy of `.github/workflows/ci.yml` still holds the uncommitted content and design check steps from an
+   earlier run. Either commit them on their own branch and PR, or do item 5, whose file already includes them.
+5. Decide the content fast lane: `docs/proposals/content-fast-lane.md` (its `lighthouserc.cjs.proposed` now reads
+   `auditRoutes`, like the real file). To adopt it: first change the "Protect main" ruleset to add `change-scope` as a
+   required check, then on a new branch run
    `cp docs/proposals/content-fast-lane-files/ci.yml.proposed .github/workflows/ci.yml`,
    `cp docs/proposals/content-fast-lane-files/lighthouserc.cjs.proposed lighthouserc.cjs` and
    `cp docs/proposals/content-fast-lane-files/site.a11y.spec.ts.proposed tests/a11y/site.a11y.spec.ts`, then PR. Per
    CLAUDE.md a new required check needs 5 clean runs and a deliberate-failure proof PR first. Then add rule 17 to
-   PROCESS.md (text in the proposal). Uploads make this more pressing: the scope check's PDF and photo rules block an
-   editor change only once `change-scope` is required.
-4. Turn the editor on for the first site (accounts and secrets, so yours): `docs/EDITING.md`, "Set up the editor on one
-   site", steps a to g. Preconditions: the ruleset with its required checks, "Allow auto-merge", the `owner-request`
-   label, and watching the repo.
-5. On that first site, confirm what mocks could not: a real AI app connects (Claude custom connector);
-   `/site-version.json` shows the deployed commit; `/blocks` is the 404 page on the live site; a preview link opens; the
-   Workers Builds check's name starts with `Workers Builds`; and note the yes-to-live minutes the owner page shows.
-6. Turn uploads on for that site (account steps, so yours): `docs/EDITING.md`, "Set up uploads on one site", steps h to
-   l: `npx wrangler r2 bucket create <workerName>-uploads` (private, no public access);
-   `npx wrangler r2 bucket lifecycle add <workerName>-uploads expire-inbox --expire-days 31`; check Cloudflare Images is
-   on the account (Free plan is enough); set `editor.uploads.bucket` and `editor.uploads.enabled: true`,
-   `npm run sync:config`, PR, merge.
-7. On that site, confirm what mocks could not (step l): an iPhone HEIC photo taken in portrait shows upright on
-   `/owner` and in a published gallery (Cloudflare Images is relied on to apply the rotation; if it is sideways, a fix
-   is a `rotate` from the photo's orientation); a PDF downloads from `/files/...` and its response carries both the site
-   CSP and `Content-Security-Policy: sandbox`; a phone video is refused with the YouTube/Vimeo message.
-8. Decide the one-connector option for clients with a site and the Pipeline app: `docs/proposals/one-connector.md`.
-9. Update Playwright's Chromium on your Mac (installing a browser needs your OK): `npx playwright install chromium`.
-10. Convert the client sites to blocks with `docs/CONVERT-TO-BLOCKS.md`, then add the editor and uploads with the
-    ready-to-paste messages in `docs/EDITING.md`: huston-logic/structural-integrity-engineering and
-    ghuston/huston-tech-website. Port the earlier process items (managed hosting, the Pipeline destination) in the same runs.
-11. Connect a site to a Pipeline app copy (unchanged; only mocked tests so far): set `INTAKE_SECRET` in the app copy and
+   PROCESS.md (text in the proposal). Collections make this more pressing: the scope check's item, settings and brand
+   rules block an editor change only once `change-scope` is required.
+6. Turn the editor on for the first site (accounts and secrets, so yours): `docs/EDITING.md`, "Set up the editor on one
+   site", steps a to g. Brand changes by chat also need `editor.workersSubdomain` set, because a brand change must be
+   previewed before it can publish.
+7. On that first site, confirm what mocks could not: a real AI app connects; `/site-version.json` shows the deployed
+   commit and `drafts: false`; `/blocks` is the 404 page; a preview link opens; the yes-to-live minutes; a draft post
+   shows on its preview and not on the live site; a Spotify and an Apple Podcasts episode play after one or two presses.
+8. Turn uploads on for that site: `docs/EDITING.md`, "Set up uploads on one site", steps h to l. Then confirm on the
+   real site: a portrait iPhone HEIC photo shows upright; a PDF downloads with the sandbox header; a phone video is
+   refused; and new for logos, a transparent PNG logo stays transparent after conversion (if it gains a background, the
+   fix is in the Worker's conversion options, a Huston Logic change).
+9. Decide the one-connector option for clients with a site and the Pipeline app: `docs/proposals/one-connector.md`.
+10. Update Playwright's Chromium on your Mac (installing a browser needs your OK): `npx playwright install chromium`.
+11. Convert the client sites to blocks with `docs/CONVERT-TO-BLOCKS.md`, then add the editor, uploads, and collections
+    and brand settings with the ready-to-paste messages in `docs/EDITING.md`: huston-logic/structural-integrity-engineering
+    and ghuston/huston-tech-website. Port the earlier process items (managed hosting, the Pipeline destination) in the
+    same runs.
+12. Connect a site to a Pipeline app copy (unchanged; only mocked tests so far): set `INTAKE_SECRET` in the app copy and
     the site, set `contact.destination` to `"pipeline"`, `contact.pipelineUrl` and `contact.rateLimitIds`,
     `npm run sync:config`, merge, then send one test note and delete the test lead.
-12. Rehearse `docs/OFFBOARDING.md` once on a test site, then change its status line from "Not yet rehearsed".
-13. Grant's site and Dylan's site both use rate-limit ids 1001/1002 (`docs/HOSTING.md`). Once two sites share a
+13. Rehearse `docs/OFFBOARDING.md` once on a test site, then change its status line from "Not yet rehearsed".
+14. Grant's site and Dylan's site both use rate-limit ids 1001/1002 (`docs/HOSTING.md`). Once two sites share a
     Cloudflare account, give one a new pair. A site with the editor takes a third id (next new site: 2001, 2002, 2003).
-14. Copy decision (yours): older client sites may still say "Websites are hosted on Cloudflare, in an account in your
+15. Copy decision (yours): older client sites may still say "Websites are hosted on Cloudflare, in an account in your
     name". That is false under managed hosting.
-15. Decide whether CI's `check` job should also run `npm run check:process` (owner-only CI edit, like item 2).
-16. Decide the AGENTS.md question from `docs/TEMPLATE.md` section E: which Huston content rules stay as template
+16. Decide whether CI's `check` job should also run `npm run check:process` (owner-only CI edit, like item 4).
+17. Decide the AGENTS.md question from `docs/TEMPLATE.md` section E: which Huston content rules stay as template
     defaults.
-17. For each new client repo made from this template: turn on "Allow auto-merge", apply the ruleset, set the Worker
+18. Optional, later: an expired site notice comes down only at the next publish. A daily scheduled rebuild (a Workers
+    Builds deploy hook called by a cron) would take it down on time; it needs an account step, so it was not built.
+19. For each new client repo made from this template: turn on "Allow auto-merge", apply the ruleset, set the Worker
     secrets yourself (`docs/pipeline/client-onboarding-checklist.md`, `docs/SECRETS.md`,
     `docs/ruleset-protect-main.json`, `docs/LAUNCH-CHECKLIST.md`).
 
@@ -80,40 +90,43 @@ In order:
 
 Earlier lines were copied to the master and moved to `docs/history/STATUS-history.md`.
 
-- Site owners can upload photos and PDFs from their phone on their owner page, then ask their AI app to use them.
-- Phone photos, iPhone ones included, are made web-ready automatically: right size, fast to load, location and camera data removed; owners never resize or convert.
-- Uploads stay private until the owner says yes to a change that uses them; unused uploads are removed after 30 days.
-- Every photo on a site needs a description for people who cannot see it; the owner sees it before saying yes.
-- Sites gain two new section designs, a photo with text and a photo gallery, and photos on the highlights section.
-- Owners can offer a PDF to download from any button or link; PDFs with scripts or attached files are refused.
-- Video files are not uploaded; owners add videos as YouTube or Vimeo links.
-- Uploads cost next to nothing per site: storage and photo conversion fit Cloudflare's free allowances at expected use.
+- Site owners can keep a blog by chatting: write a post in their voice, save it as a draft, preview it, then publish it.
+- Owners can list their videos and podcast episodes (YouTube, Vimeo, Spotify, Apple Podcasts) and show testimonials and their team.
+- A testimonial needs a quote and a named person the owner gives; the AI is told never to invent quotes, people or numbers.
+- Owners can change their phone, email, address, opening hours and social links themselves; the whole site follows.
+- Owners can change their brand color and accent, choose fonts from a short designed list, and swap in a new logo.
+- A brand color that would make any text hard to read is refused, with the nearest color that works.
+- A brand change is always previewed before the owner says yes, because it changes every page.
+- Owners can put up a one-line notice on every page with an end date, and take it down by chatting.
+- Spacing, shapes, motion, background colors, SVG logos and new fonts stay Huston Logic changes.
+- Where form notes are sent, the booking link and the email settings stay with Huston Logic.
 
-## Last run: Uploads and photos (2026-11-25)
+## Last run: Collections and brand settings (2026-11-25)
 
-Process run, unattended, from Grant's brief. Design: `docs/superpowers/specs/2026-11-25-uploads-and-photos-design.md`
-(rulings marked "Ruling", costs, builder-check answers). Plan: `docs/superpowers/plans/2026-11-25-uploads-and-photos.md`.
-Opus designed, coordinated, did the correctness review and the design critique; Sonnet implemented seven tasks (three
-in parallel git worktrees, then two fix waves in parallel); a Sonnet builder check read the design; Haiku wrote the docs.
-One PR: #32 (open, auto-merge queued).
+Process run, unattended, from Grant's brief. Design: `docs/superpowers/specs/2026-11-25-collections-and-brand-design.md`
+(30 rulings with costs, builder-check answers). Plan: `docs/superpowers/plans/2026-11-25-collections-and-brand.md`. Opus
+designed, coordinated, did the design critique and the final rulings; Sonnet implemented nine tasks (in parallel git
+worktrees, four at once) and two fix waves; a Sonnet builder check read the design; Haiku wrote the docs. One PR: #33.
 
-- **Checks:** full `npm run check` passes (349 Worker tests, 478 script tests, content and design checks, build);
-  `npm run test:a11y` passes locally (102 passed, 4 skipped; owner page upload states at 390 and 1440); the Worker
-  bundles with esbuild (476 KB; the guard hook blocks `wrangler deploy --dry-run`, so esbuild was used instead).
-- **Reviews:** review-security (nothing High or Critical; 1 Medium: a PDF name ended by a NUL byte slipped past the
-  Worker's scan; fixed with one shared scanner and a parity test), review-code (PDF parity; module state in the change
-  list; soft limits), review-a11y (2 High: focus lost during uploads, failures not announced; 5 Medium), and the design
-  critique (upload cards too heavy on phones: redesigned). All fixed.
-- **Judgment calls:** Cloudflare Images binding for conversion (no dependency, no paid service); one private R2 bucket
-  per site; WebP at 1600 px and at most 450 KB, one size (no `srcset` yet); photos named by id in the repo, PDFs by a
-  readable slug plus id; previews may show an upload before the yes (the preview link is unlisted); the hero stays
-  photo-free (the approved first screen has none); example photos are abstract still lifes drawn locally (no stock
-  downloads); daily cap and inbox total are soft limits under concurrent uploads; PDF document properties are kept.
+- **Checks:** full `npm run check` passes (554 Worker and shared-module tests, 512 script tests, content and design
+  checks, build); `npm run test:a11y` passes locally (110 passed, 4 skipped); `npm run test:lighthouse` passes locally (every page 100 for performance, accessibility, best practices and SEO; the showcase 98, its SEO 69 as a noindex page).
+  All seven acceptance sayings are tests in `worker/editor/collections-acceptance.test.ts`. A trial brand change to a
+  darker green was built and looked at; a pale mint was refused with the nearest passing color.
+- **Reviews:** review-code (3 Medium: notice end date wording, brand changes on a site without previews, a drafts flag
+  in the build stamp), review-security (4 Low: header comment, a commit-path allow-list, iframe sandbox parked, a
+  comment), review-a11y (5 Medium copy-in-JSX, a link name that did not start with its visible words), the axe scan (2
+  more), a local Lighthouse run (a post led by a photo scored 78; traced to the uncompressed test server and queued for Grant), and the design critique (post page without a hero, testimonial hierarchy, team grid, empty card panels on
+  phones, thin showcase examples; glows and shadows that ignored the brand colors). All fixed except the parked sandbox.
+- **Judgment calls:** one PR (the parts share the editor and the checks); brand values moved from `site.config.ts` to
+  `src/content/brand.json`, with `palette.css` and `fonts.ts` generated from it; the owner changes two color roles,
+  the rest derive; drafts build everywhere except a Workers Builds production build; one catch-all blog route (a static
+  export cannot have an empty dynamic route); 10 posts per page; the auto-reply email and owner page keep their own
+  colors; the OG image keeps Outfit; the notice is judged at build time in `business.timeZone`; the template's example post leads with text, not a photo, until the Lighthouse server question (Needs Grant 2) is decided.
 - **New dependencies:** none.
 
 | Measure | This run |
 |---|---|
-| Wall-clock time | about 55 minutes (about 17:40 to 18:35, PR open and reviewed) |
-| Commits | 13 plus 3 merge commits |
-| Time in checks | about 12 minutes (`check:fast` per commit and in each worktree, 2 full checks, 2 local a11y runs) |
+| Wall-clock time | about 1 hour 30 minutes (19:11 to about 20:40, PR open and reviewed) |
+| Commits | 18 plus 10 merge commits |
+| Time in checks | about 20 minutes (`check:fast` per commit and in each worktree, 3 full checks, 2 local a11y runs, 1 local Lighthouse run) |
 | Time waiting on CI | 0: auto-merge is queued; nothing waited on CI |
