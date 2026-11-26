@@ -159,7 +159,7 @@ test("Move the FAQ above the contact section.", async () => {
   const ai = aiApp(t);
   const proposed = await ai("propose_change", { summary: "FAQ above the contact form", operations: [{ op: "move_block", page: "/contact", from: 3, to: 2 }] });
   assert.equal(proposed.isError, false, proposed.text);
-  // The list names the block that ends up lower down; the result is the same order the owner asked for.
+  // The list names the block the owner asked to move.
   assert.equal(
     proposed.text,
     [
