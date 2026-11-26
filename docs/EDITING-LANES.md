@@ -43,6 +43,24 @@ Ask for any of these in plain words.
   site uses, in the header, footer and contact form, are site settings: see Lane 3.)
 - **Add a YouTube or Vimeo video**, or a grid of videos. Works today. Upload the video to YouTube or Vimeo first, not to
   your site: uploads refuse video files.
+- **Write blog posts.** Ask for a post in plain words, in your voice. A new post is saved as a draft. Ask to publish it,
+  archive it or restore it. A post has its own page, is listed on your blog and is in your feed. Works today.
+- **Show your latest posts** on any page, or list every post on your blog page. Works today.
+- **Add videos** to your videos, from YouTube or Vimeo, and show them in a list. Works today.
+- **Add podcast episodes** from Spotify or Apple Podcasts, and show them in a list. Works today.
+- **Add testimonials.** You give the quote and the name of the person who said it. The AI app never writes a quote or
+  a name you did not give it. Works today.
+- **Add team members.** A name, a role, an optional bio and an optional photo. Works today.
+- **Change your business details**: phone number, email address, address, opening hours and social links. They show in
+  the header and footer and on any page with a business details section. Works today.
+- **Change your brand colors.** You can change the brand color and the accent color. A color that makes text hard to
+  read is refused, and the AI app offers the nearest shade that passes. A brand change is previewed before you say
+  yes. Works today.
+- **Choose fonts** from the list the site offers (headings, body and the italic accent). Works today.
+- **Use your logo.** Upload a logo image and it replaces the business name in the header. It must be at least 160 by
+  80 pixels. Works today.
+- **Put up a site notice**: one short line at the top of every page, with an optional link and an optional last day.
+  Take it down whenever you like. Works today.
 
 ### The check on every change
 
@@ -97,6 +115,11 @@ These need Huston Logic. Ask, and Huston Logic will tell you what it takes.
 - **Logins and members areas.** Huston Logic builds it.
 - **A store.** Huston Logic builds it.
 - **Domain and email setup.** Huston Logic builds it.
-- **The site-wide email address, booking link or LinkedIn link.** These are settings, not page text. Huston Logic
-  changes them.
+- **The notification email address (where the contact form sends notes) or the booking link.** These are settings, not
+  page text. Huston Logic changes them. (Your public email address and social links are in your business details, in
+  Lane 1.)
+- **An SVG logo.** A logo in SVG is a change to the code. Huston Logic builds it. Logos by upload are in Lane 1.
+- **Background and text colors.** The design sets these. Huston Logic changes them.
+- **Spacing, shape and motion.** The design sets these. Huston Logic changes them.
+- **A font that is not on the list.** Huston Logic checks the font and adds it. Fonts on the list are in Lane 1.
 - **Changes to how the contact form sends notes.** Huston Logic builds it.
