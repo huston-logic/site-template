@@ -752,12 +752,14 @@ test("gatherChange reads every page file and the image list at the head commit w
     "show HEAD:src/content/pages/home.json": home,
     "show HEAD:src/content/pages/broken.json": "{",
     "ls-tree -r --name-only -z HEAD -- public/images/": "public/images/a.jpg\0public/images/team/b.png\0",
+    "ls-tree --name-only -z HEAD -- public/files/": "public/files/price-sheet-k3x9q2mz.pdf\0",
   };
   const change = gatherChange({ base: "origin/main", head: "HEAD", git: fakeGit(table) });
   assert.deepEqual(change.pages.map((p) => p.file), ["broken.json", "home.json"]);
   assert.match(change.pages[0].error, /^is not valid JSON/);
   assert.deepEqual(change.pages[1].data, JSON.parse(home));
   assert.deepEqual(change.headImages, ["public/images/a.jpg", "public/images/team/b.png"]);
+  assert.deepEqual(change.headFiles, ["public/files/price-sheet-k3x9q2mz.pdf"]);
   const result = evaluateChange(change, rules, () => []);
   assert.deepEqual(result.contentProblems, []);
 });

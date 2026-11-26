@@ -112,7 +112,7 @@
         "png",
         "webp"
       ],
-      "rule": "An image is { src, alt }. The file must exist under /images/ and be a jpg, png or webp. The alt text must really describe the picture, so it can't be empty or only a generic word.",
+      "rule": "An image is { src, alt } with an optional focus: center, top, bottom, left or right. The file must exist under /images/ and be a jpg, png or webp. Each image slot has a shape (3:2, 4:3, 4:5, 1:1 or 16:9) and the picture is cropped to it; focus says which part to keep. The alt text must really describe the picture, so it can't be empty or only a generic word.",
       "genericAltWords": [
         "image",
         "img",
@@ -128,6 +128,10 @@
         "untitled",
         "placeholder"
       ]
+    },
+    "files": {
+      "folder": "/files/",
+      "rule": "A link may point to a PDF under /files/ that exists, such as /files/price-sheet-k3x9q2mz.pdf. Visitors download it."
     },
     "video": {
       "providers": [
@@ -806,7 +810,8 @@
           "kind": "image",
           "label": "Cover picture",
           "help": "Shown before play. Without one the video shows a plain dark panel.",
-          "required": false
+          "required": false,
+          "shape": "16:9"
         }
       ],
       "example": {
@@ -893,7 +898,8 @@
                 "name": "poster",
                 "kind": "image",
                 "label": "Cover picture",
-                "required": false
+                "required": false,
+                "shape": "16:9"
               }
             ]
           }

@@ -94,7 +94,7 @@ function readReferences(path, head, git, rules) {
 
 /**
  * Reads a change from git. `git` is a function taking an argument array and returning a Buffer, so tests can fake it.
- * Returns { files, imageRefs, pages, headImages } for evaluateChange. `imageRefs` maps each added or changed
+ * Returns { files, imageRefs, pages, headImages, headFiles } for evaluateChange. `imageRefs` maps each added or changed
  * image to the source files that use it, so evaluateChange can look for the alt text. When the change adds or edits a page
  * file, `pages` holds every page file at `head` ([{ file, data, error? }]) and `headImages` every file under public/images/
  * at `head`, so the content check judges the pages as they will be built.
@@ -128,7 +128,7 @@ export function gatherChange({ base, head, git, rules = defaultRules }) {
     (f) => !SPECIAL_MODES.includes(f.mode) && ((isPageFile(f.path, rules) && ["A", "M"].includes(f.status)) || (f.path.startsWith(rules.imageDir) && ["D", "M"].includes(f.status))),
   );
   if (!touchesPages) return { files, imageRefs };
-  return { files, imageRefs, pages: readPagesAt(head, git, rules), headImages: listAt(head, rules.imageDir, git, true) };
+  return { files, imageRefs, pages: readPagesAt(head, git, rules), headImages: listAt(head, rules.imageDir, git, true), headFiles: listAt(head, "public/files/", git) };
 }
 
 /** The names under a folder at `head` (git ls-tree), as full paths. A missing folder gives []. */
@@ -204,10 +204,10 @@ function imageProblems(file, rules) {
 }
 
 /**
- * The pure core: takes { files, imageRefs, pages, headImages } and returns the verdict. No git, no disk.
+ * The pure core: takes { files, imageRefs, pages, headImages, headFiles } and returns the verdict. No git, no disk.
  * `validate` is the content check (default: the real one), so tests can run it on fake pages.
  */
-export function evaluateChange({ files, imageRefs = {}, pages, headImages = [] }, rules = defaultRules, validate = realValidatePages) {
+export function evaluateChange({ files, imageRefs = {}, pages, headImages = [], headFiles = [] }, rules = defaultRules, validate = realValidatePages) {
   const result = { tier: 1, outside: [], imageProblems: [], altProblems: [], contentProblems: [], images: [], placeholders: [], fileCount: files.length };
 
   for (const file of files) {
@@ -239,7 +239,8 @@ export function evaluateChange({ files, imageRefs = {}, pages, headImages = [] }
 
   if (pages) {
     const present = new Set(headImages);
-    const repo = { imageExists: (src) => present.has(`public${src}`) };
+    const presentFiles = new Set(headFiles);
+    const repo = { imageExists: (src) => present.has(`public${src}`), fileExists: (href) => presentFiles.has(`public${href}`) };
     for (const problem of validate(pages, registry, repo)) result.contentProblems.push(safe(problem));
   }
   if (result.outside.length > 0) result.tier = 3;

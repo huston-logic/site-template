@@ -22,7 +22,8 @@ type, optionally a variant, and fill in its content.
 - **Length.** At most 20 blocks on a page.
 - **Text.** Text is plain. Only **bold** and [[placeholder]] marks are allowed. No HTML tags, no HTML entities, no markdown links and no control characters (line breaks, tabs, hidden characters).
 - **Links.** Allowed: An internal path (/name) or a path with an anchor (/name#anchor) that points to a live page, and to an anchor that exists on it. An https:// address. A mailto: address. A tel: number. "@booking": the site's booking link (the scheduler when set, otherwise /contact#book). Never: `javascript:`, `data:`, `http:`, `//host`, or any other kind of address (a `//host` address has no scheme).
-- **Images.** An image is { src, alt }. The file must exist under /images/ and be a jpg, png or webp. The alt text must really describe the picture, so it can't be empty or only a generic word. Formats: jpg, png, webp. Alt text that is only one of these words is rejected: image, img, photo, picture, graphic, icon, logo, alt, alt text, todo, tbd, untitled, placeholder.
+- **Images.** An image is { src, alt } with an optional focus: center, top, bottom, left or right. The file must exist under /images/ and be a jpg, png or webp. Each image slot has a shape (3:2, 4:3, 4:5, 1:1 or 16:9) and the picture is cropped to it; focus says which part to keep. The alt text must really describe the picture, so it can't be empty or only a generic word. Formats: jpg, png, webp. Alt text that is only one of these words is rejected: image, img, photo, picture, graphic, icon, logo, alt, alt text, todo, tbd, untitled, placeholder.
+- **Files.** A link may point to a PDF under /files/ that exists, such as /files/price-sheet-k3x9q2mz.pdf. Visitors download it.
 - **Video.** A video address must be from YouTube or Vimeo. The player is rebuilt from the video's id, not from the address that was pasted. Allowed player origins: https://www.youtube-nocookie.com, https://player.vimeo.com.
 
 ## Hero (`hero`)
@@ -342,7 +343,7 @@ One video from YouTube or Vimeo, with a title and a short caption. It plays on t
 | `url` | Video address. A YouTube or Vimeo address. | yes | a YouTube or Vimeo address |
 | `title` | Title | yes | up to 80 characters |
 | `caption` | Caption | no | up to 200 characters |
-| `poster` | Cover picture. Shown before play. Without one the video shows a plain dark panel. | no | a picture under /images/ with real alt text |
+| `poster` | Cover picture. Shown before play. Without one the video shows a plain dark panel. | no | a picture under /images/ with real alt text, shape 16:9 |
 
 **Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
 
@@ -378,7 +379,7 @@ Two to six videos from YouTube or Vimeo side by side, each with a title and a sh
 | `videos[].url` | Video address. A YouTube or Vimeo address. | yes | a YouTube or Vimeo address |
 | `videos[].title` | Title | yes | up to 80 characters |
 | `videos[].caption` | Caption | no | up to 200 characters |
-| `videos[].poster` | Cover picture | no | a picture under /images/ with real alt text |
+| `videos[].poster` | Cover picture | no | a picture under /images/ with real alt text, shape 16:9 |
 
 **Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
 

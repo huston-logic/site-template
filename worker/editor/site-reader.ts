@@ -70,7 +70,10 @@ export function validateSet(
 ): string[] {
   const files: PageFile[] = [...snapshot.broken];
   for (const [path, data] of after) files.push({ file: snapshot.fileOf.get(path) ?? fileForPath(path), data });
-  return validatePages(files, registry, { imageExists: (src) => snapshot.images.has(src) }, { links });
+  return validatePages(files, registry, {
+      imageExists: (src) => snapshot.images.has(src),
+      fileExists: () => false, // T4 fills this from the snapshot
+    }, { links });
 }
 
 /** The files to commit for the pages a change touched. */
