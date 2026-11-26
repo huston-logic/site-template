@@ -179,8 +179,8 @@ with squash directly. The required checks are the gate; CI's `change-scope` and 
 
 ### Status and "Is it live yet?"
 
-- `checking`: PR open, required checks not all done. `stuck`: a required check failed (names from `editor.requiredChecks`,
-  default `check`, `a11y`, `lighthouse`, `dependency-review`, `CodeQL`). `stopped`: closed without merging.
+- `checking`: PR open, required checks not all done. `stuck`: a check failed (every check run on the head commit
+  except `editor.ignoredChecks`; see "Builder check"). `stopped`: closed without merging.
 - `going live`: merged, not yet deployed. `live`: the deployed site's `/site-version.json` (read through the `ASSETS` binding,
   so it is the version answering) names a commit that contains the merge commit (GitHub compare: identical or ahead).
 - **Ruling: `/site-version.json` is written at build time** by `scripts/finish-build.mjs` (run after `next build`) from
