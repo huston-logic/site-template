@@ -458,7 +458,7 @@ test("embedUrl, watchUrl and origins", () => {
   const vh = parseVideoUrl("https://vimeo.com/76979871/abcdef0123");
   assert.equal(embedUrl(vh), "https://player.vimeo.com/video/76979871?autoplay=1&dnt=1&h=abcdef0123");
   assert.equal(watchUrl(vh), "https://vimeo.com/76979871/abcdef0123");
-  assert.deepEqual([...embedOrigins], ["https://www.youtube-nocookie.com", "https://player.vimeo.com"]);
+  assert.deepEqual([...embedOrigins], ["https://www.youtube-nocookie.com", "https://player.vimeo.com", "https://open.spotify.com", "https://embed.podcasts.apple.com"]);
   for (const provider of videoProviders) assert.notEqual(parseVideoUrl(provider.example), null, provider.name);
 });
 

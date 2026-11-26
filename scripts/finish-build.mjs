@@ -4,15 +4,13 @@
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { isProductionBuild } from "../src/lib/build-target.ts";
 
 /** Writes <outDir>/site-version.json and, when env.WORKERS_CI_BRANCH is the production branch, removes the showcase. */
 export function finishBuild({ outDir, env, productionBranch }) {
   const commit = env.WORKERS_CI_COMMIT_SHA || env.GITHUB_SHA || null;
   writeFileSync(join(outDir, "site-version.json"), `${JSON.stringify({ commit, builtAt: new Date().toISOString() })}\n`);
-  // A Workers Builds build (WORKERS_CI set) that cannot name its branch is treated as production: fail closed.
-  const branch = env.WORKERS_CI_BRANCH;
-  const named = typeof productionBranch === "string" && productionBranch !== "" && branch === productionBranch;
-  const showcaseRemoved = named || (Boolean(env.WORKERS_CI) && !branch);
+  const showcaseRemoved = isProductionBuild(env, productionBranch);
   if (showcaseRemoved) {
     for (const name of ["blocks.html", "blocks.txt", "blocks"]) rmSync(join(outDir, name), { recursive: true, force: true });
   }

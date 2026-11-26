@@ -138,7 +138,7 @@
         "YouTube",
         "Vimeo"
       ],
-      "rule": "A video address must be from YouTube or Vimeo. The player is rebuilt from the video's id, not from the address that was pasted. Allowed player origins: https://www.youtube-nocookie.com, https://player.vimeo.com.",
+      "rule": "A video address must be from YouTube or Vimeo. The player is rebuilt from the video's id, not from the address that was pasted. Allowed player origins: https://www.youtube-nocookie.com, https://player.vimeo.com, https://open.spotify.com, https://embed.podcasts.apple.com.",
       "examples": [
         "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         "https://vimeo.com/76979871"
