@@ -1,4 +1,5 @@
 import { siteBlockComponents } from "@/site-blocks/components";
+import { BusinessDetailsBlock } from "./library/business-details/BusinessDetailsBlock";
 import { ClosingCtaBlock } from "./library/closing-cta/ClosingCtaBlock";
 import { ContactFormBlock } from "./library/contact-form/ContactFormBlock";
 import { FaqBlock } from "./library/faq/FaqBlock";
@@ -29,5 +30,6 @@ export const blockComponents: Record<string, BlockComponent> = {
   "video-grid": VideoGridBlock,
   "photo-text": PhotoTextBlock,
   gallery: GalleryBlock,
+  "business-details": BusinessDetailsBlock,
   ...siteBlockComponents,
 };

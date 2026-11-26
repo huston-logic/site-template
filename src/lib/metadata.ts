@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { siteConfig } from "@/content/site";
+import { getBusiness } from "./settings";
 
 type PageMetaInput = {
   /** Full `<title>` text, exactly as specified in the content docs. */
@@ -11,9 +12,15 @@ type PageMetaInput = {
 };
 
 export const OG_IMAGE_PATH = "/og.png";
-export const OG_IMAGE_ALT = siteConfig.name;
 
-const ogImages = [{ url: OG_IMAGE_PATH, width: 1200, height: 630, alt: OG_IMAGE_ALT }];
+/** The business name from business.json: the site name in social previews and the preview image's alt text. */
+export function siteName(): string {
+  return getBusiness().name;
+}
+
+export function ogImages() {
+  return [{ url: OG_IMAGE_PATH, width: 1200, height: 630, alt: siteName() }];
+}
 
 export function absoluteUrl(path: string): string {
   return `${siteConfig.url}${path}`;
@@ -27,12 +34,12 @@ export function pageMetadata({ title, description, path, noindex = false }: Page
     robots: noindex ? { index: false, follow: false } : undefined,
     openGraph: {
       type: "website",
-      siteName: siteConfig.name,
+      siteName: siteName(),
       locale: "en_US",
       title,
       description,
       url: path,
-      images: ogImages,
+      images: ogImages(),
     },
     twitter: {
       card: "summary_large_image",

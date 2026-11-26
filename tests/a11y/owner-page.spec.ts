@@ -6,7 +6,7 @@ import { renderConfirm, renderConsent, renderMessage, renderOwnerHome, renderRem
 // Same tag set as site.a11y.spec.ts.
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
 
-const base: PageBase = { siteName: "Example Co", siteUrl: "https://example.test", email: "owner@example.test", theme: siteConfig.theme.colors };
+const base: PageBase = { siteName: "Example Co", siteUrl: "https://example.test", email: "owner@example.test", theme: siteConfig.editor.pageColors };
 const proposal = {
   id: "p1",
   summary: "Update the opening hours",
