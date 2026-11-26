@@ -232,3 +232,43 @@ Two PRs: #30 (leftovers, merged) and #31 (site editor, open, auto-merge queued).
 - Only the owner emails Huston Logic lists for a site can sign in; each site can write only its own pages, in its own repo.
 - Requests the site's sections cannot handle are recorded for Huston Logic automatically.
 - The block showcase now appears on preview sites only, never on a live site.
+
+## Record: Uploads and photos run (2026-11-25), moved from STATUS.md unchanged (2026-11-25)
+
+Process run, unattended, from Grant's brief. Design: `docs/superpowers/specs/2026-11-25-uploads-and-photos-design.md`
+(rulings marked "Ruling", costs, builder-check answers). Plan: `docs/superpowers/plans/2026-11-25-uploads-and-photos.md`.
+Opus designed, coordinated, did the correctness review and the design critique; Sonnet implemented seven tasks (three
+in parallel git worktrees, then two fix waves in parallel); a Sonnet builder check read the design; Haiku wrote the docs.
+One PR: #32 (open, auto-merge queued).
+
+- **Checks:** full `npm run check` passes (349 Worker tests, 478 script tests, content and design checks, build);
+  `npm run test:a11y` passes locally (102 passed, 4 skipped; owner page upload states at 390 and 1440); the Worker
+  bundles with esbuild (476 KB; the guard hook blocks `wrangler deploy --dry-run`, so esbuild was used instead).
+- **Reviews:** review-security (nothing High or Critical; 1 Medium: a PDF name ended by a NUL byte slipped past the
+  Worker's scan; fixed with one shared scanner and a parity test), review-code (PDF parity; module state in the change
+  list; soft limits), review-a11y (2 High: focus lost during uploads, failures not announced; 5 Medium), and the design
+  critique (upload cards too heavy on phones: redesigned). All fixed.
+- **Judgment calls:** Cloudflare Images binding for conversion (no dependency, no paid service); one private R2 bucket
+  per site; WebP at 1600 px and at most 450 KB, one size (no `srcset` yet); photos named by id in the repo, PDFs by a
+  readable slug plus id; previews may show an upload before the yes (the preview link is unlisted); the hero stays
+  photo-free (the approved first screen has none); example photos are abstract still lifes drawn locally (no stock
+  downloads); daily cap and inbox total are soft limits under concurrent uploads; PDF document properties are kept.
+- **New dependencies:** none.
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | about 55 minutes (about 17:40 to 18:35, PR open and reviewed) |
+| Commits | 13 plus 3 merge commits |
+| Time in checks | about 12 minutes (`check:fast` per commit and in each worktree, 2 full checks, 2 local a11y runs) |
+| Time waiting on CI | 0: auto-merge is queued; nothing waited on CI |
+
+## Record: For the master lines from the uploads and photos run (moved from STATUS.md unchanged, 2026-11-25)
+
+- Site owners can upload photos and PDFs from their phone on their owner page, then ask their AI app to use them.
+- Phone photos, iPhone ones included, are made web-ready automatically: right size, fast to load, location and camera data removed; owners never resize or convert.
+- Uploads stay private until the owner says yes to a change that uses them; unused uploads are removed after 30 days.
+- Every photo on a site needs a description for people who cannot see it; the owner sees it before saying yes.
+- Sites gain two new section designs, a photo with text and a photo gallery, and photos on the highlights section.
+- Owners can offer a PDF to download from any button or link; PDFs with scripts or attached files are refused.
+- Video files are not uploaded; owners add videos as YouTube or Vimeo links.
+- Uploads cost next to nothing per site: storage and photo conversion fit Cloudflare's free allowances at expected use.
