@@ -6,6 +6,7 @@ import { sendEmail } from "./email.ts";
 import { log, resolveMode, type ContactEnv, type Mode, type SaveStatus } from "./env.ts";
 import { autoReplyEmail, notificationEmail, pipelineMessage, sheetRow } from "./messages.ts";
 import { sendToPipeline } from "./pipeline.ts";
+import { readBody } from "./read-body.ts";
 import { appendRow } from "./sheets.ts";
 import { verifyTurnstile } from "./turnstile.ts";
 
@@ -39,31 +40,6 @@ const SECURITY_HEADERS = {
 
 function json(status: number, body: ApiBody | { error: string }, extra: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...SECURITY_HEADERS, ...extra } });
-}
-
-/** Reads the body as text, stopping as soon as it passes the limit. Returns null when it is too large. */
-async function readBody(request: Request, limit: number): Promise<string | null> {
-  if (!request.body) return "";
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > limit) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder().decode(bytes);
 }
 
 /** The Sheet writer is chosen here (`contact.sheetWriter` in site.config.ts). Both return true only when the row was saved. */

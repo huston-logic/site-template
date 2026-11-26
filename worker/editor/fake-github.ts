@@ -70,6 +70,11 @@ export class FakeGitHub implements GitHub {
     record.pull = { ...record.pull, state: "closed", merged: true, headSha: this.headSha(record), mergedAt: this.tick(), closedAt: this.tick(), mergeCommitSha: sha };
   }
 
+  /** True once auto-merge was switched on for the pull request. */
+  autoMergeOn(number: number): boolean {
+    return this.record(number).autoMerge;
+  }
+
   close(number: number): void {
     const record = this.record(number);
     record.pull = { ...record.pull, state: "closed", closedAt: this.tick() };
