@@ -139,6 +139,29 @@ test("the home page renders from data, with the exact security headers, and a GE
   assert.deepEqual(fake.calls.sort(), ["recent", "waiting"]);
 });
 
+test("a chunked POST body over 8 KB with no Content-Length is refused without being read whole", async () => {
+  const ctx = context(fakeEditor().editor, fakeOAuth().oauth);
+  let pulled = 0;
+  const chunk = new TextEncoder().encode(`proposal=${"x".repeat(1023)}`);
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulled += 1;
+      if (pulled > 1000) return controller.close();
+      controller.enqueue(chunk);
+    },
+  });
+  const request = new Request(`${SITE}/owner/publish`, {
+    method: "POST",
+    headers: { "Cf-Access-Jwt-Assertion": await token("owner@example.test"), "content-type": "application/x-www-form-urlencoded", origin: SITE },
+    body,
+    duplex: "half",
+  } as RequestInit);
+  assert.equal(request.headers.get("content-length"), null);
+  const response = await handleOwner(request, ctx);
+  assert.equal(response.status, 403);
+  assert.ok(pulled < 20, `read ${pulled} chunks`);
+});
+
 test("home page with nothing shows the empty states (real editor)", async () => {
   const { editor } = makeTestEditor();
   const page = await (await call(context(editor, fakeOAuth().oauth), "/owner")).text();

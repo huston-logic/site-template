@@ -2,6 +2,7 @@
 // itself (RS256 only, issuer, audience, expiry) and that its email is on the site's owner list. Ported from the
 // Pipeline app's auth code. Failure responses never say why a token failed.
 import type { EditorConfig } from "../config.ts";
+import { plainText } from "../http.ts";
 import type { Owner } from "./types.ts";
 
 export type AccessVerdict = { ok: true; email: string } | { ok: false; reason: "invalid" | "unavailable" };
@@ -154,7 +155,7 @@ function accessToken(request: Request): string | null {
 }
 
 function refusal(status: number, message: string): Response {
-  return new Response(message, { status, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
+  return plainText(status, message);
 }
 
 /** The signed-in owner's email, or the response to send instead (500, 401, 403 or 503). */

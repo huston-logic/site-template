@@ -63,7 +63,7 @@ export function statusLine(status: ChangeStatus): string {
     case "live":
       return status.minutesToLive !== undefined
         ? `Change ${n} is live. It went live ${status.minutesToLive} minutes after it was published.`
-        : `Change ${n} is live. It is live (confirmed ${utcTime(status.liveAt ?? "")}).`;
+        : `Change ${n} is live (confirmed ${utcTime(status.liveAt ?? "")}).`;
     case "stopped":
       return `Change ${n} was stopped before it went live. Nothing changed on the site.`;
     case "unknown":

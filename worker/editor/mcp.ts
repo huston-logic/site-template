@@ -1,5 +1,6 @@
 import type { EditorConfig } from "../config.ts";
 import { log } from "../env.ts";
+import { BASE_HEADERS, jsonResponse } from "../http.ts";
 import { readBody } from "../read-body.ts";
 import { isOwner } from "./access.ts";
 import { serverInstructions } from "./instructions.ts";
@@ -25,19 +26,12 @@ const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26"];
 const FALLBACK_VERSION = "2025-06-18";
 const FAILED = "Something went wrong on the site's side. Nothing was changed.";
 
-const HEADERS = {
-  "content-type": "application/json; charset=utf-8",
-  "cache-control": "no-store",
-  "x-content-type-options": "nosniff",
-  "referrer-policy": "strict-origin-when-cross-origin",
-  "cross-origin-resource-policy": "same-origin",
-  "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
-};
+const CSP = { "content-security-policy": "default-src 'none'; frame-ancestors 'none'" };
+const HEADERS = { ...BASE_HEADERS, "content-type": "application/json; charset=utf-8", ...CSP };
 
 type Id = string | number | null;
 
-const reply = (status: number, body: unknown, extra: Record<string, string> = {}): Response =>
-  new Response(JSON.stringify(body), { status, headers: { ...HEADERS, ...extra } });
+const reply = (status: number, body: unknown, extra: Record<string, string> = {}): Response => jsonResponse(status, body, { ...CSP, ...extra });
 const refusal = (status: number, error: string): Response => reply(status, { error });
 const rpcError = (status: number, id: Id, code: number, message: string): Response =>
   reply(status, { jsonrpc: "2.0", id, error: { code, message } });

@@ -8,6 +8,7 @@ import contactWorker from "./contact.ts";
 import { log, type EditorEnv } from "./env.ts";
 import { buildEditor } from "./editor/factory.ts";
 import { editorActive, isEditorPath, missingBindings } from "./editor/gate.ts";
+import { plainText } from "./http.ts";
 import { handleMcp } from "./editor/mcp.ts";
 import { handleOwner } from "./editor/owner-routes.ts";
 
@@ -18,8 +19,7 @@ const REGISTER_PATH = "/oauth/register";
 const TOKEN_PATH = "/oauth/token";
 const MCP_PATH = "/mcp";
 
-const plain = (status: number, message: string): Response =>
-  new Response(`${message}\n`, { status, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
+const plain = (status: number, message: string): Response => plainText(status, `${message}\n`);
 
 const notFound = (): Response => plain(404, "Not found.");
 

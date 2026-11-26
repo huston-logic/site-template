@@ -4,6 +4,7 @@ import { appendRowViaAppsScript } from "./apps-script.ts";
 import { workerConfig, type WorkerConfig } from "./config.ts";
 import { sendEmail } from "./email.ts";
 import { log, resolveMode, type ContactEnv, type Mode, type SaveStatus } from "./env.ts";
+import { jsonResponse } from "./http.ts";
 import { autoReplyEmail, notificationEmail, pipelineMessage, sheetRow } from "./messages.ts";
 import { sendToPipeline } from "./pipeline.ts";
 import { readBody } from "./read-body.ts";
@@ -29,17 +30,10 @@ const REPLY_HEADERS = { "Auto-Submitted": "auto-replied", "X-Auto-Response-Suppr
 /** What the form reads. `error` picks the message; `fields` lists the Rev 7.1 field errors. */
 type ApiBody = { ok: true; autoReply: boolean } | { ok: false; error: "invalid" | "rejected" | "rate_limited" | "failed"; fields?: string[] };
 
-const SECURITY_HEADERS = {
-  "content-type": "application/json; charset=utf-8",
-  "cache-control": "no-store",
-  "x-content-type-options": "nosniff",
-  "referrer-policy": "strict-origin-when-cross-origin",
-  "cross-origin-resource-policy": "same-origin",
-  "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
-};
+const CSP = { "content-security-policy": "default-src 'none'; frame-ancestors 'none'" };
 
 function json(status: number, body: ApiBody | { error: string }, extra: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), { status, headers: { ...SECURITY_HEADERS, ...extra } });
+  return jsonResponse(status, body, { ...CSP, ...extra });
 }
 
 /** The Sheet writer is chosen here (`contact.sheetWriter` in site.config.ts). Both return true only when the row was saved. */

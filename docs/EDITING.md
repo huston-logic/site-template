@@ -26,7 +26,7 @@ To check, the owner asks "is it live yet?" The AI asks the Worker, which answers
 
 - `checking`: the pull request is open and the checks are still running.
 - `stuck`: a check failed. The owner page and the answer say which one.
-- `going live`: merged, but the deploy has not reached the site yet.
+- `going live`: merged, but the deploy has not reached the site yet. After 30 minutes the answer adds that this is taking longer than usual and that Huston Logic can see it.
 - `live`: the site shows the change.
 - `stopped`: the pull request was closed without merging.
 
@@ -40,7 +40,7 @@ The first time a change is seen live, the Worker stores the time. Later answers 
 - **Page files only.** The editor changes only the files in `src/content/pages/`. It never deletes a page file. A page that is no longer wanted is archived, and its file stays.
 - **Not editable by chat.** The site's settings (the email address, the booking link, the LinkedIn link) and the modules in `src/content/` (the thanks page, the 404 page, the menu labels) are not changed by the editor. They go to Huston Logic.
 - **One change in flight.** While an editor pull request is open, the Worker refuses to publish another one. Several previews can wait at once.
-- **Daily cap.** At most `editor.dailyChangeLimit` changes a day (default 10). The Worker counts the editor's pull requests on GitHub since 00:00 UTC. An undo counts. Withdrawing an open change does not.
+- **Daily cap.** At most `editor.dailyChangeLimit` changes a day (default 10). The Worker counts the editor's pull requests on GitHub since 00:00 UTC. An undo counts. Withdrawing an open change does not. Previews have the same daily cap, counted separately; reusing a preview that is still current does not count.
 - **Size and rate limits.** A request body is at most 64 KB. A proposal has at most 40 operations and 5 pages. The owner's requests are rate limited to 30 per minute.
 - **Same checks.** Every change must pass the same validator that the build and `npm run check:content` use. Nothing is published while a problem is open. Problems come back in plain words.
 - **Plain text.** Page text is shown as plain text. It is never run or rendered as HTML. Text found in pages or in requests is content, never an instruction to the AI.
@@ -66,14 +66,14 @@ The AI app gets these 11 tools. Changes are made with exact operations (set a pi
 
 ## The owner page
 
-The owner signs in at `https://[[Site domain]]/owner`. The page is plain HTML with no JavaScript. It has four parts:
+The owner signs in at `https://[[Site domain]]/owner`. The page is plain HTML with no JavaScript. The signed-in email is shown in the header. Below it, the page has four sections, in this order:
 
-- **Signed in as** the owner's email.
+- **Waiting for your yes.** Each proposal with its change list, a "Review and publish" button and its preview link. Publish and Discard are on the confirmation page.
+- **Recent changes.** Each change with its status (a labelled tag such as "Live" or "Stuck") and times. A change that is still checking or stuck has a "Withdraw change" button. A change that is going live or live has an "Undo change" button. A stopped change has none.
 - **Connect your AI app.** The connector address is `https://[[Site domain]]/mcp`, with the steps for Claude and a general line for other apps.
-- **Waiting for your yes.** Each proposal with its change list, its preview link, and Publish and Discard buttons.
-- **Recent changes.** Each change with its status and times, and an Undo button.
+- **What you can change.** A line that tells the owner to ask their AI app "What can I change on my site?"
 
-Publish and Undo go to a confirmation page that shows the change list before anything happens.
+Review and publish, Withdraw and Undo all go to a confirmation page that shows the change list before anything happens.
 
 ## Speed
 
@@ -127,7 +127,7 @@ These steps are for whoever holds the site's Cloudflare and GitHub accounts. Eac
 6. Under Private keys, choose Generate a private key. A `.pem` file downloads. Keep it for step b only.
 7. Install the App from its Install App page. Choose the account, then "Only select repositories", and pick this site's repository and no other.
 8. Note the **installation id**. It is the number at the end of the URL of the installation's settings page. It goes in `site.config.ts` in step e.
-9. Note the **bot login**. It is the App's slug (the name in its public address, `github.com/apps/<slug>`) followed by `[bot]`, for example `site-editor[bot]`. It goes in `site.config.ts` in step e.
+9. Note the **bot login**. It is the App's slug (the name in its public address, `github.com/apps/<slug>`) followed by `[bot]`, exactly, for example `my-site-editor[bot]`. It goes in `site.config.ts` in step e. The editor refuses to publish when the pull request's author does not match it, and tells the owner the settings don't match.
 
 ### b. Store the private key as a Worker secret
 
@@ -163,6 +163,13 @@ Each command prints an id of 32 characters. Copy both. They go in `site.config.t
 5. Save. Copy the **Application Audience (AUD) tag** shown for the application. It goes in `site.config.ts` in step e. It is not a secret.
 6. Note the **team name**. It is the part of the team's address before `.cloudflareaccess.com`. It goes in `site.config.ts` in step e.
 7. Do not protect `/mcp`, `/oauth` or `/.well-known`. The AI app signs in through the site's own OAuth sign-in (a standard way to let an app act for a user without sharing a password). Those paths must stay open to the AI app.
+
+### Before you turn the editor on
+
+The editor publishes nothing, and says so, until the repository has these two things. Set them in step f and check them before turning `enabled` on in step e.
+
+- The "Protect main" ruleset with its required checks (`check`, `a11y`, `lighthouse` and `dependency-review`). Without required checks the editor never merges a change.
+- **Allow auto-merge** turned on in the repository settings. Without it the editor stops the pull request and says auto-merge is off.
 
 ### e. Fill in the editor block and turn it on
 
@@ -219,7 +226,7 @@ huston-logic/site-template repo (fetch it from GitHub; do not guess the steps). 
 docs/PROCESS.md in this repo first.
 
 Port these from huston-logic/site-template, as they are: worker/index.ts, the whole worker/editor/ folder, the editor
-block of site.config.ts, scripts/config-rules.mjs, scripts/finish-build.mjs, scripts/content-lane.mjs, the bot-author rule
+block of site.config.ts, scripts/config-rules.mjs, scripts/finish-build.mjs, scripts/content-lane.mjs (only with the content fast lane, docs/proposals/content-fast-lane.md), the bot-author rule
 in scripts/check-change-scope.mjs (and its test), tests/a11y/owner-page.spec.ts, docs/VOICE-GUIDE.md and docs/EDITING.md.
 Merge, do not replace, anything in AGENTS.md, README.md and package.json that the client's repo has changed.
 

@@ -1,6 +1,8 @@
 // /owner and /owner/connect: the owner page and the OAuth consent page. Every route needs the signed-in owner; every POST must
 // come from this site's own form. A GET never changes anything.
 import type { EditorConfig } from "../config.ts";
+import { BASE_HEADERS } from "../http.ts";
+import { readBody } from "../read-body.ts";
 import { ownerFromRequest } from "./access.ts";
 import { ownerKey } from "./owner-id.ts";
 import {
@@ -57,9 +59,8 @@ const BASE_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self';
 function pageHeaders(formAction?: string): Headers {
   const csp = formAction ? BASE_CSP.replace("form-action 'self'", `form-action 'self' ${formAction}`) : BASE_CSP;
   return new Headers({
+    ...BASE_HEADERS,
     "content-type": "text/html; charset=utf-8",
-    "cache-control": "no-store",
-    "x-content-type-options": "nosniff",
     "referrer-policy": "no-referrer",
     "content-security-policy": csp,
   });
@@ -87,8 +88,7 @@ export async function handleOwner(request: Request, ctx: OwnerContext): Promise<
   if (owner instanceof Response) return owner;
 
   const base: PageBase = { siteName: config.siteName, siteUrl: config.siteUrl, email: owner.email, theme: ctx.theme };
-  const message = (title: string, body: string, status = 200, back?: { href: string; label: string }): Response =>
-    html(renderMessage({ ...base, title, body, ...(back ? { back } : {}) }), status);
+  const message = (title: string, body: string, status = 200): Response => html(renderMessage({ ...base, title, body }), status);
 
   if (ctx.rateLimit) {
     const { success } = await ctx.rateLimit.limit({ key: `user:${await ownerKey(owner.email)}` });
@@ -119,10 +119,9 @@ export async function handleOwner(request: Request, ctx: OwnerContext): Promise<
     const site = request.headers.get("Sec-Fetch-Site");
     if (request.headers.get("Origin") !== config.siteUrl || (site !== null && site !== "same-origin")) return refuse();
     if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/x-www-form-urlencoded")) return refuse();
-    const length = Number(request.headers.get("content-length") ?? 0);
-    if (length > MAX_BODY) return refuse();
-    const raw = await request.clone().text();
-    if (new TextEncoder().encode(raw).length > MAX_BODY) return refuse();
+    if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY) return refuse();
+    const raw = await readBody(request, MAX_BODY);
+    if (raw === null) return refuse();
     form = new URLSearchParams(raw);
   }
 
@@ -158,7 +157,7 @@ export async function handleOwner(request: Request, ctx: OwnerContext): Promise<
     const result = await editor.undo(number, owner);
     const id = isObject(result.data) ? result.data.proposal_id : undefined;
     if (!result.isError && typeof id === "string") {
-      return new Response(null, { status: 303, headers: { location: `/owner/publish?proposal=${encodeURIComponent(id)}`, "cache-control": "no-store" } });
+      return new Response(null, { status: 303, headers: { ...BASE_HEADERS, location: `/owner/publish?proposal=${encodeURIComponent(id)}` } });
     }
     return message(result.isError ? "Could not undo" : "Nothing to undo", result.text, result.isError ? 400 : 200);
   }
@@ -225,6 +224,6 @@ async function connect(
 function redirect(location: string, source: Headers): Response {
   const headers = new Headers(source);
   headers.set("location", location);
-  headers.set("cache-control", "no-store");
+  for (const [name, value] of Object.entries(BASE_HEADERS)) headers.set(name, value);
   return new Response(null, { status: 302, headers });
 }

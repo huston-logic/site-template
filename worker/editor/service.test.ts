@@ -262,7 +262,7 @@ test("a live time is only called a measurement when it was seen soon after the m
   t.now.value = minutes(61);
   t.assets.commit = t.github.pulls[0].mergeCommitSha;
   const late = await t.editor.status(change);
-  assert.equal(late.text, "Change 1 is live. It is live (confirmed 2026-01-01 13:01 UTC).");
+  assert.equal(late.text, "Change 1 is live (confirmed 2026-01-01 13:01 UTC).");
   assert.equal((late.data as { minutesToLive?: number }).minutesToLive, undefined);
   assert.equal((late.data as { state: string }).state, "live");
 });
