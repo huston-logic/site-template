@@ -235,3 +235,36 @@ export function addedPlaceholders(before: ReadonlyMap<string, unknown>, after: R
   }
   return problems;
 }
+
+/**
+ * Block ids for a restore, where no operations say which block is which: an after block equal to an unused before block
+ * takes its id (the same position first); then a remaining after block at the same position with the same type takes that
+ * before block's id; the rest are new (null). A page that is not in `before` is all new.
+ */
+export function matchBlockIds(before: ReadonlyMap<string, unknown>, after: ReadonlyMap<string, unknown>): BlockIds {
+  const blocksOf = (page: unknown): unknown[] => (isObject(page) && Array.isArray(page.blocks) ? page.blocks : []);
+  const ids: BlockIds = { before: new Map(), after: new Map() };
+  for (const [path, page] of before) ids.before.set(path, blocksOf(page).map((_, i) => `${path}#${i + 1}`));
+  for (const [path, page] of after) {
+    const old = blocksOf(before.get(path));
+    const now = blocksOf(page);
+    const taken = new Set<number>();
+    const matched: (number | null)[] = now.map(() => null);
+    now.forEach((block, i) => {
+      const at = [i, ...old.keys()].find((j) => j < old.length && !taken.has(j) && deepEqual(old[j], block));
+      if (at !== undefined) {
+        taken.add(at);
+        matched[i] = at;
+      }
+    });
+    now.forEach((block, i) => {
+      const sameType = i < old.length && !taken.has(i) && isObject(old[i]) && isObject(block) && old[i].type === block.type;
+      if (matched[i] === null && sameType) {
+        taken.add(i);
+        matched[i] = i;
+      }
+    });
+    ids.after.set(path, matched.map((j) => (j === null ? null : `${path}#${j + 1}`)));
+  }
+  return ids;
+}

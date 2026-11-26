@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { registry } from "../../src/blocks/definitions.ts";
-import { addedPlaceholders, buildChangeList } from "./change-list.ts";
+import { addedPlaceholders, buildChangeList, matchBlockIds } from "./change-list.ts";
 import { applyOperations } from "./operations.ts";
 
 const page = (path: string, extra: Record<string, unknown> = {}) => ({
@@ -124,4 +124,19 @@ test("a new placeholder is reported; an existing one that stays is not", () => {
   assert.deepEqual(added.placeholders, ['Page /hours: adds the placeholder "[[old]]"; write the real text instead.']);
   const fresh = run([{ op: "set", page: "/hours", pointer: "/description", value: "[[x]]" }], [withOld]);
   assert.deepEqual(fresh.placeholders, ['Page /hours: adds the placeholder "[[x]]"; write the real text instead.']);
+});
+
+test("matchBlockIds: equal blocks keep their id, a same-position same-type block takes the id, others are new", () => {
+  const a = { type: "hero", content: { title: "A" } };
+  const b = { type: "faq", content: { heading: "B", items: [] } };
+  const c = { type: "hero", content: { title: "C" } };
+  const before = new Map<string, unknown>([["/x", page("/x", { blocks: [a, b, c] })]]);
+  const after = new Map<string, unknown>([
+    ["/x", page("/x", { blocks: [{ type: "hero", content: { title: "A changed" } }, c, { type: "prose", content: { heading: "N", paragraphs: [] } }] }) ],
+    ["/new", page("/new", { blocks: [a] })],
+  ]);
+  const ids = matchBlockIds(before, after);
+  assert.deepEqual(ids.before.get("/x"), ["/x#1", "/x#2", "/x#3"]);
+  assert.deepEqual(ids.after.get("/x"), ["/x#1", "/x#3", null]);
+  assert.deepEqual(ids.after.get("/new"), [null]);
 });
