@@ -1,19 +1,24 @@
-import { honeypot, needOptions, sourceOptions } from "./contact-fields.ts";
+import { contactDefinitionFor } from "../forms/contact.ts";
 
 /**
- * Contact form, thank-you page and 404 copy (the contact page itself is src/content/pages/contact.json). Client-specific text is a double-bracket placeholder. The field option labels and limits live in
- * `contact-fields.ts`, which the Worker also reads (generic Worker: T4).
+ * Contact form, thank-you page and 404 copy (the contact page itself is src/content/pages/contact.json). Client-specific text is a double-bracket placeholder.
+ * The form's own fields (labels, limits, options, error messages, the button) are in `src/content/forms/contact.json`; `noteForm` reads them
+ * from there so a test or a page can still name them, and this module keeps only what is not a field: headings, placeholders that follow
+ * the chosen need, the empty choice of a menu and the send errors. The Worker also reads this module's `thanks`.
  */
+const fields = new Map(contactDefinitionFor("").fields.map((field) => [field.id, field]));
+const labelOf = (id: string): string => fields.get(id)?.label ?? "";
+const errorOf = (id: string): string => fields.get(id)?.error ?? "";
+
 export const noteForm = {
   heading: "[[Contact form heading]]",
   partnerHeading: "[[Partner contact form heading]]",
-  needLegend: "[[What do you need? question]]",
-  needOptions,
-  name: { label: "Your name" },
-  email: { label: "Email" },
-  business: { label: "Business name (optional)" },
+  needLegend: labelOf("need"),
+  name: { label: labelOf("name") },
+  email: { label: labelOf("email") },
+  business: { label: labelOf("business") },
   message: {
-    label: "Message",
+    label: labelOf("message"),
     placeholders: {
       website: "[[Example message for a website request]]",
       workflow: "[[Example message for a workflow request]]",
@@ -21,27 +26,22 @@ export const noteForm = {
     },
   },
   tools: {
-    label: "[[Tools question label (optional)]]",
+    label: labelOf("tools"),
     placeholders: {
       website: "[[Example answer]]",
       workflow: "[[Example answer]]",
       other: "[[Example answer]]",
     },
   },
-  website: { label: "Current website (optional)" },
-  source: {
-    label: "[[How did you hear about us? question]]",
-    empty: "Choose one",
-    options: sourceOptions,
-  },
-  honeypotLabel: honeypot.label,
-  privacyNote: "[[Note about what not to include in the form]]",
-  submitLabel: "[[Submit button label]]",
+  website: { label: labelOf("website") },
+  source: { label: labelOf("source"), empty: "Choose one" },
+  privacyNote: fields.get("message")?.help ?? "",
+  submitLabel: contactDefinitionFor("").button,
   errors: {
-    need: "Please pick one.",
-    name: "Please add your name.",
-    email: "That email doesn't look quite right.",
-    message: "Please add a message.",
+    need: errorOf("need"),
+    name: errorOf("name"),
+    email: errorOf("email"),
+    message: errorOf("message"),
   },
   sendErrors: {
     notVerified: "That didn't go through. Please try again.",

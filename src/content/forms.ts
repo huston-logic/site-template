@@ -5,6 +5,8 @@
  */
 export const formWords = {
   optional: "(optional)",
+  /** The first, empty choice of a dropdown shown as a menu. */
+  selectEmpty: "Choose one",
   errors: {
     "short-text": "Please fill this in.",
     "long-text": "Please fill this in.",
