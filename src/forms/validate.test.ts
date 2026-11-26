@@ -64,6 +64,9 @@ describe("form-level rules", () => {
   test("a bad form id is refused", () => {
     has(formProblems("Bad_Id", good(), ctx, settings), "must be lowercase words and digits");
   });
+  test("a file named like the showcase example is refused, so it can never be shadowed", () => {
+    has(formProblems("showcase-example", good(), ctx, settings), "block showcase's example form");
+  });
 });
 
 describe("fields", () => {
@@ -76,6 +79,7 @@ describe("fields", () => {
   test("ids are unique slugs and never topic", () => {
     has(problems(withField({ id: "Your Name", type: "short-text", label: "Name" })), "must be lowercase words and digits");
     has(problems(withField({ id: "topic", type: "short-text", label: "Name" })), '"topic" is reserved');
+    has(problems(withField({ id: "constructor", type: "short-text", label: "Name" })), '"constructor" is reserved');
     has(problems(withField({ id: "email", type: "short-text", label: "Name" })), "already used by field 1");
     has(problems(withField({ id: "x".repeat(41), type: "short-text", label: "Name" })), "1 to 40 characters");
     has(problems(withField({ id: "turnstileToken", type: "short-text", label: "Name" })), "must be lowercase words");
@@ -359,5 +363,18 @@ describe("validateSubmission", () => {
   });
   test("an unknown option is both malformed and, when required, a fixable problem", () => {
     assert.deepEqual(validateSubmission(def, { ...answers, project: "Garage" }), { ok: false, fields: ["project"], malformed: true });
+  });
+});
+
+describe("an answer is read from the visitor's own keys only", () => {
+  test("an inherited property is not an answer", () => {
+    const def = parseForm(good(), settings) as FormDefinition;
+    const field = { id: "constructor", type: "short-text", label: "Q", required: true, max: 10 } as const;
+    const withProto: FormDefinition = { ...def, fields: [{ ...field }] };
+    const result = validateSubmission(withProto, {});
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.deepEqual(result.fields, ["constructor"]);
+    const own = validateSubmission(withProto, { constructor: "yes" });
+    assert.ok(own.ok);
   });
 });

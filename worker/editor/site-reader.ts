@@ -7,7 +7,7 @@ import { paletteCss } from "../../src/brand/palette.ts";
 import { COLLECTION_KINDS, ITEM_DIR, itemFilePath, SLUG_RE, type ItemFile } from "../../src/collections/schema.ts";
 import { SETTINGS_NAMES, settingsPath, validateSite, type SettingsName } from "../../src/collections/site-validate.ts";
 import { FORM_DIR, FORM_ID_RE, CONTACT_FORM_ID, DEFAULT_FORM_SETTINGS, formFilePath, type FormFile, type FormSettings } from "../../src/forms/schema.ts";
-import { REGISTRY_PATH, registrySource } from "../../src/forms/registry.ts";
+import { REGISTRY_PATH, registryIds, registrySource } from "../../src/forms/registry.ts";
 import type { GitHub } from "./github.ts";
 import { isObject } from "./json.ts";
 
@@ -20,7 +20,6 @@ const FILE_BLOB = /^public\/files\/[^/]+\.pdf$/;
 const PAGE_FILE = /^src\/content\/pages\/[a-z0-9]+(?:-[a-z0-9]+)*\.json$/;
 const ITEM_FILE = new RegExp(`^${ITEM_DIR}/(${COLLECTION_KINDS.join("|")})/([a-z0-9]+(?:-[a-z0-9]+)*)\\.json$`);
 const FORM_FILE = new RegExp(`^${FORM_DIR}/([a-z0-9]+(?:-[a-z0-9]+)*)\\.json$`);
-const REGISTRY_ENTRY = /\{ id: "([a-z0-9]+(?:-[a-z0-9]+)*)", data:/g;
 const UPLOAD_PHOTO = /^public\/images\/uploads\/[a-z0-9]{8}\.webp$/;
 const UPLOAD_PDF = /^public\/files\/[a-z0-9]+(?:-[a-z0-9]+)*\.pdf$/;
 /** The files a brand change regenerates from brand.json. */
@@ -152,7 +151,7 @@ export async function readSite(github: GitHub): Promise<Snapshot> {
       snapshot.formBroken.push({ id, data: null, error: "this file is not valid JSON, so the site cannot read it." });
     }
   });
-  if (registryText !== null) snapshot.registryIds = [...registryText.matchAll(REGISTRY_ENTRY)].map((match) => match[1] as string);
+  if (registryText !== null) snapshot.registryIds = registryIds(registryText);
   settingNames.forEach((name, i) => {
     try {
       snapshot.settings.set(name, JSON.parse(settingTexts[i] ?? ""));
@@ -185,7 +184,7 @@ export function validateSet(
   for (const [id, data] of formDocs) forms.push({ id, data });
   // A form added by this change is listed by the registry the editor writes with it; otherwise the committed registry stands.
   const added = [...formDocs.keys()].some((id) => !snapshot.forms.has(id));
-  const registryIds = added || snapshot.registryIds === null ? forms.map((form) => form.id) : snapshot.registryIds;
+  const listedIds = added || snapshot.registryIds === null ? forms.map((form) => form.id) : snapshot.registryIds;
   return validateSite(
     {
       pages: files,
@@ -201,7 +200,7 @@ export function validateSet(
       imageExists: (src) => snapshot.images.has(src) || (pending?.images.has(src) ?? false),
       fileExists: (href) => snapshot.files.has(href) || (pending?.files.has(href) ?? false),
     },
-    { links, formSettings, registryIds, ...(pending && pending.names.size > 0 ? { uploadNames: pending.names } : {}) },
+    { links, formSettings, registryIds: listedIds,...(pending && pending.names.size > 0 ? { uploadNames: pending.names } : {}) },
   );
 }
 
@@ -224,13 +223,13 @@ export function itemFilesFor(after: ReadonlyMap<string, unknown>, touched: reado
   });
 }
 
-/** The files to commit for the forms a change touched: status first, then the fields as written. A form added by the change also writes the regenerated registry. */
+/** The files to commit for the forms a change touched: name, then status, then the fields as written (the format of a form file). A form added by the change also writes the regenerated registry. */
 export function formFilesFor(snapshot: Snapshot, after: ReadonlyMap<string, unknown>, touched: readonly string[]): { path: string; content: string }[] {
   const out = touched.flatMap((id) => {
     const form = after.get(id);
     if (!isObject(form) || id === CONTACT_FORM_ID) return [];
-    const { status, ...fields } = form;
-    return [{ path: formFilePath(id), content: serializePage({ status, ...fields }) }];
+    const { name, status, ...fields } = form;
+    return [{ path: formFilePath(id), content: serializePage({ name, status, ...fields }) }];
   });
   const added = touched.some((id) => !snapshot.forms.has(id) && isObject(after.get(id)));
   if (added) out.push({ path: REGISTRY_PATH, content: registrySource([...new Set([...snapshot.forms.keys(), ...snapshot.formBroken.map((f) => f.id), ...after.keys()])]) });

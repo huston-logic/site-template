@@ -32,5 +32,6 @@ describe("what the form block hands the browser", () => {
 describe("finding a form", () => {
   test("the showcase example is answered from code", () => assert.equal(formById(SHOWCASE_FORM_ID)?.name, "Enquiry"));
   test("an unknown id is null", () => assert.equal(formById("no-such-form"), null));
+  test("the contact form is never answered by id", () => assert.equal(formById("contact"), null));
   test("the registry's forms parse", () => assert.ok(loadForms().some((form) => form.id === "contact")));
 });

@@ -192,8 +192,9 @@ export function affectedPages({ files, sources, pageRoutes = {}, allRoutes, page
     const item = itemForFile(path);
     const form = formForFile(path);
     if (form) {
-      // A form shows on every page whose "form" block names it, now or before the change.
-      const uses = (pages) => Object.keys(pages).filter((route) => pages[route].forms?.includes(form));
+      // A form shows on every page whose "form" block names it, now or before the change. The contact form has its own block.
+      const uses = (pages) =>
+        Object.keys(pages).filter((route) => (path === rules.contactFormFile ? pages[route].types.includes("contact-form") : pages[route].forms?.includes(form)));
       for (const route of new Set([...uses(pagesHead), ...uses(pagesBase)])) mark(route, `${path} changed (this page shows the "${form}" form)`);
     } else if (item) {
       // A post has its own page and the blog index; any item shows on every page that lists its collection.

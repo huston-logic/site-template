@@ -6,7 +6,7 @@ import { honeypot } from "@/content/contact-fields";
 import { formWords } from "@/content/forms";
 import { providers } from "@/content/providers";
 import type { FormField, PublicForm } from "@/forms/schema";
-import { validateSubmission } from "@/forms/validate";
+import { validateSubmission } from "@/forms/submission";
 import { errorFor, FieldView, Honeypot, labelFor, NoScriptNote, SubmitButton, type FieldIds } from "./form/controls";
 import { turnstileSiteKey, useTurnstile } from "./useTurnstile";
 

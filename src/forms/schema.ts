@@ -25,7 +25,7 @@ export const FORM_ID_RE = SLUG_RE;
 /** A field id is a slug of 1 to 40 characters. */
 export const FIELD_ID_RE = /^(?=.{1,40}$)[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** Keys a field id may never take. The token and honeypot keys (`turnstileToken`, `company_fax`) cannot be slugs, so only `topic` can collide. */
-export const RESERVED_FIELD_IDS = ["topic"] as const;
+export const RESERVED_FIELD_IDS = ["topic", "constructor"] as const;
 
 /** The contact form is Huston Logic's: it is never placed through the `form` block and owners cannot change it by chat. */
 export const CONTACT_FORM_ID = "contact";

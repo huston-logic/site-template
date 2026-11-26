@@ -15,3 +15,8 @@ export const formFiles: readonly { id: string; data: unknown }[] = [
 ${entries}];
 `;
 }
+
+/** The form ids a registry source lists, in file order: the inverse of `registrySource`. */
+export function registryIds(source: string): string[] {
+  return [...source.matchAll(/^ {2}\{ id: "([^"]+)", data: /gm)].map((match) => match[1] as string);
+}

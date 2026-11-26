@@ -119,7 +119,7 @@ test('1. "Add a quote request form to my Services page with name, email, phone, 
 
   const files = await publishAndMerge(t, ai, proposalId(proposed));
   const committed = JSON.parse(files["src/content/forms/quote-request.json"]) as Record<string, unknown>;
-  assert.equal(Object.keys(committed)[0], "status", "the file starts with its status");
+  assert.deepEqual(Object.keys(committed).slice(0, 2), ["name", "status"], "the file starts with its name, then its status");
   assert.equal(committed.name, "Quote request");
   assert.equal(files["src/forms/registry.generated.ts"], registrySource(["contact", "quote-request"]));
   assert.match(files["src/content/pages/services.json"], /"form": "quote-request"/);

@@ -358,3 +358,8 @@ test("a form file's pages come from the base side too, and the registry photogra
   assert.ok(result.some((p) => p.route === "/quote"));
   assert.deepEqual(affectedPages({ files: change(["M", "src/forms/registry.generated.ts"]), sources, pageRoutes, allRoutes, pagesHead: formPages, pagesBase: formPages }), []);
 });
+
+test("a changed contact form file traces to the pages that use the contact-form block", () => {
+  const result = affectedPages({ files: change(["M", "src/content/forms/contact.json"]), sources, pageRoutes, allRoutes: [...allRoutes, "/quote"], pagesHead: formPages, pagesBase: formPages });
+  assert.deepEqual(result.map((p) => p.route), ["/contact"]);
+});

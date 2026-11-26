@@ -9,12 +9,15 @@ import { answerLines, emailOf, nameOf, organizationOf } from "./answers.ts";
 import { CONTACT_BODY_BYTES, contactDefinitionFor } from "./contact.ts";
 import { CONTACT_FORM_ID, DEFAULT_FORM_SETTINGS, SHOWCASE_FORM_ID } from "./schema.ts";
 import { showcaseForm } from "./showcase.ts";
-import { formProblems, validateSubmission } from "./validate.ts";
+import { formProblems, parseForm, validateSubmission } from "./validate.ts";
 
 const ctx = { fileExists: () => true };
 
 describe("contact.json", () => {
   test("is a good form file", () => assert.deepEqual(formProblems(CONTACT_FORM_ID, contactJson, ctx, DEFAULT_FORM_SETTINGS), []));
+  test("the browser's light reading equals the checked reading", () => {
+    assert.deepEqual(contactDefinitionFor(""), parseForm(contactJson, DEFAULT_FORM_SETTINGS, CONTACT_FORM_ID));
+  });
   test("the need options are the labels of needOptions, in order", () => {
     const need = contactJson.fields.find((field) => field.id === "need");
     assert.deepEqual(need?.options, needOptions.map((option) => option.label));
@@ -127,7 +130,7 @@ describe("answers", () => {
     if (result2.ok) {
       const lines = answerLines(showcaseForm, result2.value);
       assert.deepEqual(lines.slice(-2), [
-        { label: "Send me a copy of my answers.", text: "Yes" },
+        { label: "I have worked with you before.", text: "Yes" },
         { label: "You can email me now and then with news.", text: "No" },
       ]);
       assert.equal(organizationOf(showcaseForm, result2.value), "");
@@ -139,7 +142,7 @@ describe("showcase form and the words", () => {
   test("the showcase form is a good form, with every field type, live and with no download", () => {
     // A parsed definition carries the fixed limits of email and phone; a file may not.
     const file = { ...showcaseForm, fields: showcaseForm.fields.map(({ max, ...field }) => (field.type === "short-text" || field.type === "long-text" ? { ...field, max } : field)) };
-    assert.deepEqual(formProblems(SHOWCASE_FORM_ID, file, ctx, DEFAULT_FORM_SETTINGS), []);
+    assert.deepEqual(formProblems("showcase-copy", file, ctx, DEFAULT_FORM_SETTINGS), []);
     assert.equal(showcaseForm.status, "live");
     assert.equal(showcaseForm.download, undefined);
     assert.deepEqual([...new Set(showcaseForm.fields.map((f) => f.type))].sort(), ["checkbox", "consent", "dropdown", "email", "long-text", "phone", "short-text"]);

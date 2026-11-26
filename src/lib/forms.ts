@@ -2,7 +2,7 @@
 // of Next, so node:test loads it.
 import { siteConfig } from "../../site.config.ts";
 import { formFiles } from "../forms/registry.generated.ts";
-import { SHOWCASE_FORM_ID } from "../forms/schema.ts";
+import { CONTACT_FORM_ID, SHOWCASE_FORM_ID } from "../forms/schema.ts";
 import type { FormDefinition, PublicForm } from "../forms/schema.ts";
 import { showcaseForm } from "../forms/showcase.ts";
 import { parseForm, publicForm } from "../forms/validate.ts";
@@ -18,6 +18,7 @@ export function loadForms(): { id: string; definition: FormDefinition }[] {
 /** A live form by id, or null (unknown, archived or unreadable). The showcase example is code, so it is answered here too. */
 export function formById(id: string): FormDefinition | null {
   if (id === SHOWCASE_FORM_ID) return showcaseForm;
+  if (id === CONTACT_FORM_ID) return null;
   const found = loadForms().find((form) => form.id === id);
   return found !== undefined && found.definition.status === "live" ? found.definition : null;
 }

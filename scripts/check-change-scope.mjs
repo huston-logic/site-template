@@ -19,7 +19,7 @@ import { registry } from "../src/blocks/definitions.ts";
 import { validatePages as realValidatePages } from "../src/blocks/validate.ts";
 import { validateSite as realValidateSite, SETTINGS_NAMES } from "../src/collections/site-validate.ts";
 import { COLLECTION_KINDS, SLUG_RE } from "../src/collections/schema.ts";
-import { registrySource } from "../src/forms/registry.ts";
+import { registryIds, registrySource } from "../src/forms/registry.ts";
 import { brandFiles } from "./config-rules.mjs";
 import { imageAltCheck } from "./image-alt.mjs";
 import { inspectMetadata } from "./image-metadata.mjs";
@@ -225,7 +225,7 @@ function readSiteAt(head, git, rules) {
   const registryPresent = String(git(["ls-tree", "--name-only", "-z", head, "--", rules.registryFile])).split("\0").filter(Boolean).length > 0;
   if (registryPresent) {
     const text = String(git(["show", `${head}:${rules.registryFile}`]));
-    site.registryIds = [...text.matchAll(/^ {2}\{ id: "([^"]+)", data: /gm)].map((match) => match[1]);
+    site.registryIds = registryIds(text);
   }
   for (const name of SETTINGS_NAMES) {
     const path = `src/content/${name}.json`;

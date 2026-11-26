@@ -1,7 +1,7 @@
 // Turns a valid submission into the lines the notification, the Sheet and the Pipeline message show. Import-free apart
 // from sibling shared modules.
 import type { FormDefinition } from "./schema.ts";
-import type { SubmissionValue } from "./validate.ts";
+import type { SubmissionValue } from "./submission.ts";
 
 export type AnswerLine = { label: string; text: string };
 

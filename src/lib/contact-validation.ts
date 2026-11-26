@@ -1,7 +1,7 @@
 import { fieldLimits, needOptions, urlTopics, type Need, type UrlTopic } from "../content/contact-fields.ts";
 import { cleanLine } from "../forms/clean.ts";
 import { contactDefinitionFor } from "../forms/contact.ts";
-import { validateSubmission } from "../forms/validate.ts";
+import { validateSubmission } from "../forms/submission.ts";
 
 export { cleanLine, cleanText, EMAIL_PATTERN } from "../forms/clean.ts";
 

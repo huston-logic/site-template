@@ -3,7 +3,7 @@
 // back as plain sentences naming the file. Import-free apart from sibling shared modules.
 import { FILE_LINK_RE } from "../blocks/schema.ts";
 import { textProblem } from "../blocks/validate.ts";
-import { cleanLine, cleanText, EMAIL_PATTERN } from "./clean.ts";
+import { cleanLine } from "./clean.ts";
 import {
   CONTACT_FORM_ID,
   DISPLAYS,
@@ -14,10 +14,12 @@ import {
   LIMITS,
   PURPOSES,
   RESERVED_FIELD_IDS,
+  SHOWCASE_FORM_ID,
   formFilePath,
 } from "./schema.ts";
-import type { FieldType, FormDefinition, FormField, FormFile, FormSettings, PublicForm } from "./schema.ts";
+import type { FieldType, FormDefinition, FormFile, FormSettings } from "./schema.ts";
 import { healthTerm, refusedTerm } from "./sensitive.ts";
+import { defaultMax, formFromFile } from "./submission.ts";
 
 export type FormContext = { fileExists(href: string): boolean; registryIds?: readonly string[] };
 
@@ -58,18 +60,6 @@ function checkText(value: unknown, min: number, max: number, say: (message: stri
   if (value.length > max) return say(`${what} is ${value.length} characters; it takes at most ${max}.`);
   const bad = textProblem(value);
   if (bad) say(`${what} ${bad}.`);
-}
-
-function defaultMax(type: FieldType): number | undefined {
-  if (type === "short-text") return LIMITS.shortText.default;
-  if (type === "long-text") return LIMITS.longText.default;
-  if (type === "email") return LIMITS.emailMax;
-  if (type === "phone") return LIMITS.phoneMax;
-  return undefined;
-}
-
-function defaultRequired(type: FieldType): boolean {
-  return type === "short-text" || type === "long-text" || type === "email" || type === "dropdown";
 }
 
 /** The most characters one answer can add to a submission: its text limit, or the longest option of a dropdown. */
@@ -196,6 +186,7 @@ export function formProblems(id: string, data: unknown, ctx: FormContext, settin
   const file = formFilePath(id);
   const out: string[] = [];
   if (!FORM_ID_RE.test(id)) out.push(`${file}: the form id "${id}" must be lowercase words and digits joined by hyphens, 1 to 60 characters.`);
+  if (id === SHOWCASE_FORM_ID) out.push(`${file}: the form id "${id}" is the block showcase's example form, which is code; choose another name for this file.`);
   if (!isRecord(data)) {
     out.push(`${file}: a form file must hold one object with ${quoted(["name", "status", "fields", "button", "thanks"])}.`);
     return out;
@@ -304,100 +295,9 @@ export function validateForms(files: readonly FormFile[], ctx: FormContext, sett
 /** A form file as a definition with every default filled in, or null on any problem (the Worker fails closed with this). */
 export function parseForm(data: unknown, settings: FormSettings, id: string = "form"): FormDefinition | null {
   if (formProblems(id, data, { fileExists: () => true }, settings).length > 0 || !isRecord(data)) return null;
-  const fields = (data["fields"] as Record<string, unknown>[]).map((raw): FormField => {
-    const type = raw["type"] as FieldType;
-    const field: FormField = {
-      id: raw["id"] as string,
-      type,
-      label: raw["label"] as string,
-      required: type === "email" ? true : typeof raw["required"] === "boolean" ? raw["required"] : defaultRequired(type),
-    };
-    if (raw["help"] !== undefined) field.help = raw["help"] as string;
-    if (raw["error"] !== undefined) field.error = raw["error"] as string;
-    const max = typeof raw["max"] === "number" ? raw["max"] : defaultMax(type);
-    if (max !== undefined) field.max = max;
-    if (raw["purpose"] !== undefined) field.purpose = raw["purpose"] as FormField["purpose"];
-    if (type === "dropdown") {
-      field.options = (raw["options"] as string[]).map((option) => cleanLine(option));
-      field.display = (raw["display"] as FormField["display"] | undefined) ?? "menu";
-    }
-    return field;
-  });
-  const def: FormDefinition = {
-    name: data["name"] as string,
-    status: data["status"] as FormDefinition["status"],
-    fields,
-    button: data["button"] as string,
-    thanks: data["thanks"] as string,
-  };
-  if (isRecord(data["download"])) def.download = { href: data["download"]["href"] as string, title: data["download"]["title"] as string };
-  return def;
+  return formFromFile(data);
 }
 
-/** What the browser may see of a form: everything but the download link. */
-export function publicForm(def: FormDefinition): PublicForm {
-  return {
-    name: def.name,
-    status: def.status,
-    fields: def.fields.map((field) => ({ ...field, ...(field.options !== undefined ? { options: [...field.options] } : {}) })),
-    button: def.button,
-    thanks: def.thanks,
-    delivers: def.download !== undefined,
-  };
-}
-
-export type SubmissionValue = Record<string, string | boolean>;
-export type SubmissionResult =
-  | { ok: true; value: SubmissionValue }
-  | {
-      ok: false;
-      /** Field ids with a problem a person can fix, in form order. */
-      fields: string[];
-      /** A value no person could enter through the form (an unnamed key, a wrong type, an unknown option, over a limit). */
-      malformed: boolean;
-    };
-
-const PHONE_PATTERN = /^[0-9 +().-]+$/;
-
-/** Judges a visitor's answers against a form definition. The browser and the Worker both call this. */
-export function validateSubmission(def: FormDefinition, input: Record<string, unknown>): SubmissionResult {
-  let malformed = false;
-  const ids = new Set(def.fields.map((field) => field.id));
-  for (const key of Object.keys(input)) if (!ids.has(key)) malformed = true;
-
-  const value: SubmissionValue = {};
-  const fields: string[] = [];
-  for (const field of def.fields) {
-    const raw = input[field.id];
-    const absent = raw === undefined || raw === null;
-    if (field.type === "checkbox" || field.type === "consent") {
-      if (!absent && typeof raw !== "boolean") malformed = true;
-      const ticked = raw === true;
-      value[field.id] = ticked;
-      if (field.required && !ticked) fields.push(field.id);
-      continue;
-    }
-    let text = "";
-    if (!absent) {
-      if (typeof raw !== "string") malformed = true;
-      else {
-        if (raw.length > (field.max ?? Number.MAX_SAFE_INTEGER) && field.type !== "dropdown") malformed = true;
-        text = field.type === "long-text" ? cleanText(raw) : cleanLine(raw);
-      }
-    }
-    if (field.type === "dropdown" && text !== "" && !(field.options ?? []).includes(text)) {
-      malformed = true;
-      text = "";
-    }
-    value[field.id] = text;
-    if (text === "") {
-      if (field.required) fields.push(field.id);
-    } else if (field.type === "email" && !EMAIL_PATTERN.test(text)) fields.push(field.id);
-    else if (field.type === "phone") {
-      const digits = text.replace(/\D/g, "").length;
-      if (!PHONE_PATTERN.test(text) || digits < LIMITS.phoneDigits.min || digits > LIMITS.phoneDigits.max) fields.push(field.id);
-    }
-  }
-  if (fields.length > 0 || malformed) return { ok: false, fields, malformed };
-  return { ok: true, value };
-}
+// The browser-side half lives in submission.ts (it must not pull in these checks); re-exported so imports keep working.
+export { publicForm, validateSubmission } from "./submission.ts";
+export type { SubmissionResult, SubmissionValue } from "./submission.ts";

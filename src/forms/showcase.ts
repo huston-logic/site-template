@@ -15,7 +15,7 @@ export const showcaseForm: FormDefinition = {
     { id: "phone", type: "phone", label: "Phone", required: false, max: 30, help: "Only if you would like a call back." },
     { id: "interest", type: "dropdown", label: "What are you interested in?", required: true, options: ["A website", "Something else"], display: "buttons" },
     { id: "message", type: "long-text", label: "Tell me a little more", required: true, max: 1000 },
-    { id: "copy", type: "checkbox", label: "Send me a copy of my answers.", required: false },
+    { id: "copy", type: "checkbox", label: "I have worked with you before.", required: false },
     { id: "updates", type: "consent", label: "You can email me now and then with news.", required: false },
   ],
   button: "Send my enquiry",

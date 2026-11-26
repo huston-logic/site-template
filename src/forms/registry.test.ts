@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { describe, test } from "node:test";
-import { REGISTRY_PATH, registrySource } from "./registry.ts";
+import { REGISTRY_PATH, registryIds, registrySource } from "./registry.ts";
 import { formFiles } from "./registry.generated.ts";
 
 describe("registrySource", () => {
@@ -22,6 +22,14 @@ describe("registrySource", () => {
     assert.match(registrySource([]), /= \[\n\];/);
   });
   test("the path", () => assert.equal(REGISTRY_PATH, "src/forms/registry.generated.ts"));
+});
+
+describe("registryIds", () => {
+  test("is the inverse of registrySource", () => {
+    assert.deepEqual(registryIds(registrySource(["quote", "contact", "newsletter-2"])), ["contact", "newsletter-2", "quote"]);
+    assert.deepEqual(registryIds(registrySource([])), []);
+  });
+  test("reads the committed registry", () => assert.deepEqual(registryIds(registrySource(formFiles.map((file) => file.id))), formFiles.map((file) => file.id)));
 });
 
 describe("the committed registry", () => {
