@@ -272,3 +272,46 @@ One PR: #32 (open, auto-merge queued).
 - Owners can offer a PDF to download from any button or link; PDFs with scripts or attached files are refused.
 - Video files are not uploaded; owners add videos as YouTube or Vimeo links.
 - Uploads cost next to nothing per site: storage and photo conversion fit Cloudflare's free allowances at expected use.
+
+## Record: For the master lines from the collections and brand settings run (moved from STATUS.md unchanged, 2026-11-25)
+
+- Site owners can keep a blog by chatting: write a post in their voice, save it as a draft, preview it, then publish it.
+- Owners can list their videos and podcast episodes (YouTube, Vimeo, Spotify, Apple Podcasts) and show testimonials and their team.
+- A testimonial needs a quote and a named person the owner gives; the AI is told never to invent quotes, people or numbers.
+- Owners can change their phone, email, address, opening hours and social links themselves; the whole site follows.
+- Owners can change their brand color and accent, choose fonts from a short designed list, and swap in a new logo.
+- A brand color that would make any text hard to read is refused, with the nearest color that works.
+- A brand change is always previewed before the owner says yes, because it changes every page.
+- Owners can put up a one-line notice on every page with an end date, and take it down by chatting.
+- Spacing, shapes, motion, background colors, SVG logos and new fonts stay Huston Logic changes.
+- Where form notes are sent, the booking link and the email settings stay with Huston Logic.
+
+## Record: Collections and brand settings run (2026-11-25), moved from STATUS.md unchanged (2026-11-25)
+
+Process run, unattended, from Grant's brief. Design: `docs/superpowers/specs/2026-11-25-collections-and-brand-design.md`
+(30 rulings with costs, builder-check answers). Plan: `docs/superpowers/plans/2026-11-25-collections-and-brand.md`. Opus
+designed, coordinated, did the design critique and the final rulings; Sonnet implemented nine tasks (in parallel git
+worktrees, four at once) and two fix waves; a Sonnet builder check read the design; Haiku wrote the docs. One PR: #33.
+
+- **Checks:** full `npm run check` passes (554 Worker and shared-module tests, 512 script tests, content and design
+  checks, build); `npm run test:a11y` passes locally (110 passed, 4 skipped); `npm run test:lighthouse` passes locally (every page 100 for performance, accessibility, best practices and SEO; the showcase 98, its SEO 69 as a noindex page).
+  All seven acceptance sayings are tests in `worker/editor/collections-acceptance.test.ts`. A trial brand change to a
+  darker green was built and looked at; a pale mint was refused with the nearest passing color.
+- **Reviews:** review-code (3 Medium: notice end date wording, brand changes on a site without previews, a drafts flag
+  in the build stamp), review-security (4 Low: header comment, a commit-path allow-list, iframe sandbox parked, a
+  comment), review-a11y (5 Medium copy-in-JSX, a link name that did not start with its visible words), the axe scan (2
+  more), a local Lighthouse run (a post led by a photo scored 78; traced to the uncompressed test server and queued for Grant), and the design critique (post page without a hero, testimonial hierarchy, team grid, empty card panels on
+  phones, thin showcase examples; glows and shadows that ignored the brand colors). All fixed except the parked sandbox.
+- **Judgment calls:** one PR (the parts share the editor and the checks); brand values moved from `site.config.ts` to
+  `src/content/brand.json`, with `palette.css` and `fonts.ts` generated from it; the owner changes two color roles,
+  the rest derive; drafts build everywhere except a Workers Builds production build; one catch-all blog route (a static
+  export cannot have an empty dynamic route); 10 posts per page; the auto-reply email and owner page keep their own
+  colors; the OG image keeps Outfit; the notice is judged at build time in `business.timeZone`; the template's example post leads with text, not a photo, until the Lighthouse server question (Needs Grant 2) is decided.
+- **New dependencies:** none.
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | about 1 hour 30 minutes (19:11 to about 20:40, PR open and reviewed) |
+| Commits | 18 plus 10 merge commits |
+| Time in checks | about 20 minutes (`check:fast` per commit and in each worktree, 3 full checks, 2 local a11y runs, 1 local Lighthouse run) |
+| Time waiting on CI | 0: auto-merge is queued; nothing waited on CI |

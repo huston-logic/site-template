@@ -1,0 +1,39 @@
+{
+  "name": "Contact form",
+  "status": "live",
+  "fields": [
+    {
+      "id": "need",
+      "type": "dropdown",
+      "label": "[[What do you need? question]]",
+      "display": "buttons",
+      "options": ["A website", "Help with a workflow", "Both", "Not sure"],
+      "required": true,
+      "error": "Please pick one."
+    },
+    { "id": "name", "type": "short-text", "label": "Your name", "purpose": "name", "max": 100, "required": true, "error": "Please add your name." },
+    { "id": "email", "type": "email", "label": "Email", "required": true, "error": "That email doesn't look quite right." },
+    { "id": "business", "type": "short-text", "label": "Business name (optional)", "purpose": "organization", "max": 200, "required": false },
+    {
+      "id": "message",
+      "type": "long-text",
+      "label": "Message",
+      "max": 5000,
+      "required": true,
+      "help": "[[Note about what not to include in the form]]",
+      "error": "Please add a message."
+    },
+    { "id": "tools", "type": "long-text", "label": "[[Tools question label (optional)]]", "max": 500, "required": false },
+    { "id": "website", "type": "short-text", "label": "Current website (optional)", "purpose": "website", "max": 300, "required": false },
+    {
+      "id": "source",
+      "type": "dropdown",
+      "label": "[[How did you hear about us? question]]",
+      "display": "menu",
+      "options": ["Referral", "Google", "LinkedIn", "Article", "Other"],
+      "required": false
+    }
+  ],
+  "button": "[[Submit button label]]",
+  "thanks": "[[Thank-you text, mentioning the automatic reply]]"
+}

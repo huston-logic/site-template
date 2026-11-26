@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { DEFAULT_UPLOADS, type EditorConfig } from "../config.ts";
 import { registry as libraryRegistry } from "../../src/blocks/definitions.ts";
-import { defineBlock, type AnyBlockDefinition } from "../../src/blocks/schema.ts";
+import type { AnyBlockDefinition } from "../../src/blocks/schema.ts";
 import { COLLECTION_KINDS } from "../../src/collections/schema.ts";
 import { FakeGitHub } from "./fake-github.ts";
 import { createEditor } from "./service.ts";
@@ -86,6 +86,8 @@ const template = (path: string): string => readFileSync(new URL(path, REPO), "ut
 function templateDocuments(): Record<string, string> {
   const files: Record<string, string> = {};
   for (const name of ["business", "brand", "notice"]) files[`src/content/${name}.json`] = template(`src/content/${name}.json`);
+  files["src/content/forms/contact.json"] = template("src/content/forms/contact.json");
+  files["src/forms/registry.generated.ts"] = template("src/forms/registry.generated.ts");
   for (const kind of COLLECTION_KINDS) {
     if (kind === "posts") continue;
     const dir = `src/content/collections/${kind}`;
@@ -127,27 +129,8 @@ export function blogFiles(): Record<string, string> {
   return files;
 }
 
-const stub = (type: string, title: string, fields: object, example: unknown, variants: string[]): AnyBlockDefinition =>
-  defineBlock({
-    type,
-    title,
-    description: title,
-    source: "library",
-    fields,
-    variants: variants.map((name) => ({ name, description: name })),
-    placement: { position: "any", maxPerPage: 1, rhythm: "section" },
-    motion: { entrance: "default" },
-    example,
-  } as never) as unknown as AnyBlockDefinition;
-
-/** The real block registry, plus a stand-in for each list block the library does not have yet (the real one wins once it exists). */
-export const registry: AnyBlockDefinition[] = [
-  ...libraryRegistry,
-  ...[
-    stub("post-index", "Post list", { emptyText: { kind: "text", label: "Text when there are no posts", max: 120 } }, { emptyText: "No posts yet." }, ["list", "cards"]),
-    stub("latest-posts", "Latest posts", { heading: { kind: "text", label: "Heading", max: 90 }, count: { kind: "number", label: "How many", min: 1, max: 6, required: false } }, { heading: "Latest posts" }, ["cards", "list"]),
-  ].filter((block) => !libraryRegistry.some((real) => real.type === block.type)),
-];
+/** The real block registry. */
+export const registry: AnyBlockDefinition[] = [...libraryRegistry];
 
 const hours = (extra: string[] = []) => ({
   path: "/hours",
