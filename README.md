@@ -279,7 +279,7 @@ Current settings in the Cloudflare dashboard (read by the owner on 2026-11-12, s
 - **Root directory:** `/`
 - **Build variables:** `NODE_VERSION=22` is the only one set. Workers Builds also sets `WORKERS_CI_COMMIT_SHA` and `WORKERS_CI_BRANCH`, which `scripts/finish-build.mjs` reads (see below).
 
-**What the build adds after `next build`.** `scripts/finish-build.mjs` writes `out/site-version.json` (`{ "commit", "builtAt" }`, the commit from `WORKERS_CI_COMMIT_SHA`, else `GITHUB_SHA`, else `null`) so the live site says which version it is. When `WORKERS_CI_BRANCH` equals `domain.productionBranch` in `site.config.ts` (`main`), it also removes the `/blocks` showcase, so only previews, CI and local builds have it. After the first deploy, check that `/site-version.json` shows the commit and that `/blocks` is a 404 on the live site.
+**What the build adds after `next build`.** `scripts/finish-build.mjs` writes `out/site-version.json` (`{ "commit", "builtAt" }`, the commit from `WORKERS_CI_COMMIT_SHA`, else `GITHUB_SHA`, else `null`) so the live site says which version it is. When `WORKERS_CI_BRANCH` equals `domain.productionBranch` in `site.config.ts` (`main`), or a Workers Builds build (`WORKERS_CI` set) cannot say its branch, it also removes the `/blocks` showcase, so only previews, CI and local builds have it. After the first deploy, check that `/site-version.json` shows the commit and that `/blocks` is a 404 on the live site.
 
 Before launch:
 

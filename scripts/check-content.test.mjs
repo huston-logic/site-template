@@ -494,6 +494,13 @@ test("thanks links to an archived page fail", () => {
   assert.ok(problems[1].startsWith('contact.ts, thanks page link 2: "/services" points to /services, which is archived'));
 });
 
+test("a thanks link to a page whose file failed to parse gives the parse error only", () => {
+  const broken = { file: "services.json", data: undefined, error: "is not valid JSON (Unexpected token). Look for a comma." };
+  const problems = validatePages([home(), contact(), aboutWith([heroBlock()]), broken], registry, repo, { links: thanksPageLinks(thanksData) });
+  assert.equal(problems.length, 1);
+  assert.ok(problems[0].startsWith("services.json: is not valid JSON"));
+});
+
 test("thanks links to live pages pass", () => {
   const services = { file: "services.json", data: page("/services", [heroBlock()]) };
   const problems = validatePages([home(), contact(), aboutWith([heroBlock()]), services], registry, repo, { links: thanksPageLinks(thanksData) });

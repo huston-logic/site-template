@@ -161,10 +161,11 @@ Writes `change-report/report.md` and `change-report/<page>/{before,after}-{phone
 "After" is your `out/` build. "Before" is built for you in a temporary git worktree from the point the branch split from
 `main` (`npm ci` and `npm run build`, a minute or two, removed afterwards); pass `--base-out <dir>` to reuse a build you
 already have. It photographs only the pages the change touches. A page file maps to its own page. A change to a block in
-`src/blocks/library/<type>/` maps to every page that uses that block, plus the block showcase (`/blocks`). Other block code
-(anything else under `src/blocks/` or `src/site-blocks/`) reaches every page. Any other file is traced by its imports.
-Tracing stops at a block's own folder (`src/blocks/library/<type>/` or `src/site-blocks/<type>/`), so a component that only
-one block uses photographs the pages that use that block, plus `/blocks`, not every page. A change to the shared layout, or
+`src/blocks/library/<type>/` or a site's own block in `src/site-blocks/<type>/` maps to every page that uses that block, plus
+the block showcase (`/blocks`); so do the blocks whose folders import that file (video-grid imports the video player). Other
+block code (anything else under `src/blocks/`, or directly in `src/site-blocks/` such as `definitions.ts`) reaches every page.
+Any other file is traced by its imports. Tracing stops at a block's own folder, so a component that only one block uses
+photographs the pages that use that block, plus `/blocks`, not every page. A change to the shared layout, or
 one that cannot be traced, photographs every page. Files under `worker/`, test files (`*.test.ts`, `*.test.mjs`), `docs/`,
 `scripts/`, `tests/` and Markdown files cannot change how a page looks, so they photograph nothing. A page going from live to archived
 is shown as "page archived" with no after picture, and going back to live as "page restored" with no before picture. Widths: phone 390 × 844, desktop 1440 × 900.

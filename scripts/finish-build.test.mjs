@@ -46,6 +46,24 @@ test("the showcase is removed only on the production branch", () => {
   assert.equal(existsSync(join(preview, "blocks.html")), true);
 });
 
+test("a Workers Builds build with no branch is treated as production; with another branch it is not", () => {
+  for (const env of [{ WORKERS_CI: "1" }, { WORKERS_CI: "1", WORKERS_CI_BRANCH: "" }]) {
+    const outDir = fakeOut();
+    assert.equal(finishBuild({ outDir, env, productionBranch: "main" }).showcaseRemoved, true);
+    assert.equal(existsSync(join(outDir, "blocks.html")), false);
+  }
+  const preview = fakeOut();
+  assert.equal(finishBuild({ outDir: preview, env: { WORKERS_CI: "1", WORKERS_CI_BRANCH: "feat/x" }, productionBranch: "main" }).showcaseRemoved, false);
+});
+
+test("nothing is removed when neither variable is set, or when productionBranch is missing", () => {
+  const local = fakeOut();
+  assert.equal(finishBuild({ outDir: local, env: {}, productionBranch: undefined }).showcaseRemoved, false);
+  assert.equal(finishBuild({ outDir: local, env: { WORKERS_CI_BRANCH: undefined }, productionBranch: "" }).showcaseRemoved, false);
+  assert.equal(existsSync(join(local, "blocks.html")), true);
+  assert.equal(finishBuild({ outDir: local, env: { WORKERS_CI_BRANCH: "" }, productionBranch: "" }).showcaseRemoved, false);
+});
+
 test("a CI build (GITHUB_SHA, no Workers Builds branch) keeps the showcase", () => {
   const outDir = fakeOut();
   const result = finishBuild({ outDir, env: { GITHUB_SHA: "ccc" }, productionBranch: "main" });

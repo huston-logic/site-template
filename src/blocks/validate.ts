@@ -451,6 +451,7 @@ export function validatePages(
   }
 
   for (const { where, href } of extra.links ?? []) {
+    if (failedPaths.has(href.split("#")[0] as string)) continue;
     const problem = linkProblem(href, ctx);
     if (problem !== null) out.push(`${where}: "${href}" ${problem}.`);
   }

@@ -9,7 +9,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 export function finishBuild({ outDir, env, productionBranch }) {
   const commit = env.WORKERS_CI_COMMIT_SHA || env.GITHUB_SHA || null;
   writeFileSync(join(outDir, "site-version.json"), `${JSON.stringify({ commit, builtAt: new Date().toISOString() })}\n`);
-  const showcaseRemoved = env.WORKERS_CI_BRANCH === productionBranch;
+  // A Workers Builds build (WORKERS_CI set) that cannot name its branch is treated as production: fail closed.
+  const branch = env.WORKERS_CI_BRANCH;
+  const named = typeof productionBranch === "string" && productionBranch !== "" && branch === productionBranch;
+  const showcaseRemoved = named || (Boolean(env.WORKERS_CI) && !branch);
   if (showcaseRemoved) {
     for (const name of ["blocks.html", "blocks.txt", "blocks"]) rmSync(join(outDir, name), { recursive: true, force: true });
   }
