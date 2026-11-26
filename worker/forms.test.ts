@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, test } from "node:test";
 import { buildWorkerConfig, type WorkerSiteConfig } from "./config.ts";
 import { createWorker } from "./contact.ts";
 import type { ContactEnv } from "./env.ts";
+import { formSheetRow } from "./messages.ts";
+import { safeCell } from "./sheets.ts";
 import { resetTokenCache } from "./sheets.ts";
 
 type Call = { url: string; init: RequestInit; json: Record<string, unknown> | null };
@@ -343,6 +345,24 @@ describe("a valid quote request", () => {
     assert.ok(cell.endsWith("(cut; the notification email has every answer)"));
     const mail = called("notify")[0]?.json as { text: string };
     assert.ok(mail.text.includes("b".repeat(4000)));
+  });
+
+  test("an answers cell that safeCell prefixes still fits the Apps Script's 6000", () => {
+    const def = {
+      name: "Q",
+      status: "live" as const,
+      button: "Send",
+      thanks: "Thanks.",
+      fields: [
+        { id: "total", type: "long-text" as const, label: "=Total", required: true, max: 5000 },
+        { id: "more", type: "long-text" as const, label: "More", required: false, max: 5000 },
+      ],
+    };
+    const row = formSheetRow(def, { total: "a".repeat(4000), more: "b".repeat(4000) }, "production", "2026-01-01T00:00:00Z");
+    const sent = safeCell(row[4] ?? "");
+    assert.ok(sent.startsWith("'="));
+    assert.ok(sent.length <= 6000, String(sent.length));
+    assert.ok(sent.endsWith("(cut; the notification email has every answer)"));
   });
 
   test("a formula-looking answer is made safe by the Sheet writer", async () => {

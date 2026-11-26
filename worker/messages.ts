@@ -2,13 +2,14 @@ import { needOptions } from "../src/content/contact-fields.ts";
 import { formWords } from "../src/content/forms.ts";
 import { answerLines, emailOf, nameOf, organizationOf, type AnswerLine } from "../src/forms/answers.ts";
 import type { FormDefinition, FormDownload } from "../src/forms/schema.ts";
-import type { SubmissionValue } from "../src/forms/validate.ts";
+import type { SubmissionValue } from "../src/forms/submission.ts";
 import type { ContactSubmission } from "../src/lib/contact-validation.ts";
 import { autoReplyFirstName } from "../src/lib/first-name.ts";
 import type { Destination, WorkerConfig } from "./config.ts";
 import type { Mode, SaveStatus } from "./env.ts";
 import { escapeHtml } from "./html.ts";
 import type { PipelineLead } from "./pipeline.ts";
+import { safeCell } from "./sheets.ts";
 
 /** The most characters the Pipeline app accepts in `message`. */
 const PIPELINE_MESSAGE_MAX = 5000;
@@ -124,7 +125,9 @@ function answerText(line: AnswerLine): string {
 /** The "Answers" cell: one `Label: value` line per answer given, cut with a fixed ending past the cell limit. */
 function answersCell(lines: AnswerLine[]): string {
   const text = lines.map(answerText).join("\n");
-  return text.length > SHEET_CELL_MAX ? `${text.slice(0, SHEET_CELL_MAX - ANSWERS_CUT.length)}${ANSWERS_CUT}` : text;
+  // safeCell may add a leading apostrophe on the way out, and the Apps Script refuses a cell over the limit: leave room for it.
+  const room = SHEET_CELL_MAX - (safeCell(text) === text ? 0 : 1);
+  return text.length > room ? `${text.slice(0, room - ANSWERS_CUT.length)}${ANSWERS_CUT}` : text;
 }
 
 /** The Forms tab row, one fixed header for every form: Received (UTC), Form, Name, Email, Answers, Mode. */
