@@ -9,6 +9,8 @@ import { rules } from "./change-scope-rules.mjs";
 import { brandFiles } from "./config-rules.mjs";
 import { ITEM_DIR } from "../src/collections/schema.ts";
 import { SETTINGS_NAMES } from "../src/collections/site-validate.ts";
+import { FORM_DIR } from "../src/forms/schema.ts";
+import { REGISTRY_PATH, registrySource } from "../src/forms/registry.ts";
 import { SECRET, app1Exif, jpeg as makeJpeg, png as makePng, pngText, webp as makeWebp } from "./image-fixtures.mjs";
 import {
   decide,
@@ -759,8 +761,12 @@ test("gatherChange reads every page file and the image list at the head commit w
     "ls-tree -r --name-only -z HEAD -- public/files/": "public/files/menu.pdf\0",
     "ls-tree -r --name-only -z HEAD -- src/content/collections/": "",
     "ls-tree --name-only -z HEAD -- src/content/business.json src/content/brand.json src/content/notice.json": "",
+    "ls-tree --name-only -z HEAD -- src/content/forms/": "src/content/forms/contact.json\0",
+    "show HEAD:src/content/forms/contact.json": "{}",
+    "ls-tree --name-only -z HEAD -- src/forms/registry.generated.ts": "",
   };
   const change = gatherChange({ base: "origin/main", head: "HEAD", git: fakeGit(table) });
+  assert.deepEqual(change.site.forms, [{ id: "contact", data: {} }]);
   assert.deepEqual(change.headFiles, ["public/files/menu.pdf"]);
   assert.deepEqual(change.pages.map((p) => p.file), ["broken.json", "home.json"]);
   assert.match(change.pages[0].error, /^is not valid JSON/);
@@ -1221,4 +1227,92 @@ test("real git: a hand-edited palette.css is tier 3; one that matches brand.json
   });
   assert.match(ok.report, /Tier 1/);
   assert.match(ok.report, /Brand change/);
+});
+
+// ---- forms (Forms and downloads, task 5) --------------------------------------------------------------------------------
+
+const withForms = (files, ids = ["contact", "quote"], extra = {}) =>
+  evaluateChange({ files, site: { items: [], brand: brandJson, settingsErrors: {}, forms: ids.map((id) => ({ id, data: {} })) }, pages: [], ...extra }, rules, () => [], () => []);
+
+test("rules: the form folder and the registry match the shared constants", () => {
+  assert.equal(rules.formDir, `${FORM_DIR}/`);
+  assert.equal(rules.registryFile, REGISTRY_PATH);
+});
+
+test("a form file with a slug id is tier 1, new or edited; a bad id or a nested file is tier 3", () => {
+  assert.equal(withForms([item("src/content/forms/quote.json", "A"), item("src/content/forms/newsletter-signup.json")]).tier, 1);
+  const bad = withForms([item("src/content/forms/Quote_1.json", "A"), item("src/content/forms/deep/x.json", "A"), item("src/content/forms/notes.txt", "A")]);
+  assert.equal(bad.outside.length, 3);
+  assert.match(bad.outside[0].reason, /not a form file/);
+});
+
+test("the contact form's file is tier 3 whatever the change: its wiring", () => {
+  for (const status of ["M", "A", "D"]) {
+    const result = withForms([item("src/content/forms/contact.json", status)]);
+    assert.equal(result.tier, 3);
+    assert.equal(result.outside[0].reason, "the contact form's wiring");
+  }
+});
+
+test("a deleted or renamed form file is tier 3: archive it instead", () => {
+  const result = withForms([item("src/content/forms/quote.json", "D"), item("src/content/forms/quote-2.json", "A")]);
+  assert.deepEqual(outsidePaths(result), ["src/content/forms/quote.json"]);
+  assert.match(result.outside[0].reason, /archived, not deleted/);
+});
+
+test("the registry is tier 1 only when byte-equal to what the head's form files generate", () => {
+  const same = withForms([file(REGISTRY_PATH, "M", { content: registrySource(["contact", "quote"]) })]);
+  assert.equal(same.tier, 1);
+  const edited = withForms([file(REGISTRY_PATH, "M", { content: `${registrySource(["contact", "quote"])}// hand edit\n` })]);
+  assert.equal(edited.tier, 3);
+  assert.match(edited.outside[0].reason, /form registry does not match/);
+  assert.equal(withForms([file(REGISTRY_PATH, "M", { content: registrySource(["contact"]) })]).tier, 3);
+  assert.equal(withForms([file(REGISTRY_PATH, "D")]).tier, 3);
+  assert.equal(evaluateChange({ files: [file(REGISTRY_PATH, "M", { content: registrySource(["contact"]) })] }, rules, () => [], () => []).tier, 3);
+});
+
+test("anything else under src/forms/ is tier 3: form rules (code)", () => {
+  const result = withForms([file("src/forms/validate.ts"), file("src/forms/schema.ts", "A")]);
+  assert.equal(result.tier, 3);
+  assert.deepEqual(result.outside.map((o) => o.reason), ["form rules (code)", "form rules (code)"]);
+  assert.equal(run([file("site.config.ts")]).outside[0].reason, "the site settings");
+});
+
+test("with a form file changed, the whole site is judged with the form settings and the registry ids", () => {
+  let seen;
+  let extraSeen;
+  const validateSite = (input, registry, repo, extra) => {
+    seen = input;
+    extraSeen = extra;
+    return ['src/content/forms/quote.json: "button" is required.'];
+  };
+  const forms = [{ id: "quote", data: {} }];
+  const result = evaluateChange({ files: [item("src/content/forms/quote.json", "A")], pages: [], site: { items: [], brand: brandJson, forms, registryIds: ["quote"] } }, rules, () => [], validateSite);
+  assert.equal(seen.forms, forms);
+  assert.deepEqual(extraSeen.registryIds, ["quote"]);
+  assert.ok(extraSeen.formSettings.maxForms > 0);
+  assert.deepEqual(decide(result, "strict").reasons, ["content problem"]);
+});
+
+const quoteForm = `${JSON.stringify({ name: "Quote request", status: "live", fields: [{ id: "email", type: "email", label: "Email", required: true }], button: "Send", thanks: "Thanks, I will reply soon." }, null, 2)}\n`;
+
+test("real git: a new form file with its matching registry passes; a wrong registry or a bad form fails", () => {
+  const ok = inRepo(({ write }) => {
+    write("src/content/forms/quote.json", quoteForm);
+    write(REGISTRY_PATH, registrySource(["quote"]));
+  });
+  assert.doesNotMatch(ok.report, /Tier 3/, ok.report);
+  assert.doesNotMatch(ok.report, /form registry/);
+  const stale = inRepo(({ write }) => {
+    write("src/content/forms/quote.json", quoteForm);
+    write(REGISTRY_PATH, registrySource(["contact"]));
+  });
+  assert.equal(stale.code, 1, stale.report);
+  assert.match(stale.report, /form registry does not match the form files/);
+  const broken = inRepo(({ write }) => {
+    write("src/content/forms/quote.json", "{ not json");
+    write(REGISTRY_PATH, registrySource(["quote"]));
+  });
+  assert.equal(broken.code, 1, broken.report);
+  assert.match(broken.report, /src\/content\/forms\/quote\.json: is not valid JSON/);
 });

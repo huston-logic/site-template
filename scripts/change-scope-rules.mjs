@@ -9,6 +9,8 @@
 // generated files, shared with the Worker and the build.
 import { GENERATED_BRAND_FILES } from "../src/brand/generated.ts";
 import { SETTINGS_NAMES, settingsPath } from "../src/settings/names.ts";
+import { CONTACT_FORM_ID, FORM_DIR, formFilePath } from "../src/forms/schema.ts";
+import { REGISTRY_PATH } from "../src/forms/registry.ts";
 
 export const rules = {
   // ---- Tier 1 ---------------------------------------------------------------------------------------------------
@@ -51,6 +53,18 @@ export const rules = {
   generatedFiles: [...GENERATED_BRAND_FILES],
   /** The settings file whose change reaches every page, and so needs a preview before the yes. */
   brandFile: "src/content/brand.json",
+  /** The folder of form files: src/content/forms/<id>.json. */
+  formDir: `${FORM_DIR}/`,
+  /** A form file: directly in the forms folder, an id of lowercase words joined by hyphens. Tier 1 when the site check passes at the head. */
+  formFile: /^src\/content\/forms\/([a-z0-9]+(?:-[a-z0-9]+)*)\.json$/,
+  /** The contact form's file wires the Worker (its fields feed the notification and the Sheet row), so it is tier 3. */
+  contactFormFile: formFilePath(CONTACT_FORM_ID),
+  /** The generated list of form files. Tier 1 only when byte-equal to what the head's form files generate. */
+  registryFile: REGISTRY_PATH,
+  /** Why deleting (or renaming) a form file is tier 3. */
+  formArchiveReason: 'forms are archived, not deleted: set its status to "archived" instead',
+  /** Why a registry that is not what the form files generate is tier 3. */
+  registryMismatchReason: "the form registry does not match the form files. Add or change a form file and run `npm run sync:config`, never edit this file by hand",
   /** Why deleting (or renaming) an item or a settings file is tier 3. */
   itemArchiveReason: 'items are archived, not deleted: set its status to "archived" instead (a settings file is never deleted)',
   /** Why a generated brand file that is not what brand.json generates is tier 3. */
@@ -105,6 +119,9 @@ export const rules = {
     [/^\.github\//, "the CI workflows"],
     [/^\.claude\//, "the Claude hooks and agents"],
     [/^src\/components\//, "a shared component"],
+    [/^src\/content\/forms\/contact\.json$/, "the contact form's wiring"],
+    [/^src\/content\/forms\//, "not a form file: a form is src/content/forms/<id>.json, an id of lowercase words joined by hyphens, directly in that folder"],
+    [/^src\/forms\//, "form rules (code)"],
     [/^src\/blocks\/|^src\/site-blocks\//, "a block's design (code)"],
     [/^src\/lib\//, "site code"],
     [/^src\/content\/(site|providers|auto-reply|contact-fields)\.ts$/, "site wiring, not copy"],
