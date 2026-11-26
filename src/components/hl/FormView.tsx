@@ -3,7 +3,6 @@
 import { useEffect, useId, useRef, useState, type SyntheticEvent } from "react";
 import { Text } from "@/components/ui/Text";
 import { honeypot } from "@/content/contact-fields";
-import { selectEmpty } from "@/content/contact";
 import { formWords } from "@/content/forms";
 import { providers } from "@/content/providers";
 import type { FormField, PublicForm } from "@/forms/schema";
@@ -149,7 +148,7 @@ export function FormView({ id, form, noScriptEmail }: { id: string; form: Public
                 label={labelFor(field, true)}
                 error={errors[field.id]}
                 rich
-                emptyChoice={selectEmpty}
+                emptyChoice={formWords.selectEmpty}
                 chips={
                   field.display === "buttons"
                     ? {

@@ -10,9 +10,6 @@ const fields = new Map(contactDefinitionFor("").fields.map((field) => [field.id,
 const labelOf = (id: string): string => fields.get(id)?.label ?? "";
 const errorOf = (id: string): string => fields.get(id)?.error ?? "";
 
-/** The empty first choice of a menu, shared with the generic forms. */
-export const selectEmpty = "Choose one";
-
 export const noteForm = {
   heading: "[[Contact form heading]]",
   partnerHeading: "[[Partner contact form heading]]",
@@ -37,7 +34,7 @@ export const noteForm = {
     },
   },
   website: { label: labelOf("website") },
-  source: { label: labelOf("source"), empty: selectEmpty },
+  source: { label: labelOf("source"), empty: "Choose one" },
   privacyNote: fields.get("message")?.help ?? "",
   submitLabel: contactDefinitionFor("").button,
   errors: {
