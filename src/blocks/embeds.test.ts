@@ -60,8 +60,7 @@ describe("audio player and listen addresses", () => {
     for (const provider of audioProviders) assert.ok(parseAudioUrl(provider.example), provider.name);
   });
 
-  it("adds both player origins to embedOrigins", () => {
-    assert.ok(embedOrigins.includes("https://open.spotify.com"));
-    assert.ok(embedOrigins.includes("https://embed.podcasts.apple.com"));
+  it("allows exactly the four player origins, in order", () => {
+    assert.deepEqual([...embedOrigins], ["https://www.youtube-nocookie.com", "https://player.vimeo.com", "https://open.spotify.com", "https://embed.podcasts.apple.com"]);
   });
 });
