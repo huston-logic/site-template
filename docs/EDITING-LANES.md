@@ -61,6 +61,8 @@ Ask for any of these in plain words.
   80 pixels. Works today.
 - **Put up a site notice**: one short line at the top of every page, with an optional link and an optional last day.
   Take it down whenever you like. Works today.
+- **New forms.** Ask for a form, such as a quote request or a sign-up, with the fields you need, and place it on a page. Works today.
+- **File-download forms.** A visitor leaves their email address to get a PDF you uploaded. Works today.
 
 ### The check on every change
 
@@ -102,8 +104,7 @@ Each section below is one block you can place on a page. The list says what each
 
 ## Lane 2: Do it yourself once it is built
 
-- **New forms.** Coming. Not available yet.
-- **File-download forms.** Coming. A visitor leaves their email address to get a file from you.
+Nothing is in this lane right now.
 
 ## Lane 3: Huston Logic builds it
 
