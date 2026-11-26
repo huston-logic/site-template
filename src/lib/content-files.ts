@@ -6,8 +6,9 @@ import { join } from "node:path";
 import { ITEM_DIR } from "../collections/schema.ts";
 import type { ItemFile } from "../collections/schema.ts";
 
-const SETTINGS_FILES = ["business", "brand", "notice"] as const;
-export type SettingsFileName = (typeof SETTINGS_FILES)[number];
+import type { SettingsName } from "../settings/names.ts";
+
+export type SettingsFileName = SettingsName;
 export type SettingsFileResult = { data: unknown; error?: string };
 
 const byName = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);

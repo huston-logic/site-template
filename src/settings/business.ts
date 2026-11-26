@@ -36,21 +36,38 @@ const PHONE_CHARS = /^[0-9 +()\-.]+$/;
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 const TIME_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
+/** The plain names of the business fields, shared by the validator's messages and the editor's change list. */
+export const BUSINESS_LABELS = {
+  name: "Business name",
+  phone: "Phone",
+  email: "Email",
+  address: "Address lines",
+  addressLine: "Address line",
+  hours: "Hours",
+  opens: "Opens",
+  closes: "Closes",
+  hoursNote: "Hours note",
+  social: "Social links",
+  socialLink: "Social link",
+  network: "Network",
+  url: "Address",
+} as const;
+
 const TEXT_FIELDS: Fields = {
-  name: { kind: "text", label: "Business name", max: 80 },
-  address: { kind: "list", label: "Address lines", min: 0, max: 4, of: { kind: "text", label: "Address line", max: 80 } },
-  hoursNote: { kind: "text", label: "Hours note", max: 120, required: false },
+  name: { kind: "text", label: BUSINESS_LABELS.name, max: 80 },
+  address: { kind: "list", label: BUSINESS_LABELS.address, min: 0, max: 4, of: { kind: "text", label: BUSINESS_LABELS.addressLine, max: 80 } },
+  hoursNote: { kind: "text", label: BUSINESS_LABELS.hoursNote, max: 120, required: false },
   social: {
     kind: "list",
-    label: "Social links",
+    label: BUSINESS_LABELS.social,
     min: 0,
     max: 8,
     of: {
       kind: "object",
-      label: "Social link",
+      label: BUSINESS_LABELS.socialLink,
       fields: {
-        network: { kind: "choice", label: "Network", options: SOCIAL_NETWORKS.map((n) => n.id) },
-        url: { kind: "link", label: "Address" },
+        network: { kind: "choice", label: BUSINESS_LABELS.network, options: SOCIAL_NETWORKS.map((n) => n.id) },
+        url: { kind: "link", label: BUSINESS_LABELS.url },
       },
     },
   },

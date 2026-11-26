@@ -3,6 +3,7 @@
 // Names only, never values (docs/SECRETS.md).
 import { isHttpsOrigin } from "../worker/pipeline-url.ts"; // the same rule the Worker applies before it sends the secret
 import { fontsModule } from "../src/brand/fonts.ts";
+import { FONTS_PATH, PALETTE_PATH } from "../src/brand/generated.ts";
 import { paletteCss } from "../src/brand/palette.ts";
 
 const DESTINATIONS = ["sheet", "pipeline"];
@@ -262,7 +263,7 @@ export function configProblems(c) {
  * brand.json (contrast, logo) is `npm run check:content`.
  */
 export function brandFiles(brand) {
-  return { "src/app/palette.css": paletteCss(brand.colors), "src/lib/fonts.ts": fontsModule(brand.fonts) };
+  return { [PALETTE_PATH]: paletteCss(brand.colors), [FONTS_PATH]: fontsModule(brand.fonts) };
 }
 
 /** First differing lines of two texts, for a drift report. */

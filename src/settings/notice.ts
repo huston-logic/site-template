@@ -12,15 +12,18 @@ export type NoticeData = {
 
 const WHERE = "notice.json";
 
+/** The plain names of the notice fields, shared by the validator's messages and the editor's change list. */
+export const NOTICE_LABELS = { text: "Notice text", link: "Notice link", linkText: "Link text", linkHref: "Link", endsOn: "Last day it shows" } as const;
+
 const FIELDS: Fields = {
-  text: { kind: "text", label: "Notice text", max: 120, min: 0 },
+  text: { kind: "text", label: NOTICE_LABELS.text, max: 120, min: 0 },
   link: {
     kind: "object",
-    label: "Notice link",
+    label: NOTICE_LABELS.link,
     required: false,
     fields: {
-      label: { kind: "text", label: "Link text", max: 40 },
-      href: { kind: "link", label: "Link" },
+      label: { kind: "text", label: NOTICE_LABELS.linkText, max: 40 },
+      href: { kind: "link", label: NOTICE_LABELS.linkHref },
     },
   },
 };

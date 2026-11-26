@@ -17,6 +17,7 @@ export const testEditorConfig = (overrides: Partial<EditorConfig> = {}): EditorC
   siteUrl: "https://example.test",
   host: "example.test",
   siteName: "Example Co",
+  timeZone: "UTC",
   workerName: "example-site",
   access: { teamDomain: null, aud: null },
   github: { owner: "example", repo: "site", appId: "1", installationId: "2", botLogin: "editor-bot[bot]" },

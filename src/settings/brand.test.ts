@@ -56,7 +56,7 @@ test("colors must be #rrggbb, complete and known", () => {
   assert.ok(validateBrand({ ...seed, colors: { ...template, green: "blue" } }, repo).some((m) => /"green" is "blue"; write it as #rrggbb/.test(m)));
   assert.ok(validateBrand({ ...seed, colors: { ...template, green: "#fff" } }, repo).some((m) => /#rrggbb/.test(m)));
   assert.ok(validateBrand({ ...seed, colors: { ...template, pink: "#ff00ff" } }, repo).some((m) => /"pink" is not a color/.test(m)));
-  const { rust: _rust, ...missing } = template;
+  const missing = Object.fromEntries(Object.entries(template).filter(([key]) => key !== "rust"));
   assert.ok(validateBrand({ ...seed, colors: missing }, repo).some((m) => /"rust" is missing/.test(m)));
 });
 
@@ -89,7 +89,7 @@ test("logo size: at least 160 by 80, and between square and 6 to 1", () => {
 
 test("unknown keys, missing keys and non-objects", () => {
   assert.ok(validateBrand({ ...seed, theme: "dark" }, repo).some((m) => /"theme" is not a brand setting/.test(m)));
-  const { logo: _l, ...noLogo } = seed;
+  const noLogo = Object.fromEntries(Object.entries(seed).filter(([key]) => key !== "logo"));
   assert.ok(validateBrand(noLogo, repo).some((m) => /"logo" is required/.test(m)));
   assert.ok(validateBrand({ ...seed, logo: { ...logo, extra: 1 } }, repo).some((m) => /"extra"/.test(m)));
   assert.match(validateBrand("x", repo)[0] ?? "", /must be an object/);

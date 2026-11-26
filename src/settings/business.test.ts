@@ -36,7 +36,7 @@ test("a full good file passes", () => {
 test("not an object, unknown keys and missing keys are named", () => {
   assert.match(validateBusiness([], ctx)[0] ?? "", /must be an object/);
   assert.ok(validateBusiness({ ...good, fax: "1" }, ctx).some((m) => /"fax" is not a business detail/.test(m)));
-  const { phone: _phone, ...withoutPhone } = good;
+  const withoutPhone = Object.fromEntries(Object.entries(good).filter(([key]) => key !== "phone"));
   assert.ok(validateBusiness(withoutPhone, ctx).some((m) => /"phone" is required/.test(m)));
 });
 
@@ -82,7 +82,7 @@ test("hours: null is fine; each day needs opens and closes in HH:MM, or closed",
   assert.ok(validateBusiness({ ...good, hours: { ...week, monday: "open" } }, ctx).some((m) => /monday/.test(m)));
   assert.ok(validateBusiness({ ...good, hours: { ...week, monday: { opens: "9:00", closes: "17:00" } } }, ctx).some((m) => /HH:MM/.test(m)));
   assert.ok(validateBusiness({ ...good, hours: { ...week, monday: { opens: "17:00", closes: "09:00" } } }, ctx).some((m) => /closes .* before it opens/.test(m)));
-  const { sunday: _s, ...six } = week;
+  const six = Object.fromEntries(Object.entries(week).filter(([day]) => day !== "sunday"));
   assert.ok(validateBusiness({ ...good, hours: six }, ctx).some((m) => /needs sunday/.test(m)));
   assert.ok(validateBusiness({ ...good, hours: { ...week, funday: "closed" } }, ctx).some((m) => /not a day/.test(m)));
 });

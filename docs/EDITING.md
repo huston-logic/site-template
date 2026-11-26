@@ -21,7 +21,7 @@ For Huston Logic and for the site owner. The first half says what the editor doe
 5. **Publish.** The Worker creates a branch named `change/owner-<id>` and opens a pull request titled "change: <summary>". It turns on auto-merge with squash, which merges the change as one commit once the checks pass. If GitHub says the pull request can merge at once, the Worker merges it directly.
 6. **Checks.** The same required checks as any change run: `check`, `a11y`, `lighthouse` and `dependency-review`. CodeQL also runs. The change-scope check and the change report run too, but do not block yet (see Known limits).
 7. **Merge and deploy.** Merging into `main` deploys the site through Cloudflare Workers Builds.
-8. **Live.** Each build writes its commit to `/site-version.json`. When that file names the merge commit or a later one, the change is live.
+8. **Live.** Each build writes its commit to `/site-version.json`, along with `drafts`: `true` when the build includes draft items (any build that is not the production build), `false` for production. When that file names the merge commit or a later one, the change is live.
 
 To check, the owner asks "is it live yet?" The AI asks the Worker, which answers with one of these words:
 
@@ -47,7 +47,7 @@ Besides page text, the owner can ask for these by chat. Each one goes through th
 - **Brand colors.** The owner can change two colors: the brand color (green in the template) and the accent color (rust in the template). The other companion colors are worked out from the brand color. The background and text colors stay as the design has them. See the brand guardrails below.
 - **Fonts.** The owner can choose a display font (headings), a body font and an accent font (italic only) from the list the site offers. Display: Outfit, Manrope, Sora, DM Sans, Plus Jakarta Sans, Fraunces. Body: Inter, Source Sans 3, Work Sans, Nunito Sans, Figtree, Lora. Accent: Newsreader, Fraunces, Lora, Playfair Display.
 - **Logo.** An image the owner uploads (JPEG, PNG, WebP or iPhone HEIC) can replace the business name in the header. It must be at least 160 pixels wide and 80 pixels tall, with a shape between 1:1 and 6:1. It shows 40 pixels tall in the header and 36 in the footer. An SVG logo is a build by Huston Logic (see Lane 3 in [EDITING-LANES.md](EDITING-LANES.md)).
-- **The site notice.** One short line (up to 120 characters) above the header on every page, with an optional link and an optional last day. The last day is included, and it is judged in the site's time zone. "Take it down" empties the notice. A notice has no close button.
+- **The site notice.** One short line (up to 120 characters) above the header on every page, with an optional link and an optional last day. The last day is included. The change list judges it in the site's time zone (`business.timeZone` in `site.config.ts`), and the change list says "Shows through <date>; it comes down at the first publish after that date." "Take it down" empties the notice. A notice has no close button.
 
 ### Brand guardrails
 
@@ -194,7 +194,8 @@ Lighthouse sets the pace. It checks 6 pages, three runs each.
 - **The social share image keeps its font.** The generated share image (OG image) always uses its bundled Outfit font, whatever display font the site uses. Its lettering can differ from the page headings.
 - **A rename does not reach everything.** Changing the business name in chat changes the header, the footer, the logo's text and the RSS feed's title. It does not change the page titles, and it does not change the signature of the automatic reply email. The owner changes page titles page by page.
 - **An expired notice stays up until the next publish.** The site checks the notice's last day when it builds. So an expired notice comes down only on the first build after a publish of anything.
-- **Brand changes need preview links.** A preview of a brand change needs the site's preview address set up (`workersSubdomain` in the editor block of `site.config.ts`). Without it the AI app cannot publish a brand change.
+- **Drafts depend on Workers Builds naming its branch.** Production builds only through Workers Builds, so a build outside it counts as "not production" and includes drafts. `/site-version.json` shows `drafts: true` for such a build, and the build log says "Drafts included (not a production build)". Never deploy by hand.
+- **Brand changes need preview links.** A preview of a brand change needs the site's preview address set up (`workersSubdomain` in the editor block of `site.config.ts`). Without it the editor refuses a brand proposal up front, before anything is drafted, and says that Huston Logic can make the change.
 - **A list shows only live items.** A video list, episode list, testimonials or team block is left off the page until one item in it is live. The change list says so. The blog index shows its own empty text instead.
 - **Spotify may need a second press.** Browsers limit autoplay inside a frame from another site, so a Spotify episode may need a second press to start.
 - **Not in this version.** Tags or categories, post search, scheduled publishing, comments, authors other than the site, a notice with a close button, a 24-hour clock, owner-set background or text colors, and SVG logos by chat.

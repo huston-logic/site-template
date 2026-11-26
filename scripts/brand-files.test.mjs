@@ -3,12 +3,23 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
+import { GENERATED_BRAND_FILES } from "../src/brand/generated.ts";
 import { brandFiles, driftedFiles } from "./config-rules.mjs";
+import { rules } from "./change-scope-rules.mjs";
 
 const brand = JSON.parse(readFileSync(new URL("../src/content/brand.json", import.meta.url), "utf8"));
 const read = (files) => (path) => files[path] ?? null;
 
 describe("generated brand files", () => {
+  test("the generator, the scope rules and the Worker name the same two files", () => {
+    assert.deepEqual(Object.keys(brandFiles(brand)).sort(), [...GENERATED_BRAND_FILES].sort());
+    assert.deepEqual([...rules.generatedFiles].sort(), [...GENERATED_BRAND_FILES].sort());
+  });
+
+  test("fonts.ts says it is generated", () => {
+    assert.match(readFileSync(new URL("../src/lib/fonts.ts", import.meta.url), "utf8"), /^\/\/ Generated from src\/content\/brand\.json by `npm run sync:config`; do not edit by hand\.\n/);
+  });
+
   test("the committed palette.css and fonts.ts match brand.json", () => {
     const generated = brandFiles(brand);
     const committed = Object.fromEntries(Object.keys(generated).map((path) => [path, readFileSync(new URL(`../${path}`, import.meta.url), "utf8")]));

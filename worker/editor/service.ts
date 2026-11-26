@@ -1,4 +1,5 @@
 import { pathForFile } from "../../src/blocks/schema.ts";
+import { todayIn } from "../../src/settings/notice.ts";
 import { log } from "../env.ts";
 import { pageValueFor, uploadRepoPath } from "../uploads/paths.ts";
 import type { UploadRecord } from "../uploads/types.ts";
@@ -9,7 +10,7 @@ import { GitHubError, toBase64, type CommitFile, type Pull } from "./github.ts";
 import { isObject } from "./json.ts";
 import { applyOperations, deepEqual, type BlockIds } from "./operations.ts";
 import { catalogResult, collectionResult, collectionsResult, guideResult, itemResult, overviewResult, pageResult, settingsResult } from "./read-tools.ts";
-import { filesFor, isPageFile, itemFilesFor, itemKeyOf, readSite, settingNameOf, settingsFilesFor, validateSet, type Pending, type Snapshot } from "./site-reader.ts";
+import { filesFor, isCommittablePath, isPageFile, itemFilesFor, itemKeyOf, readSite, settingNameOf, settingsFilesFor, validateSet, type Pending, type Snapshot } from "./site-reader.ts";
 import { BRANCH_PREFIX, changeTitle, createStatusReader, deployedReader, editorPulls, isEditorPull, statusLine, type ChangeStatus } from "./status.ts";
 import { GITHUB_DOWN, type ChangeView, type Editor, type EditorDeps, type Owner, type ProposalView, type ToolResult, type UploadView } from "./types.ts";
 import { hasUploadRef, resolveUploads, type ProposalUpload } from "./uploads.ts";
@@ -151,6 +152,10 @@ export function createEditor(deps: EditorDeps): Editor {
   /** The files a proposal commits: its pages, then each upload's bytes read from the inbox and checked against the proposal. */
   async function filesToCommit(proposal: Proposal): Promise<CommitFile[] | ToolResult> {
     const files: CommitFile[] = [...proposal.files];
+    if (files.some((file) => !isCommittablePath(file.path)) || proposal.uploads.some((upload) => !isCommittablePath(upload.path))) {
+      log("editor_path_refused");
+      return error("This proposal would change a file the editor is not allowed to change, so nothing was written. Propose it again, or ask " + AGENCY_NAME + ".");
+    }
     for (const upload of proposal.uploads) {
       const bytes = inbox ? await inbox.file(upload.id) : null;
       if (!bytes || (await sha256Hex(bytes)) !== upload.sha256) {
@@ -238,6 +243,15 @@ export function createEditor(deps: EditorDeps): Editor {
     return null;
   }
 
+  /** The calendar date at the site's time zone; UTC if the zone name is not one Intl knows. */
+  function today(): string {
+    try {
+      return todayIn(config.timeZone, now());
+    } catch {
+      return now().toISOString().slice(0, 10);
+    }
+  }
+
   /** The files and the change list for a set of pages, items and settings as they would be after a change. */
   function describe(
     snapshot: Snapshot,
@@ -249,8 +263,9 @@ export function createEditor(deps: EditorDeps): Editor {
     const uploads = extra.uploads ?? [];
     const onSite = extra.onSite ?? new Set<string>();
     const sections = documentSections(
-      { before: snapshot, after: docs, touchedItems: touched.items, touchedSettings: touched.settings, touchedPages: touched.pages, pages: after, today: now().toISOString().slice(0, 10) },
+      { before: snapshot, after: docs, touchedItems: touched.items, touchedSettings: touched.settings, touchedPages: touched.pages, pages: after, today: today() },
       makeCtx({ uploads, onSite }),
+      registry,
     );
     return {
       files: [...filesFor(snapshot, after, touched.pages), ...itemFilesFor(docs.items, touched.items), ...settingsFilesFor(docs.settings, touched.settings)],
@@ -280,6 +295,10 @@ export function createEditor(deps: EditorDeps): Editor {
         continue;
       }
       try {
+        if (before === null && setting !== null) {
+          problems.push(`${name} did not exist before change ${pull.number}, so it cannot be put back. Ask ${AGENCY_NAME}.`);
+          continue;
+        }
         const restored: unknown = before === null ? { ...(JSON.parse(current) as Record<string, unknown>), status: "archived" } : JSON.parse(before);
         if (item !== null) items.set(item, restored);
         else if (setting !== null) settings.set(setting, restored);
@@ -456,6 +475,9 @@ export function createEditor(deps: EditorDeps): Editor {
         if (!applied.ok) return refusal(applied.problems);
         const touched = { pages: applied.touched, items: applied.touchedItems, settings: applied.touchedSettings };
         if (touched.pages.length + touched.items.length + touched.settings.length === 0) return refusal(["The operations change nothing on the site."]);
+        if (touched.settings.includes("brand") && config.workersSubdomain === null) {
+          return refusal([`Brand changes need a preview first, and previews are not set up on this site yet. ${AGENCY_NAME} can make this change for you.`]);
+        }
         let after = applied.after;
         let docs = { items: applied.items, settings: applied.settings };
         let uploads: ProposalUpload[] = [];

@@ -1,9 +1,12 @@
 // The change list's sections for collection items and the three settings files. Like change-list.ts, it is built from the
 // real before and after values (never from the operations), prints every value as quoted plain text, and never cuts an
 // item short: the owner reads every field and every body part.
-import type { Field } from "../../src/blocks/schema.ts";
+import type { AnyBlockDefinition, Field } from "../../src/blocks/schema.ts";
 import { CONTRAST_PAIRS, type ColorToken } from "../../src/brand/contrast-pairs.ts";
 import { CURATED_FONTS, FONT_ROLES, type FontRole } from "../../src/brand/fonts.ts";
+import { SETTINGS_NAMES } from "../../src/settings/names.ts";
+import { BUSINESS_LABELS } from "../../src/settings/business.ts";
+import { NOTICE_LABELS } from "../../src/settings/notice.ts";
 import { collectionFor } from "../../src/collections/definitions.ts";
 import type { CollectionDefinition } from "../../src/collections/schema.ts";
 import { type Ctx, type Entry, diffValue, leaves, photoText, quote, render, text } from "./change-list.ts";
@@ -19,7 +22,7 @@ export interface DocumentChange {
   touchedPages: readonly string[];
   /** The pages as they would be after the change, to say when a list section would show nothing. */
   pages: ReadonlyMap<string, unknown>;
-  /** Today's date, YYYY-MM-DD (UTC). */
+  /** Today's date, YYYY-MM-DD, in the site's time zone. */
   today: string;
 }
 
@@ -27,14 +30,14 @@ export interface DocumentChange {
 export const LONG_POST = 1500;
 export const LONG_POST_LINE = "This post is long: offer the owner the preview link.";
 
-/** The sections that show a kind's items; a kind with none live leaves these sections empty. */
-const LIST_BLOCKS: Record<string, string[]> = {
-  posts: ["latest-posts", "post-index"],
-  videos: ["video-list"],
-  episodes: ["episode-list"],
-  testimonials: ["testimonials"],
-  team: ["team"],
-};
+/** The block types that show a kind's items, from each definition's `collection`; a kind with none live leaves these sections empty. */
+function listBlocks(registry: readonly AnyBlockDefinition[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const definition of registry) {
+    if (definition.collection !== undefined) out.set(definition.collection, [...(out.get(definition.collection) ?? []), definition.type]);
+  }
+  return out;
+}
 
 const status = (item: unknown): string => (isObject(item) && typeof item.status === "string" ? item.status : "");
 
@@ -141,10 +144,10 @@ function itemSection(key: string, old: unknown, now: unknown, ctx: Ctx): string 
 }
 
 /** One note per page whose list section would show nothing because the kind has no live item. */
-function emptyListNotes(change: DocumentChange): string[] {
+function emptyListNotes(change: DocumentChange, registry: readonly AnyBlockDefinition[]): string[] {
   const notes: string[] = [];
   const touchedKinds = new Set(change.touchedItems.map((key) => key.slice(0, key.indexOf("/"))));
-  for (const [kind, types] of Object.entries(LIST_BLOCKS)) {
+  for (const [kind, types] of listBlocks(registry)) {
     const live = [...change.after.items].some(([key, item]) => key.startsWith(`${kind}/`) && status(item) === "live");
     if (live) continue;
     for (const [path, page] of change.pages) {
@@ -160,33 +163,35 @@ function emptyListNotes(change: DocumentChange): string[] {
 
 // ---- settings ----
 
+const B = BUSINESS_LABELS;
 const BUSINESS_FIELDS: Field = {
   kind: "object",
   label: "",
   fields: {
-    name: text("Business name"),
-    phone: text("Phone"),
-    email: text("Email"),
-    address: { kind: "list", label: "Address", min: 0, max: 4, of: text("Address line") },
+    name: text(B.name),
+    phone: text(B.phone),
+    email: text(B.email),
+    address: { kind: "list", label: B.address, min: 0, max: 4, of: text(B.addressLine) },
     hours: {
       kind: "object",
-      label: "Hours",
+      label: B.hours,
       fields: Object.fromEntries(
         ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => [
           day,
-          { kind: "object", label: `${day[0].toUpperCase()}${day.slice(1)}`, fields: { opens: text("Opens"), closes: text("Closes") } } as Field,
+          { kind: "object", label: `${day[0].toUpperCase()}${day.slice(1)}`, fields: { opens: text(B.opens), closes: text(B.closes) } } as Field,
         ]),
       ),
     },
-    hoursNote: text("Hours note"),
-    social: { kind: "list", label: "Social links", min: 0, max: 8, of: { kind: "object", label: "Social link", fields: { network: text("Network"), url: text("Address") } } },
+    hoursNote: text(B.hoursNote),
+    social: { kind: "list", label: B.social, min: 0, max: 8, of: { kind: "object", label: B.socialLink, fields: { network: text(B.network), url: text(B.url) } } },
   },
 };
 
+const N = NOTICE_LABELS;
 const NOTICE_FIELDS: Field = {
   kind: "object",
   label: "",
-  fields: { text: text("Notice text"), link: { kind: "object", label: "Notice link", fields: { label: text("Link text"), href: text("Link") } }, endsOn: text("Last day it shows") },
+  fields: { text: text(N.text), link: { kind: "object", label: N.link, fields: { label: text(N.linkText), href: text(N.linkHref) } }, endsOn: text(N.endsOn) },
 };
 
 /** A null value as "nothing", so the diff prints it as an addition or a removal. */
@@ -244,7 +249,8 @@ function noticeSection(old: Record<string, unknown>, now: Record<string, unknown
   const endsOn = typeof now.endsOn === "string" ? now.endsOn : null;
   if (text === "") lines.push("  The notice comes down: it no longer shows on any page.");
   else if (endsOn !== null && endsOn < today) lines.push("  This notice will not show: its end date has passed.");
-  else lines.push(`  The notice shows above the header on every page${endsOn !== null ? `, through ${endsOn}` : ""}.`);
+  else if (endsOn !== null) lines.push(`  The notice shows above the header on every page. Shows through ${endsOn}; it comes down at the first publish after that date.`);
+  else lines.push("  The notice shows above the header on every page.");
   return lines.join("\n");
 }
 
@@ -255,13 +261,13 @@ function businessSection(old: Record<string, unknown>, now: Record<string, unkno
 }
 
 /** The change list's sections for the items and settings a change touches (items first, then business, brand, notice). */
-export function documentSections(change: DocumentChange, ctx: Ctx): string[] {
+export function documentSections(change: DocumentChange, ctx: Ctx, registry: readonly AnyBlockDefinition[]): string[] {
   const sections: string[] = [];
   for (const key of change.touchedItems) {
     const section = itemSection(key, change.before.items.get(key), change.after.items.get(key), ctx);
     if (section !== null) sections.push(section);
   }
-  for (const name of ["business", "brand", "notice"]) {
+  for (const name of SETTINGS_NAMES) {
     if (!change.touchedSettings.includes(name)) continue;
     const old = change.before.settings.get(name);
     const now = change.after.settings.get(name);
@@ -270,7 +276,7 @@ export function documentSections(change: DocumentChange, ctx: Ctx): string[] {
     else if (name === "brand") sections.push(brandSection(old, now, ctx));
     else sections.push(noticeSection(old, now, change.today, ctx));
   }
-  const notes = emptyListNotes(change);
+  const notes = emptyListNotes(change, registry);
   if (notes.length > 0) sections.push(notes.join("\n"));
   return sections;
 }

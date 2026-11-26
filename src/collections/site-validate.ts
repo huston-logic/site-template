@@ -11,9 +11,10 @@ import type { ItemFile, ItemStatus, LoadedItem } from "./schema.ts";
 import { collectionFor } from "./definitions.ts";
 import { validateItems } from "./validate.ts";
 
-export const SETTINGS_NAMES = ["business", "brand", "notice"] as const;
-export type SettingsName = (typeof SETTINGS_NAMES)[number];
-export const settingsPath = (name: SettingsName): string => `src/content/${name}.json`;
+import { SETTINGS_NAMES, settingsPath, type SettingsName } from "../settings/names.ts";
+
+export { SETTINGS_NAMES, settingsPath };
+export type { SettingsName };
 
 export const BLOG_PATH = "/blog";
 export const POST_INDEX_BLOCK = "post-index";

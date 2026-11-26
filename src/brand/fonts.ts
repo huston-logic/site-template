@@ -64,7 +64,8 @@ export function fontsModule(choice: Record<FontRole, string>): string {
   const body = find("body", choice.body);
   const accent = find("accent", choice.accent);
   const names = [...new Set([display, body, accent].map((font) => importName(font.family)))].sort();
-  return `import { ${names.join(", ")} } from "next/font/google";
+  return `// Generated from src/content/brand.json by \`npm run sync:config\`; do not edit by hand.
+import { ${names.join(", ")} } from "next/font/google";
 
 // Design v3 fonts (docs/STYLE-GUIDE.md §3). Each is self-hosted at build time by next/font; no third-party font tags.
 // Preloaded: ${display.family} (header and every heading) and ${body.family} (body) render above the fold on every page; ${accent.family} is below the fold, so it is not.

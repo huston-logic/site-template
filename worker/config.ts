@@ -14,6 +14,8 @@ export type Destination = "sheet" | "pipeline";
  */
 export interface WorkerSiteConfig extends AutoReplyConfig {
   domain: { url: string; workerName: string; previewHostSuffix: string; productionBranch?: string };
+  /** `timeZone` is optional so an older fixture still compiles; missing means UTC. */
+  business: { name: string; tagline: string; timeZone?: string };
   /** Optional so an older fixture still compiles; missing means the editor is disabled. */
   editor?: EditorSiteConfig;
   contact: {
@@ -61,6 +63,8 @@ export interface EditorConfig {
   /** The hostname of `siteUrl`: the only host the editor answers on. */
   host: string;
   siteName: string;
+  /** The business's IANA time zone (`business.timeZone`): the day a notice's last day is judged in. */
+  timeZone: string;
   workerName: string;
   access: { teamDomain: string | null; aud: string | null };
   github: {
@@ -124,6 +128,7 @@ export function buildEditorConfig(config: WorkerSiteConfig): EditorConfig {
     siteUrl,
     host: hostOf(siteUrl),
     siteName: config.business.name,
+    timeZone: config.business.timeZone ?? "UTC",
     workerName: config.domain.workerName,
     access: { teamDomain: editor?.access.teamDomain ?? null, aud: editor?.access.aud ?? null },
     github: {

@@ -1,3 +1,4 @@
+// Generated from src/content/brand.json by `npm run sync:config`; do not edit by hand.
 import { Inter, Newsreader, Outfit } from "next/font/google";
 
 // Design v3 fonts (docs/STYLE-GUIDE.md §3). Each is self-hosted at build time by next/font; no third-party font tags.
