@@ -3,6 +3,7 @@ import { ArrowLabel } from "@/components/hl/Arrow";
 import { Container } from "@/components/hl/Container";
 import { HlLink } from "@/components/hl/HlLink";
 import { Text } from "@/components/ui/Text";
+import { chrome } from "@/content/chrome";
 import { siteConfig } from "@/content/site";
 import { contactLines, socialLinks } from "@/lib/chrome-view";
 import { getMenu } from "@/lib/pages";
@@ -32,7 +33,7 @@ export function Footer() {
             </p>
           </div>
 
-          <nav aria-label="Footer">
+          <nav aria-label={chrome.footerNavLabel}>
             <ul>
               {footerLinks.map((item) => (
                 <li key={item.label}>

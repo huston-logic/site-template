@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { LoadedItem } from "../collections/schema.ts";
+import { findItem } from "../collections/pick.ts";
 import { pickItems } from "./collections.ts";
 import { showDrafts } from "./drafts.ts";
 
@@ -15,5 +16,14 @@ describe("pickItems", () => {
   it("outside production adds drafts, never archived items", () => {
     const drafts = showDrafts({ WORKERS_CI: "1", WORKERS_CI_BRANCH: "feat/x" }, "main");
     assert.deepEqual(pickItems(all, "posts", drafts).map((i) => i.slug), ["wip", "new", "old"]);
+  });
+});
+
+describe("findItem", () => {
+  it("finds a live item, a draft only when drafts show, and never an archived one", () => {
+    assert.equal(findItem(all, "posts", "new", false)?.slug, "new");
+    assert.equal(findItem(all, "posts", "wip", false), undefined);
+    assert.equal(findItem(all, "posts", "wip", true)?.slug, "wip");
+    assert.equal(findItem(all, "posts", "gone", true), undefined);
   });
 });

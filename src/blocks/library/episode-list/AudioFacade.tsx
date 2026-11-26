@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Glow } from "@/components/hl/Glow";
 import { fillCopy } from "@/blocks/list-format";
 import { playerCopy } from "@/content/players";
@@ -20,7 +20,7 @@ const HEIGHT = { spotify: "h-player-spotify", apple: "h-player-apple" } as const
 
 /**
  * A podcast episode that loads nothing from its site until it is pressed. Before JavaScript it is a link that opens the
- * episode in a new tab; after, a press swaps the player into the same fixed-height frame and moves focus to it.
+ * episode in a new tab; after, a button whose press swaps the player into the same fixed-height frame and moves focus to it.
  */
 export function AudioFacade({ provider, providerName, title, embedUrl, listenUrl }: AudioFacadeProps) {
   const [playing, setPlaying] = useState(false);
@@ -33,11 +33,6 @@ export function AudioFacade({ provider, providerName, title, embedUrl, listenUrl
     if (playing) player.current?.focus();
   }, [playing]);
 
-  const press = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-    event.preventDefault();
-    setPlaying(true);
-  };
 
   if (playing) {
     return (
@@ -54,19 +49,14 @@ export function AudioFacade({ provider, providerName, title, embedUrl, listenUrl
       </div>
     );
   }
-  return (
-    <a
-      href={listenUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={press}
-      aria-label={fillCopy(interactive ? playerCopy.playLabel : playerCopy.playLabelNewTab, { title, provider: providerName })}
-      className={`group flex items-center gap-5 bg-ink px-6 ${frame}`}
-    >
+  const label = fillCopy(interactive ? playerCopy.playLabel : playerCopy.playLabelNewTab, { title, provider: providerName });
+  const className = `group flex items-center gap-5 bg-ink px-6 ${frame}`;
+  const inside = (
+    <>
       <Glow variant="green" className="hl-glow-hero opacity-30" />
       <span
         aria-hidden="true"
-        className="relative grid size-16 shrink-0 place-items-center rounded-pill bg-silver text-ink shadow-chip transition-transform group-hover:scale-110 group-focus-visible:scale-110"
+        className="relative grid size-16 shrink-0 place-items-center rounded-pill bg-silver text-ink shadow-chip transition-transform motion-safe:group-hover:scale-110 motion-safe:group-focus-visible:scale-110"
       >
         <svg viewBox="0 0 24 24" className="size-6 translate-x-0.5" fill="currentColor">
           <path d="M8 5v14l11-7z" />
@@ -75,6 +65,16 @@ export function AudioFacade({ provider, providerName, title, embedUrl, listenUrl
       <span aria-hidden="true" className="relative font-ui text-item font-semibold text-silver">
         {providerName}
       </span>
+    </>
+  );
+  // After hydration a press plays in place, so it is a button; before that (and without JavaScript) it is the link.
+  return interactive ? (
+    <button type="button" onClick={() => setPlaying(true)} aria-label={label} className={`${className} text-left`}>
+      {inside}
+    </button>
+  ) : (
+    <a href={listenUrl} target="_blank" rel="noopener noreferrer" aria-label={label} className={className}>
+      {inside}
     </a>
   );
 }
