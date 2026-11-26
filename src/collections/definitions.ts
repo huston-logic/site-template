@@ -66,8 +66,16 @@ export const collections: CollectionDefinition[] = [
     sort: "date",
     labelField: "title",
     example: [
-      example("posts", "example", { title: "[[Post title]]", description: "[[A sentence that says what the post is about]]", date: "2026-03-27", body: postBody }),
-      example("posts", "example-two", { title: "[[Second post title]]", description: "[[A sentence that says what this post is about]]", date: "2026-02-20", body: postBody.slice(0, 2) }),
+      example("posts", "example", {
+        title: "[[Post title]]", description: "[[A sentence that says what the post is about]]", date: "2026-03-27",
+        image: { src: "/images/examples/vase-and-pears.jpg", alt: "A pale blue vase beside a blue pear and a rust-red pear on a table" },
+        body: postBody,
+      }),
+      example("posts", "example-two", {
+        title: "[[Second post title]]", description: "[[A sentence that says what this post is about]]", date: "2026-02-20",
+        image: { src: "/images/examples/bowl-and-lemons.jpg", alt: "A shallow bowl holding three blue fruits beside one rust-red fruit" },
+        body: postBody.slice(0, 2),
+      }),
       example("posts", "example-three", { title: "[[Third post title]]", description: "[[A sentence that says what this post is about]]", date: "2026-01-12", body: postBody.slice(0, 2) }),
     ],
   },
@@ -122,8 +130,16 @@ export const collections: CollectionDefinition[] = [
     sort: "order",
     labelField: "name",
     example: [
-      example("team", "example", { name: "[[Team member name]]", role: "[[Team member role]]", bio: "[[Two sentences about this person]]", order: 1 }),
-      example("team", "example-two", { name: "[[Second team member name]]", role: "[[Second team member role]]", order: 2 }),
+      example("team", "example", {
+        name: "[[Team member name]]", role: "[[Team member role]]", bio: "[[Two sentences about this person]]",
+        photo: { src: "/images/examples/jug-and-cups.jpg", alt: "A tall blue jug beside two small cups on a table" },
+        order: 1,
+      }),
+      example("team", "example-two", {
+        name: "[[Second team member name]]", role: "[[Second team member role]]",
+        photo: { src: "/images/examples/candle-and-plate.jpg", alt: "A lit pale candle beside a blue egg-shaped object on a white plate" },
+        order: 2,
+      }),
       example("team", "example-three", { name: "[[Third team member name]]", role: "[[Third team member role]]", order: 3 }),
     ],
   },

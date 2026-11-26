@@ -10,16 +10,16 @@ const MAX_COUNT = 12;
 
 type Quote = { slug: string; quote: string; name: string; role?: string; organization?: string };
 
-/** Name, then role and business, under the quote. A testimonial is never shown without its name. */
+/** Name (small, UI weight), then role and business in the quieter ink, under the quote. A testimonial is never shown without its name. */
 function Attribution({ quote }: { quote: Quote }) {
   const detail = [quote.role, quote.organization].filter((part): part is string => part !== undefined);
   return (
     <figcaption className="mt-6">
-      <p className="font-ui text-item font-semibold">
+      <p className="font-ui text-small font-semibold">
         <Text>{quote.name}</Text>
       </p>
       {detail.length > 0 ? (
-        <p className="mt-1 text-label text-ink-2">
+        <p className="mt-1 text-small text-ink-2">
           <Text>{detail.join(", ")}</Text>
         </p>
       ) : null}
@@ -47,8 +47,8 @@ export function TestimonialsBlock({ content, variant, anchor, headingId, items }
         </h2>
         {feature && first ? (
           <>
-            <figure className="mt-12 max-w-title">
-              <blockquote className="font-voice text-quote">
+            <figure className="mt-12">
+              <blockquote className="max-w-title font-voice text-h3 italic leading-snug">
                 <p>
                   <Text>{first.quote}</Text>
                 </p>
@@ -60,7 +60,7 @@ export function TestimonialsBlock({ content, variant, anchor, headingId, items }
                 {rest.map((quote) => (
                   <li key={quote.slug}>
                     <Card as="figure" className="h-full p-8">
-                      <blockquote className="text-list">
+                      <blockquote className="font-voice text-quote italic">
                         <p>
                           <Text>{quote.quote}</Text>
                         </p>
@@ -77,7 +77,7 @@ export function TestimonialsBlock({ content, variant, anchor, headingId, items }
             {quotes.map((quote) => (
               <li key={quote.slug}>
                 <Card as="figure" className="h-full p-8">
-                  <blockquote className="text-list">
+                  <blockquote className="font-voice text-quote italic">
                     <p>
                       <Text>{quote.quote}</Text>
                     </p>

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { LoadedItem } from "../collections/schema.ts";
+import type { BusinessData } from "../settings/business.ts";
 
 /** What the renderer hands every block component. `content` is already checked against the block's fields. */
 export type BlockProps<C> = {
@@ -14,6 +15,8 @@ export type BlockProps<C> = {
   primary: boolean;
   /** The visible items of the block's collection (see `collection` in its definition), in the collection's order. Always passed; empty for a block that lists nothing. */
   items: readonly LoadedItem[];
+  /** Business details to show instead of business.json: the /blocks showcase passes example ones. */
+  business?: BusinessData;
   /** The page of a paged list this view shows (1 and up), for the post index on /blog/page/<n>. */
   page?: number;
 };

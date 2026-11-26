@@ -56,6 +56,10 @@ Blog posts. Each one is a page at /blog/<slug>, listed newest first on /blog.
   "title": "[[Post title]]",
   "description": "[[A sentence that says what the post is about]]",
   "date": "2026-03-27",
+  "image": {
+    "src": "/images/examples/vase-and-pears.jpg",
+    "alt": "A pale blue vase beside a blue pear and a rust-red pear on a table"
+  },
   "body": [
     {
       "type": "heading",
@@ -205,6 +209,10 @@ The people on the team, in the order you choose.
   "name": "[[Team member name]]",
   "role": "[[Team member role]]",
   "bio": "[[Two sentences about this person]]",
+  "photo": {
+    "src": "/images/examples/jug-and-cups.jpg",
+    "alt": "A tall blue jug beside two small cups on a table"
+  },
   "order": 1
 }
 ```
@@ -237,7 +245,7 @@ The colors, fonts and logo. src/app/palette.css and src/lib/fonts.ts are generat
 - **accent:** `rust`. The accent color is `rust`.
 - **neutrals:** `silver`, `silver2`, `white`, `ink`, `ink2`, `line`. Text and background colors that Huston Logic sets; they are not changed by chat.
 
-**Contrast rule.** Every foreground and background pair the design puts together must keep its contrast: 13 text pairs need 4.5 to 1, and 7 pairs (large text, icons, control edges, the focus ring) need 3 to 1. A color that fails is refused with the nearest one that works.
+**Contrast rule.** Every foreground and background pair the design puts together must keep its contrast: 15 text pairs need 4.5 to 1, and 7 pairs (large text, icons, control edges, the focus ring) need 3 to 1. A color that fails is refused with the nearest one that works.
 
 **Fonts** (`fonts`). Each role takes one of its listed fonts, by id. The first of each role is the template default.
 

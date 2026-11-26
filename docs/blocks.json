@@ -1610,6 +1610,10 @@
         "title": "[[Post title]]",
         "description": "[[A sentence that says what the post is about]]",
         "date": "2026-03-27",
+        "image": {
+          "src": "/images/examples/vase-and-pears.jpg",
+          "alt": "A pale blue vase beside a blue pear and a rust-red pear on a table"
+        },
         "body": [
           {
             "type": "heading",
@@ -1859,6 +1863,10 @@
         "name": "[[Team member name]]",
         "role": "[[Team member role]]",
         "bio": "[[Two sentences about this person]]",
+        "photo": {
+          "src": "/images/examples/jug-and-cups.jpg",
+          "alt": "A tall blue jug beside two small cups on a table"
+        },
         "order": 1
       }
     }
@@ -1942,7 +1950,7 @@
         }
       ],
       "colorFormat": "#rrggbb",
-      "contrastRule": "Every foreground and background pair the design puts together must keep its contrast: 13 text pairs need 4.5 to 1, and 7 pairs (large text, icons, control edges, the focus ring) need 3 to 1. A color that fails is refused with the nearest one that works.",
+      "contrastRule": "Every foreground and background pair the design puts together must keep its contrast: 15 text pairs need 4.5 to 1, and 7 pairs (large text, icons, control edges, the focus ring) need 3 to 1. A color that fails is refused with the nearest one that works.",
       "fonts": {
         "display": [
           {
