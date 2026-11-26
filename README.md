@@ -36,7 +36,7 @@ Copy lives in `src/content/`. Pages are JSON files in `src/content/pages/` (see 
 npm run lint          # ESLint
 npm run typecheck     # tsc --noEmit for the site, then for the Worker (worker/tsconfig.json)
 npm run test:worker   # contact Worker tests (Node's built-in test runner; no network)
-npm run build         # static export to ./out
+npm run build         # static export to ./out, then scripts/finish-build.mjs (version stamp; /blocks only in non-production builds)
 npm run check:fast    # everything in check except the build
 npm run check:process # process caps and rules (docs/PROCESS.md, STATUS.md, plans, agent model:)
 npm run check:content # page files and blocks: links, limits, plain text, alt text (docs/BLOCKS.md)
@@ -277,7 +277,9 @@ Current settings in the Cloudflare dashboard (read by the owner on 2026-11-12, s
 - **Build command:** `npm run build`
 - **Deploy command:** `npx wrangler deploy` (run automatically by Workers Builds)
 - **Root directory:** `/`
-- **Build variables:** `NODE_VERSION=22` is the only one set.
+- **Build variables:** `NODE_VERSION=22` is the only one set. Workers Builds also sets `WORKERS_CI_COMMIT_SHA` and `WORKERS_CI_BRANCH`, which `scripts/finish-build.mjs` reads (see below).
+
+**What the build adds after `next build`.** `scripts/finish-build.mjs` writes `out/site-version.json` (`{ "commit", "builtAt" }`, the commit from `WORKERS_CI_COMMIT_SHA`, else `GITHUB_SHA`, else `null`) so the live site says which version it is. When `WORKERS_CI_BRANCH` equals `domain.productionBranch` in `site.config.ts` (`main`), it also removes the `/blocks` showcase, so only previews, CI and local builds have it. After the first deploy, check that `/site-version.json` shows the commit and that `/blocks` is a 404 on the live site.
 
 Before launch:
 
