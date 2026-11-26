@@ -72,12 +72,14 @@ export function startPreviewServer({ outDir = defaultOutDir, port = defaultPort 
     // Cloudflare compresses text files on the live site; the Lighthouse check measures this server, so it does too
     // (docs/PROCESS.md rule 17). Images and fonts are already compressed and are sent as they are.
     const body = readFileSync(target);
-    const zip = /\bgzip\b/.test(req.headers["accept-encoding"] ?? "") && compressible.test(target);
+    const canZip = compressible.test(target);
+    const zip = canZip && /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
     res.writeHead(status, {
       ...headerBlocks["/*"],
       "content-type": types[extname(target)] ?? "application/octet-stream",
       ...(file ? headerBlocks[pathname] : undefined),
-      ...(zip ? { "content-encoding": "gzip", vary: "Accept-Encoding" } : {}),
+      ...(canZip ? { vary: "Accept-Encoding" } : {}),
+      ...(zip ? { "content-encoding": "gzip" } : {}),
     });
     res.end(zip ? gzipSync(body) : body);
   });

@@ -33,8 +33,10 @@ test("text files are gzipped when the browser accepts gzip, and plain when it do
     const zipped = await fetchRaw(server.port, "/app.js", { "accept-encoding": "gzip, deflate, br" });
     assert.equal(zipped.headers["content-encoding"], "gzip");
     assert.equal(gunzipSync(zipped.body).toString(), "console.log('x');".repeat(50));
+    assert.equal(zipped.headers.vary, "Accept-Encoding");
     const plain = await fetchRaw(server.port, "/app.js");
     assert.equal(plain.headers["content-encoding"], undefined);
+    assert.equal(plain.headers.vary, "Accept-Encoding");
     assert.equal(plain.body.toString(), "console.log('x');".repeat(50));
     const page = await fetchRaw(server.port, "/", { "accept-encoding": "gzip" });
     assert.equal(page.headers["content-encoding"], "gzip");
