@@ -22,7 +22,7 @@ export function PostIndexBlock({ content, variant, anchor, items, page = 1 }: Bl
             <Text>{content.emptyText}</Text>
           </p>
         ) : (
-          <ul className={cards ? "grid gap-x-12 gap-y-14 md:grid-cols-2 lg:grid-cols-3" : "border-b border-hairline"}>
+          <ul role="list" className={cards ? "grid gap-x-12 gap-y-14 md:grid-cols-2 lg:grid-cols-3" : "border-b border-hairline"}>
             {posts.map((post) => (
               <li key={post.slug}>
                 <PostCard post={post} layout={cards ? "card" : "row"} />

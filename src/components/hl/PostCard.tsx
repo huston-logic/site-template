@@ -2,6 +2,7 @@ import type { LoadedItem } from "@/collections/schema";
 import { blog } from "@/content/blog";
 import { formatDate, postData, postPath } from "@/lib/blog";
 import { Text } from "@/components/ui/Text";
+import { Eyebrow } from "./Eyebrow";
 import { HlLink } from "./HlLink";
 import { Photo } from "./Photo";
 
@@ -21,8 +22,8 @@ function PostTime({ date, className = "" }: { date: string; className?: string }
 }
 
 /**
- * One post in a list: a `card` (photo on top, or a tint panel with the date when there is no photo, so every card keeps
- * one shape) or a `row` (date, title and summary between hairlines). The title is the link; it stretches over the whole item.
+ * One post in a list: a `card` (photo on top, or a tint panel with the date when there is no photo, so a row of cards keeps
+ * one shape; on phones that panel gives way to the date as an eyebrow) or a `row` (date, title and summary between hairlines). The title is the link; it stretches over the whole item.
  */
 export function PostCard({ post, layout }: { post: LoadedItem; layout: "card" | "row" }) {
   const data = postData(post);
@@ -55,12 +56,19 @@ export function PostCard({ post, layout }: { post: LoadedItem; layout: "card" | 
       {data.image ? (
         <Photo image={data.image} shape="3:2" sizes={CARD_SIZES} />
       ) : (
-        <div className="flex aspect-photo-3-2 w-full items-end rounded-card bg-tint p-6">
+        // From tablet width up the date sits on a tint panel so a row of cards keeps one shape; on phones the panel would
+        // be an empty block per card, so the date moves above the title as an eyebrow instead.
+        <div className="hidden aspect-photo-3-2 w-full items-end rounded-card bg-tint p-6 md:flex">
           <PostTime date={data.date} className="font-ui text-item font-semibold text-green" />
         </div>
       )}
-      <div className="mt-5 flex flex-wrap items-center gap-3">
+      <div className={`${data.image ? "mt-5" : "md:mt-5"} flex flex-wrap items-center gap-3`}>
         {data.image ? <PostTime date={data.date} className="font-ui text-small font-medium text-ink-2" /> : null}
+        {data.image ? null : (
+          <Eyebrow className="md:hidden">
+            <PostTime date={data.date} />
+          </Eyebrow>
+        )}
         {draft ? <DraftTag /> : null}
       </div>
       <h3 className="mt-2 font-ui text-item font-semibold">{title}</h3>

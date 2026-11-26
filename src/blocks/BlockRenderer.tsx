@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { Glow } from "@/components/hl/Glow";
 import type { LoadedItem } from "@/collections/schema";
+import type { BusinessData } from "@/settings/business";
 import { getItems } from "@/lib/collections";
 import { blockComponents } from "./components";
 import { EnterObserver } from "./EnterObserver";
@@ -25,13 +26,15 @@ type BlockViewProps = {
   items?: readonly LoadedItem[];
   /** The page of a paged list this view shows (/blog/page/<n>). */
   page?: number;
+  /** Business details for the business-details block when they are not business.json (the showcase's example). */
+  business?: BusinessData;
 };
 
 /**
  * One block in its wrapper, which owns the spacing (rhythm.ts), the glows and the entrance motion, so a block's
  * component carries none of those. The page renderer and the /blocks showcase both build blocks with this.
  */
-export function BlockView({ block, index, previous, primary, items = [], page }: BlockViewProps) {
+export function BlockView({ block, index, previous, primary, items = [], page, business }: BlockViewProps) {
   const def = definitions.get(block.type);
   const Component = blockComponents[block.type] as ComponentType<AnyProps> | undefined;
   if (!def || !Component) throw new Error(`The block type "${block.type}" has no definition or component.`);
@@ -42,7 +45,7 @@ export function BlockView({ block, index, previous, primary, items = [], page }:
     <div className={`relative ${spacingFor(def, index, previous)}`} data-block={block.type} data-motion={animated ? "enter" : undefined}>
       {def.placement.position === "first" ? <Glow variant="green" className="hl-glow-hero" /> : null}
       {def.placement.position === "last" ? <Glow variant="seam" className="hl-glow-closing" /> : null}
-      <Component content={block.content} variant={block.variant ?? def.variants[0]?.name ?? "default"} anchor={anchor} headingId={headingId} primary={primary} items={items} page={page} />
+      <Component content={block.content} variant={block.variant ?? def.variants[0]?.name ?? "default"} anchor={anchor} headingId={headingId} primary={primary} items={items} page={page} business={business} />
     </div>
   );
 }

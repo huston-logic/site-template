@@ -9,13 +9,13 @@ import type { teamDefinition } from "./definition";
 type ImageValue = { src: string; alt: string; focus?: ImageFocus };
 type Member = { slug: string; name: string; role: string; bio?: string; photo?: ImageValue };
 
-/** A photo or, without one, a tinted panel of the same 4:5 shape with the person's initials, so every card has one shape. */
+/** A photo or, without one, a tinted panel of the same 4:5 shape with the person's initials (calm, in the quieter ink), so every card has one shape. */
 function Portrait({ member }: { member: Member }) {
   if (member.photo) {
-    return <Photo image={member.photo} shape="4:5" sizes="(min-width: 1320px) 300px, (min-width: 1024px) 23vw, (min-width: 768px) 45vw, 100vw" />;
+    return <Photo image={member.photo} shape="4:5" sizes="(min-width: 1320px) 400px, (min-width: 1024px) 30vw, 50vw" />;
   }
   return (
-    <div aria-hidden="true" className="grid aspect-photo-4-5 w-full place-items-center rounded-card bg-tint font-ui text-hero font-bold text-green">
+    <div aria-hidden="true" className="grid aspect-photo-4-5 w-full place-items-center rounded-card bg-tint font-ui text-item font-semibold text-ink-2">
       {initials(member.name)}
     </div>
   );
@@ -56,7 +56,7 @@ export function TeamBlock({ content, variant, anchor, headingId, items }: BlockP
             ))}
           </ul>
         ) : (
-          <ul role="list" className="mt-12 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+          <ul role="list" className="mt-12 grid grid-cols-2 gap-x-6 gap-y-10 md:gap-x-8 md:gap-y-12 lg:grid-cols-3">
             {members.map((member) => (
               <li key={member.slug}>
                 <Portrait member={member} />

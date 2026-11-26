@@ -1,8 +1,7 @@
 // The single list of site routes. The sitemap, the accessibility check (tests/a11y) and Lighthouse CI (lighthouserc.cjs)
 // all read it, so a page added as a file in src/content/pages is listed for search engines and scanned by CI.
 // Plain Node (type stripping) and Playwright load this file: relative imports with .ts, no aliases, no enums.
-import { sortItems, visibleItems } from "../collections/validate.ts";
-import { collectionFor } from "../collections/definitions.ts";
+import { pickItems } from "../collections/pick.ts";
 import type { LoadedItem } from "../collections/schema.ts";
 import { extraPageNumbers, indexPath, postPath } from "./blog.ts";
 import { readItemFiles } from "./content-files.ts";
@@ -47,9 +46,9 @@ const postItems: LoadedItem[] = readItemFiles()
       ? [{ kind, slug, status: (data as { status?: unknown }).status, data } as unknown as LoadedItem]
       : [],
   );
-const postDef = collectionFor("posts");
-const order = (drafts: boolean): string[] => (postDef === undefined ? [] : sortItems(postDef, visibleItems(postItems, { drafts })).map((item) => item.slug));
-const blog = blogRoutes(order(false), order(showDrafts()));
+/** The post slugs a build shows, in the order the blog lists them (the same `pickItems` the pages use). */
+export const postSlugs = (items: readonly LoadedItem[], drafts: boolean): string[] => pickItems(items, "posts", drafts).map((item) => item.slug);
+const blog = blogRoutes(postSlugs(postItems, false), postSlugs(postItems, showDrafts()));
 
 /** Every indexable route: the live pages, the blog's extra index pages and every live post. This is the sitemap. */
 export const indexableRoutes: string[] = [...pageRoutes, ...blog.indexPages, ...blog.posts];

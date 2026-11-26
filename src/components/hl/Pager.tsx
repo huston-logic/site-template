@@ -16,7 +16,7 @@ export function Pager({ page, total }: { page: number; total: number }) {
           </HlLink>
         ) : null}
       </div>
-      <p className="font-ui text-small font-medium text-ink-2">{blog.pageOf(page, total)}</p>
+      <p aria-current="page" className="font-ui text-small font-medium text-ink-2">{blog.pageOf(page, total)}</p>
       <div className="flex min-w-32 justify-end">
         {page < total ? (
           <HlLink href={indexPath(page + 1)} className={linkClass}>

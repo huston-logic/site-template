@@ -8,6 +8,7 @@ import { validateBrand } from "../settings/brand.ts";
 import { validateBusiness } from "../settings/business.ts";
 import { validateNotice } from "../settings/notice.ts";
 import type { ItemFile, ItemStatus, LoadedItem } from "./schema.ts";
+import { BLOG_PATH } from "../lib/blog.ts";
 import { collectionFor } from "./definitions.ts";
 import { validateItems } from "./validate.ts";
 
@@ -16,7 +17,6 @@ import { SETTINGS_NAMES, settingsPath, type SettingsName } from "../settings/nam
 export { SETTINGS_NAMES, settingsPath };
 export type { SettingsName };
 
-export const BLOG_PATH = "/blog";
 export const POST_INDEX_BLOCK = "post-index";
 
 export type SiteInput = {

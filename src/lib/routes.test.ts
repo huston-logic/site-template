@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { auditRoutes, blogRoutes, indexableRoutes, noindexRoutes, pageRoutes } from "./routes.ts";
+import type { LoadedItem } from "../collections/schema.ts";
+import { pickItems } from "./collections.ts";
+import { auditRoutes, blogRoutes, indexableRoutes, noindexRoutes, pageRoutes, postSlugs } from "./routes.ts";
 
 const slugs = (n: number) => Array.from({ length: n }, (_, i) => `post-${i + 1}`);
 
@@ -16,6 +18,15 @@ describe("blogRoutes", () => {
     const r = blogRoutes(["a"], ["wip", "a"]);
     assert.deepEqual(r.posts, ["/blog/a"]);
     assert.deepEqual(r.draftPosts, ["/blog/wip"]);
+  });
+});
+
+describe("post order", () => {
+  const post = (slug: string, status: LoadedItem["status"], date: string): LoadedItem => ({ kind: "posts", slug, status, data: { date } });
+  const all = [post("old", "live", "2026-01-01"), post("new", "live", "2026-03-01"), post("wip", "draft", "2026-04-01"), post("gone", "archived", "2026-05-01")];
+  it("the route list and the pages (pickItems) list the same posts in the same order, with and without drafts", () => {
+    for (const drafts of [false, true]) assert.deepEqual(postSlugs(all, drafts), pickItems(all, "posts", drafts).map((item) => item.slug));
+    assert.deepEqual(postSlugs(all, true), ["wip", "new", "old"]);
   });
 });
 

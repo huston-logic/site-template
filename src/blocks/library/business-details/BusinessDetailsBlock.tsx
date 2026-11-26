@@ -1,6 +1,7 @@
 import { Container } from "@/components/hl/Container";
 import { HlLink } from "@/components/hl/HlLink";
 import { Text } from "@/components/ui/Text";
+import { chrome } from "@/content/chrome";
 import type { BlockProps } from "@/blocks/types";
 import type { ContentOf } from "@/blocks/schema";
 import { businessDetailsView } from "@/lib/chrome-view";
@@ -10,8 +11,8 @@ import type { businessDetailsDefinition } from "./definition";
 const labelClass = "font-ui text-small font-semibold uppercase tracking-wide text-ink-2";
 
 /** The business's address, contact lines and opening hours, read from business.json. Empty parts are left out. */
-export function BusinessDetailsBlock({ content, variant, anchor, headingId }: BlockProps<ContentOf<typeof businessDetailsDefinition.fields>>) {
-  const view = businessDetailsView(getBusiness());
+export function BusinessDetailsBlock({ content, variant, anchor, headingId, business }: BlockProps<ContentOf<typeof businessDetailsDefinition.fields>>) {
+  const view = businessDetailsView(business ?? getBusiness());
   const columns = variant === "columns";
   const hasHours = view.hours.length > 0 || view.hoursNote !== null;
   return (
@@ -23,7 +24,7 @@ export function BusinessDetailsBlock({ content, variant, anchor, headingId }: Bl
         <div className={`mt-10 grid gap-10 ${columns ? "md:grid-cols-3" : "max-w-measure"}`}>
           {view.address.length > 0 ? (
             <div>
-              <h3 className={labelClass}>Address</h3>
+              <h3 className={labelClass}>{chrome.addressHeading}</h3>
               <address className="mt-3 text-body not-italic">
                 {view.address.map((line, index) => (
                   <p key={index}>
@@ -35,13 +36,13 @@ export function BusinessDetailsBlock({ content, variant, anchor, headingId }: Bl
           ) : null}
           {view.contact.length > 0 ? (
             <div>
-              <h3 className={labelClass}>Contact</h3>
+              <h3 className={labelClass}>{chrome.contactHeading}</h3>
               <ul className="mt-3 text-body">
                 {view.contact.map((line) => (
                   <li key={line.text}>
                     {line.href ? (
                       <HlLink href={line.href} className="inline-flex min-h-11 items-center underline underline-offset-4">
-                        {line.text}
+                        <Text>{line.text}</Text>
                       </HlLink>
                     ) : (
                       <Text>{line.text}</Text>
@@ -53,7 +54,7 @@ export function BusinessDetailsBlock({ content, variant, anchor, headingId }: Bl
           ) : null}
           {hasHours ? (
             <div>
-              <h3 className={labelClass}>Hours</h3>
+              <h3 className={labelClass}>{chrome.hoursHeading}</h3>
               {view.hours.length > 0 ? (
                 <dl className="mt-3 text-body">
                   {view.hours.map((row) => (

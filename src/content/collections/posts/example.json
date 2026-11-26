@@ -3,6 +3,7 @@
   "title": "[[Post title]]",
   "description": "[[A sentence that says what the post is about]]",
   "date": "2026-03-27",
+  "image": { "src": "/images/examples/vase-and-pears.jpg", "alt": "A pale blue vase beside a blue pear and a rust-red pear on a table" },
   "body": [
     { "type": "heading", "level": 2, "text": "[[A heading that opens the first section]]" },
     {

@@ -24,7 +24,7 @@ export function LatestPostsBlock({ content, variant, anchor, headingId, items }:
             <Text>{content.intro}</Text>
           </p>
         ) : null}
-        <ul className={cards ? "mt-12 grid gap-x-12 gap-y-14 md:grid-cols-2 lg:grid-cols-3" : "mt-10 border-b border-hairline"}>
+        <ul role="list" className={cards ? "mt-12 grid gap-x-12 gap-y-14 md:grid-cols-2 lg:grid-cols-3" : "mt-10 border-b border-hairline"}>
           {posts.map((post) => (
             <li key={post.slug}>
               <PostCard post={post} layout={cards ? "card" : "row"} />

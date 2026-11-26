@@ -18,10 +18,11 @@ test("the model gives the listen link and the provider's exact height; nothing i
   assert.equal(audioModel("https://evil.example/episode/4rOoJ6Egrf8K2IrywzwOMk"), null);
 });
 
-test("the facade's markup: a link, no iframe or provider request before the press, a fixed-height frame", () => {
+test("the facade's markup: a link without script and a button after hydration, no iframe or provider request before the press, a fixed-height frame", () => {
   const source = readFileSync(new URL("./library/episode-list/AudioFacade.tsx", import.meta.url), "utf8");
-  const beforePress = source.slice(source.indexOf("  return (\n    <a"));
-  assert.match(beforePress, /<a\s+href=\{listenUrl\}\s+target="_blank"\s+rel="noopener noreferrer"/);
+  const beforePress = source.slice(source.indexOf("  const label ="));
+  assert.match(beforePress, /<button type="button" onClick=\{\(\) => setPlaying\(true\)\}/);
+  assert.match(beforePress, /<a href=\{listenUrl\}\s+target="_blank"\s+rel="noopener noreferrer"/);
   assert.doesNotMatch(beforePress, /<iframe|<img|<Image/);
   assert.match(source, /allow="autoplay; encrypted-media"/);
   assert.match(source, /loading="lazy"/);

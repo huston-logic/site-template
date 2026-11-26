@@ -8,7 +8,7 @@ import { Container } from "@/components/hl/Container";
 import { FadingDivider } from "@/components/hl/FadingDivider";
 import { showcaseRoute } from "@/lib/routes";
 import { pageMetadata } from "@/lib/metadata";
-import { showcase } from "@/content/showcase";
+import { exampleBusiness, showcase } from "@/content/showcase";
 
 export const metadata: Metadata = pageMetadata({ title: showcase.title, description: showcase.description, path: showcaseRoute, noindex: true });
 
@@ -48,7 +48,7 @@ export default function ShowcasePage() {
                 </p>
                 <FadingDivider className="mt-2" />
               </Container>
-              <BlockView block={block} index={1} primary={false} items={def.collection === undefined ? [] : (collectionFor(def.collection)?.example ?? [])} />
+              <BlockView block={block} index={1} primary={false} items={def.collection === undefined ? [] : (collectionFor(def.collection)?.example ?? [])} business={exampleBusiness} />
             </div>
           );
         }),
