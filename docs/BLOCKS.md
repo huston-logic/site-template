@@ -524,3 +524,127 @@ Two to twelve photos in a grid, each with an optional caption. The photos do not
   ]
 }
 ```
+
+## Video list (`video-list`)
+
+The newest videos from your Videos collection, side by side, each with its title and caption. Add videos in the collection; this block shows them.
+
+**Where it can go:** anywhere, up to 2 times.
+
+**Needs JavaScript:** The play button swaps in the player only when it is pressed, so nothing loads from YouTube or Vimeo before that.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `two-column` (default): The videos sit in two columns (one column on phones).
+- `three-column`: The videos sit in three columns on wide screens (with three or more videos), two on tablets, one on phones.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading. Names the group of videos for everyone, including screen reader users. | yes | up to 90 characters |
+| `intro` | Intro | no | up to 240 characters |
+| `count` | How many. The newest this many videos are shown. Twelve when left empty. | no |  |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that introduces the videos",
+  "intro": "A sentence that says what the videos are about.",
+  "count": 6
+}
+```
+
+## Podcast episodes (`episode-list`)
+
+The newest episodes from your Podcast episodes collection, each with its date and summary. Add episodes in the collection; this block shows them.
+
+**Where it can go:** anywhere, up to 2 times.
+
+**Needs JavaScript:** The play button swaps in the Spotify or Apple Podcasts player only when it is pressed, so nothing loads from them before that.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `list` (default): One row per episode with its player beside the text on wide screens (below it on phones).
+- `compact`: One row per episode with its date and a link that opens the episode on Spotify or Apple Podcasts. No player.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading. Names the list of episodes for everyone, including screen reader users. | yes | up to 90 characters |
+| `intro` | Intro | no | up to 240 characters |
+| `count` | How many. The newest this many episodes are shown. Ten when left empty. | no |  |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that introduces the episodes",
+  "intro": "A sentence that says what the show is about.",
+  "count": 3
+}
+```
+
+## Testimonials (`testimonials`)
+
+Quotes from named clients, taken from your Testimonials collection in the order you set there. Every quote shows who said it.
+
+**Where it can go:** anywhere, up to 2 times.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `grid` (default): The quotes sit in cards, two across on tablets and three across on wide screens (one column on phones).
+- `feature`: The first quote is large, in the accent serif. Any others sit in a row beneath it.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `count` | How many. The first this many quotes are shown. All of them (up to twelve) when left empty. | no |  |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading above what clients say",
+  "count": 3
+}
+```
+
+## Team (`team`)
+
+The people from your Team collection, in the order you set there, with a photo, name, role and short bio.
+
+**Where it can go:** anywhere, once.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `grid` (default): A card per person with a tall photo (a tinted panel with their initials when there is no photo), name, role and bio.
+- `list`: Names and roles in two columns, no photos.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `intro` | Intro | no | up to 240 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that introduces the people",
+  "intro": "A sentence about who you work with."
+}
+```

@@ -139,6 +139,10 @@
   /* mt-dot: the green bullet sits 0.6em down. */
   --spacing-dot: 0.6em;
 
+  /* h-player-spotify, h-player-apple: the podcast players' exact heights (AUDIO_PLAYER_HEIGHT in src/blocks/embeds.ts). */
+  --spacing-player-spotify: 152px;
+  --spacing-player-apple: 175px;
+
   --color-white: var(--hl-white);
 }
 
