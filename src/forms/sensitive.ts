@@ -21,19 +21,19 @@ const REFUSED: readonly (readonly [string, RegExp])[] = [
   ["social security number", /\bsocial security\b/i],
   ["SSN", /\bssns?\b/i],
   ["national insurance number", /\bnational insurance\b/i],
-  ["passport", /\bpassports?\b/i],
+  ["passport number", /\bpassport (?:numbers?|no\b\.?)/i],
   ["driver's licence number", new RegExp(`\\bdriver${APOS}s${APOS} licen[cs]e( number)?\\b`, "i")],
   ["tax ID", /\btax ids?\b/i],
-  ["TIN", /\btins?\b/i],
+  ["TIN", /\bTINs?\b/],
   ["national ID", /\bnational ids?\b/i],
   ["ID number", /\bid numbers?\b/i],
   ["password", /\bpass ?words?\b/i],
-  ["PIN", /\bpins?\b/i],
+  ["PIN", /\bPINs?\b|\b[Pp]in (?:numbers?|codes?)\b/],
 ];
 
 // Warned, not refused: health words.
 const HEALTH =
-  /\b(health|medical|diagnos(?:is|es)|conditions?|medications?|prescriptions?|symptoms?|allerg(?:y|ies)|disabilit(?:y|ies)|therapy|pregnan(?:cy|cies)|injur(?:y|ies))\b/i;
+  /\b(health|medical|diagnos(?:is|es)|medications?|prescriptions?|symptoms?|allerg(?:y|ies)|disabilit(?:y|ies)|therapy|pregnan(?:cy|cies)|injur(?:y|ies))\b/i;
 
 /** The kind of detail a text asks for if a form must never ask for it (card, bank, government ID, password or PIN), or null. */
 export function refusedTerm(text: string): string | null {

@@ -24,7 +24,8 @@ describe("refusedTerm", () => {
       "Social security number",
       "SSN",
       "National Insurance number",
-      "Passport",
+      "Passport number",
+      "Passport no.",
       "Driver's licence number",
       "Driver’s license number",
       "Tax ID",
@@ -38,7 +39,7 @@ describe("refusedTerm", () => {
     }
   });
   test("ordinary words are not refused", () => {
-    for (const text of ["Your name", "Email", "Project type", "Tell me about the project", "Pinterest board", "Identification of the room", "Business address", "Token of thanks"]) {
+    for (const text of ["Your name", "Email", "Project type", "Tell me about the project", "Pinterest board", "Identification of the room", "Business address", "Token of thanks", "Tin roof or slate?", "Bowling pins", "Pin a time that suits you", "Do you have a valid passport?"]) {
       assert.equal(refusedTerm(text), null, text);
     }
   });
@@ -47,12 +48,12 @@ describe("refusedTerm", () => {
 
 describe("healthTerm", () => {
   test("health words are found", () => {
-    for (const text of ["health", "Medical history", "diagnosis", "Any conditions?", "medication", "prescription", "symptoms", "Allergies", "disability", "mental health", "therapy", "pregnancy", "injury"]) {
+    for (const text of ["health", "Medical history", "diagnosis", "Any medical conditions?", "medication", "prescription", "symptoms", "Allergies", "disability", "mental health", "therapy", "pregnancy", "injury"]) {
       assert.notEqual(healthTerm(text), null, text);
     }
   });
   test("other words are not", () => {
-    for (const text of ["Your name", "Project type", "healthy lunch", "Wellness"]) assert.equal(healthTerm(text), null, text);
+    for (const text of ["Your name", "Project type", "healthy lunch", "Wellness", "I agree to the terms and conditions", "Condition of the car"]) assert.equal(healthTerm(text), null, text);
   });
 });
 

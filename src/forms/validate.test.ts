@@ -256,7 +256,7 @@ describe("personal data (Review Focus line 4)", () => {
     has(problems(withField({ id: "d", type: "dropdown", label: "D", options: ["Password", "Other"] })), 'the option "Password" matches "password"');
   });
   test("the form name is judged too", () => {
-    has(problems({ ...good(), name: "Passport check" }), 'matches "passport"');
+    has(problems({ ...good(), name: "Passport number check" }), 'matches "passport number"');
   });
   test("the contact form is Huston Logic's and is not judged by the wording rules", () => {
     const form = withField({ id: "message", type: "long-text", label: "Message", help: "Please don't send passwords or card numbers." }, 4);
