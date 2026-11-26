@@ -34,11 +34,11 @@ Lighthouse on one page instead of six, with three runs each, would take about 1.
 
 ## The proposed files
 
-The three files are in the run's scratchpad, in the `proposed/` folder. Each one is the new version of the file it is named after, without the `.proposed` ending.
+The three files are in this repo, in `docs/proposals/content-fast-lane-files/`. Each one is the new version of the file it is named after, without the `.proposed` ending.
 
-- `/private/tmp/claude-501/-Users-granthuston--claude-spares-spare-1O1tII/507c8191-4f44-46a4-9bb1-82d1e0a35bf5/scratchpad/proposed/.github/workflows/ci.yml.proposed` becomes `.github/workflows/ci.yml`. This is an owner-only path, so it is copied by hand.
-- `/private/tmp/claude-501/-Users-granthuston--claude-spares-spare-1O1tII/507c8191-4f44-46a4-9bb1-82d1e0a35bf5/scratchpad/proposed/lighthouserc.cjs.proposed` becomes `lighthouserc.cjs`. The thresholds are unchanged.
-- `/private/tmp/claude-501/-Users-granthuston--claude-spares-spare-1O1tII/507c8191-4f44-46a4-9bb1-82d1e0a35bf5/scratchpad/proposed/tests/a11y/site.a11y.spec.ts.proposed` becomes `tests/a11y/site.a11y.spec.ts`.
+- `ci.yml.proposed` becomes `.github/workflows/ci.yml`. This is an owner-only path, so it is copied by hand. It already contains the content and design check steps from the last run's proposal.
+- `lighthouserc.cjs.proposed` becomes `lighthouserc.cjs`. The thresholds are unchanged.
+- `site.a11y.spec.ts.proposed` becomes `tests/a11y/site.a11y.spec.ts`.
 
 The proposed `ci.yml` also removes the job-level `if:` from `change-scope`, so the job always reports. Do not add it back: a required check must not have a job-level `if:`.
 
