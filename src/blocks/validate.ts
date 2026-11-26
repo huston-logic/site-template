@@ -393,7 +393,12 @@ function checkBlocks(file: string, blocks: unknown, defs: Map<string, AnyBlockDe
  * Judges a whole set of page files. Unreadable files are reported by name. Problems come back as plain sentences, in file
  * order; an empty list means the content is good.
  */
-export function validatePages(files: readonly PageFile[], registry: readonly AnyBlockDefinition[], repo: Repo): string[] {
+export function validatePages(
+  files: readonly PageFile[],
+  registry: readonly AnyBlockDefinition[],
+  repo: Repo,
+  extra: { links?: readonly { where: string; href: string }[] } = {},
+): string[] {
   const out: string[] = [];
   const defs = new Map<string, AnyBlockDefinition>();
   for (const def of registry) if (!defs.has(def.type)) defs.set(def.type, def);
@@ -445,6 +450,10 @@ export function validatePages(files: readonly PageFile[], registry: readonly Any
     if (data["blocks"] !== undefined) checkBlocks(file, data["blocks"], defs, ctx, out);
   }
 
+  for (const { where, href } of extra.links ?? []) {
+    const problem = linkProblem(href, ctx);
+    if (problem !== null) out.push(`${where}: "${href}" ${problem}.`);
+  }
   if (headerLinks > MAX_HEADER_LINKS) out.push(`The header menu lists ${headerLinks} pages; at most ${MAX_HEADER_LINKS} fit. Remove some from the header or archive them.`);
   for (const path of REQUIRED_LIVE) {
     if (failedPaths.has(path)) continue;
