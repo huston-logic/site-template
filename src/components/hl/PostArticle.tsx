@@ -39,7 +39,7 @@ export function PostArticle({ post }: { post: LoadedItem }) {
       </PageHero>
       <Container>
         <div className="max-w-measure">
-          {data.image ? <Photo image={data.image} shape="3:2" sizes="(min-width: 1024px) 700px, 100vw" /> : null}
+          {data.image ? <Photo image={data.image} shape="3:2" sizes="(min-width: 1024px) 700px, 100vw" lead /> : null}
           <div className={data.image ? "mt-10" : ""}>
             <PostBody parts={data.body} />
           </div>

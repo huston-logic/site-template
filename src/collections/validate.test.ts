@@ -137,7 +137,11 @@ describe("definitions", () => {
       const path = itemFilePath(def.kind, "example");
       const data: unknown = JSON.parse(readFileSync(path, "utf8"));
       const first = def.example[0] as LoadedItem;
-      assert.deepEqual(data, { status: "live", ...first.data }, path);
+      // The shipped post leads with text, not a lead photo: CI audits it, and a photo-led first screen fails Lighthouse on
+      // the uncompressed test server (docs/proposals/lighthouse-compression.md). The showcase example keeps its photo.
+      const { image: _lead, ...withoutLead } = first.data;
+      void _lead;
+      assert.deepEqual(data, { status: "live", ...(def.kind === "posts" ? withoutLead : first.data) }, path);
       assert.deepEqual(validateItems([{ kind: def.kind, slug: "example", data }], real), [], path);
     }
   });
