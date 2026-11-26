@@ -38,6 +38,19 @@ A new page is a new JSON file, so there is no page code to judge. The plain-data
 
 A page file (`src/content/pages/<name>.json`) is tier 1 when it passes the content check at the head commit, whether it is new or edited. Deleting or renaming a page file is tier 3: pages are archived, not deleted (set `"status": "archived"`).
 
+**Collection items and settings.** An item file (`src/content/collections/<kind>/<slug>.json`) is tier 1 when its kind is a known
+collection, its slug is lowercase words and digits joined by hyphens, and the whole site (pages, items and the three settings
+files) passes the content check at the head commit. `src/content/business.json`, `notice.json` and `brand.json` are tier 1 on the
+same terms. `src/app/palette.css` and `src/lib/fonts.ts` are generated from `brand.json`: they are tier 1 only when they are
+byte-for-byte what `brand.json` generates at the head commit; a hand-edited one is tier 3 ("a generated brand file that does not
+match brand.json"). Deleting or renaming an item or a settings file is tier 3 (items are archived, not deleted), and so are an
+unknown kind, a nested file and any other file under `src/content/collections/`. Placeholder, image and alt text rules apply to
+items as they do to pages (an image used in an item with `alt` beside it counts as a use). A change to `brand.json` or a
+generated brand file is marked in the report ("Brand change: touches every page; it needs a preview before the yes.").
+
+In the change report, a post maps to `/blog/<slug>` and `/blog`, any item to every page with a list block of its kind, and the
+settings files and generated brand files to every page.
+
 There is no longer a list of flagged changes. Prices, contact details, legal text, new links, page changes and file size
 are the client's own business, so they pass without a flag. Bad links (`javascript:`, `data:`, `http:`, and links to a
 missing or archived page) are content-check failures instead, so they block on a `change/` branch.

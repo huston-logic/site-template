@@ -573,3 +573,9 @@ test("alt text equal to the upload's name is refused", () => {
   assert.equal(problems.length, 1);
   assert.match(problems[0], /"image" The description is the file's name; describe what the photo shows\./);
 });
+
+test("check:content judges the whole site and reports the page, block and item counts", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const out = execFileSync("node", ["scripts/check-content.mjs"], { cwd: new URL("..", import.meta.url).pathname, encoding: "utf8" });
+  assert.match(out, /^Content check passed \(\d+ pages, \d+ blocks, \d+ items\)$/m);
+});
