@@ -51,7 +51,8 @@ describe("form-level rules", () => {
     has(problems({ ...good(), button: "Go [here](https://x.test)" }), "markdown link");
   });
   test("status is required and one of live or archived", () => {
-    const { status: _status, ...rest } = good();
+    const rest: Record<string, unknown> = { ...good() };
+    delete rest.status;
     has(problems(rest), '"status" is required');
     has(problems({ ...good(), status: "draft" }), '"status" must be one of live, archived');
     assert.deepEqual(problems({ ...good(), status: "archived" }), []);
@@ -324,7 +325,8 @@ describe("validateSubmission", () => {
   });
   test("a required consent that is not ticked is a fixable problem", () => {
     const required = parseForm(withField({ id: "terms", type: "consent", label: "I agree", required: true }, 5), settings) as FormDefinition;
-    const { updates: _updates, ...rest } = answers;
+    const rest: Record<string, unknown> = { ...answers };
+    delete rest.updates;
     assert.deepEqual(validateSubmission(required, { ...rest, terms: false }), { ok: false, fields: ["terms"], malformed: false });
     assert.ok(validateSubmission(required, { ...rest, terms: true }).ok);
   });
