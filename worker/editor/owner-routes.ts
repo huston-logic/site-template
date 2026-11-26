@@ -17,7 +17,6 @@ import type { Editor } from "./types.ts";
 
 interface AuthRequestLike {
   scope: string[];
-  [key: string]: unknown;
 }
 interface ConsentDescriptionLike {
   clientName: string;
