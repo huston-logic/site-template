@@ -23,9 +23,10 @@ export function errorFor(field: FormField): string {
   return field.error ?? formWords.errors[field.type];
 }
 
-/** A label with "(optional)" on a field that is not required, except where the field's label already says so. */
+/** A label with "(optional)" on a field that is not required. A checkbox or consent label is a sentence, and a box left unticked is optional by nature, so it never gets the mark. */
 export function labelFor(field: FormField, marked: boolean): string {
-  return marked && !field.required ? `${field.label} ${formWords.optional}` : field.label;
+  const isBox = field.type === "checkbox" || field.type === "consent";
+  return marked && !field.required && !isBox ? `${field.label} ${formWords.optional}` : field.label;
 }
 
 /** Fields whose problems a person can fix show a live error line; the others never need one. */
@@ -75,6 +76,7 @@ function ChipRow({
   onSelect,
   error,
   describedBy,
+  errorId,
   children,
 }: {
   field: FormField;
@@ -84,15 +86,24 @@ function ChipRow({
   onSelect: (value: string) => void;
   error?: string;
   describedBy?: string;
+  errorId: string;
   children: ReactNode;
 }) {
   return (
-    <fieldset role="radiogroup" aria-required={field.required ? "true" : undefined} aria-describedby={describedBy}>
+    <fieldset role="radiogroup" aria-required={field.required ? "true" : undefined} aria-invalid={error ? "true" : undefined} aria-describedby={describedBy}>
       <legend className={labelClass}>{legend}</legend>
       <div className="mt-3 flex flex-wrap gap-2.5">
         {options.map((option) => (
           <label key={option.value} className="relative">
-            <input type="radio" name={field.id} value={option.value} checked={selected === option.value} onChange={() => onSelect(option.value)} className="peer sr-only" />
+            <input
+              type="radio"
+              name={field.id}
+              value={option.value}
+              checked={selected === option.value}
+              onChange={() => onSelect(option.value)}
+              aria-describedby={error ? errorId : undefined}
+              className="peer sr-only"
+            />
             <span
               className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-pill border px-4.5 font-ui text-chip font-medium peer-focus-visible:outline-2 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-rust ${
                 selected === option.value ? "border-ink bg-ink text-silver" : error ? "border-rust text-ink" : "border-ink-2 text-ink"
@@ -136,7 +147,7 @@ export function FieldView({ field, ids, label, error, rich, placeholder, oneLine
 
   if (field.type === "dropdown" && field.display === "buttons" && chips) {
     return (
-      <ChipRow field={field} legend={label} options={chips.options} selected={chips.selected} onSelect={chips.onSelect} error={error} describedBy={described}>
+      <ChipRow field={field} legend={label} options={chips.options} selected={chips.selected} onSelect={chips.onSelect} error={error} describedBy={described} errorId={ids.error}>
         {help}
         {line}
       </ChipRow>

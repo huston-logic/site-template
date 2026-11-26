@@ -44,12 +44,32 @@ test("an empty submit announces each problem, marks the field and focuses the fi
   await expect(form.getByText(formWords.errors["short-text"])).toHaveCount(2);
   await expect(form.getByText(formWords.errors.email)).toBeVisible();
   await expect(form.getByText(formWords.errors.dropdown)).toBeVisible();
-  for (const line of await form.locator("[aria-live=polite]").all()) await expect(line).toHaveAttribute("aria-live", "polite");
 
-  const name = form.getByLabel(showcaseForm.fields[0]!.label, { exact: true });
-  await expect(name).toHaveAttribute("aria-invalid", "true");
-  await expect(name).toBeFocused();
-  await expect(form.getByLabel(showcaseForm.fields[1]!.label, { exact: true })).toHaveAttribute("aria-invalid", "true");
+  // Each invalid field is marked and points at an element that holds its error text.
+  const problems: { label: string; error: string }[] = [
+    { label: showcaseForm.fields[0]!.label, error: formWords.errors["short-text"] },
+    { label: showcaseForm.fields[1]!.label, error: formWords.errors.email },
+    { label: showcaseForm.fields[4]!.label, error: formWords.errors["short-text"] },
+  ];
+  for (const { label, error } of problems) {
+    const control = form.getByLabel(label, { exact: true });
+    await expect(control).toHaveAttribute("aria-invalid", "true");
+    const described = (await control.getAttribute("aria-describedby")) ?? "";
+    const texts = await control.evaluate((el, ids) => ids.split(" ").map((id) => el.ownerDocument.getElementById(id)?.textContent ?? ""), described);
+    expect(texts.some((text) => text.includes(error)), `${label}: aria-describedby "${described}" reaches "${error}"`).toBe(true);
+  }
+
+  // The button-style question is a radio group: invalid itself, and each radio reaches the error line.
+  const group = form.getByRole("radiogroup", { name: showcaseForm.fields[3]!.label });
+  await expect(group).toHaveAttribute("aria-invalid", "true");
+  for (const radio of await group.getByRole("radio").all()) {
+    const described = (await radio.getAttribute("aria-describedby")) ?? "";
+    const texts = await radio.evaluate((el, ids) => ids.split(" ").map((id) => el.ownerDocument.getElementById(id)?.textContent ?? ""), described);
+    expect(texts.some((text) => text.includes(formWords.errors.dropdown))).toBe(true);
+  }
+
+  // Focus is on the first problem field.
+  await expect(form.getByLabel(showcaseForm.fields[0]!.label, { exact: true })).toBeFocused();
   expect(sent).toHaveLength(0);
 
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
