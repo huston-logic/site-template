@@ -24,7 +24,10 @@ const sources = {
   "src/app/(site)/privacy/page.tsx": 'import { privacy } from "@/content/privacy";',
   "src/app/(site)/contact/thanks/page.tsx": 'import { thanks } from "@/content/contact";',
   "src/app/(site)/layout.tsx": 'import { SiteChrome } from "@/components/layout/SiteChrome";',
-  "src/components/layout/SiteChrome.tsx": 'import { nav } from "@/content/nav";',
+  "src/components/layout/SiteChrome.tsx": 'import { nav } from "@/content/nav";\nimport { Footer } from "./Footer";',
+  "src/components/layout/Footer.tsx": "export function Footer() {}",
+  "src/components/hl/Accordion.tsx": "export function Accordion() {}",
+  "src/blocks/library/faq/Faq.tsx": 'import { Accordion } from "@/components/hl/Accordion";',
   "src/components/hl/Button.tsx": "export function Button() {}",
   "src/components/hl/Hero.tsx": 'import { homeBackdrop } from "@/content/home-art";',
   "src/content/home.ts": 'export const homeHero = { image: "/images/home/hero.jpg" };',
@@ -130,6 +133,18 @@ test("any other file under src/blocks or src/site-blocks reaches every page", ()
   for (const path of ["src/blocks/BlockRenderer.tsx", "src/blocks/schema.ts", "src/blocks/components.tsx", "src/site-blocks/definitions.ts", "src/site-blocks/hero/Hero.tsx"]) {
     assert.deepEqual(routes(change(["M", path])), [...allRoutes].sort(), path);
   }
+});
+
+test("a component used only by the FAQ block maps to pages using faq and /blocks", () => {
+  assert.deepEqual(routes(change(["M", "src/components/hl/Accordion.tsx"])), ["/blocks", "/services"]);
+});
+
+test("a layout component still reaches every page", () => {
+  assert.deepEqual(routes(change(["M", "src/components/layout/Footer.tsx"])), [...allRoutes].sort());
+});
+
+test("worker/ changes photograph nothing", () => {
+  assert.deepEqual(routes(change(["M", "worker/contact.ts"], ["M", "worker/editor/tools.ts"], ["M", "src/lib/first-name.test.ts"], ["M", "scripts/finish-build.test.mjs"])), []);
 });
 
 test("pageInfoFromTexts reads status and block types from page file texts, skipping files that are not JSON", () => {

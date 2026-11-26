@@ -53,29 +53,38 @@ export function findImporters(path, sources) {
   });
 }
 
-/** Follows imports upward until it reaches pages. `all` is true when it reaches the shared layout or cannot tell. */
+const BLOCK_FOLDER = /^src\/(?:blocks\/library|site-blocks)\/([^/]+)\//;
+
+/**
+ * Follows imports upward until it reaches pages. `all` is true when it reaches the shared layout or cannot tell. Tracing
+ * stops at a file inside a block's folder and records that block type in `types`, so a component only one block uses maps
+ * to the pages using that block, not to every page.
+ */
 function reachablePages(path, sources, pageRoutes) {
   const routes = new Set();
+  const types = new Set();
   const seen = new Set([path]);
   const queue = [path];
   let first = true;
   while (queue.length > 0) {
     const importers = findImporters(queue.shift(), sources);
-    if (first && importers.length === 0) return { all: true, routes };
+    if (first && importers.length === 0) return { all: true, routes, types };
     first = false;
     for (const importer of importers) {
       if (seen.has(importer)) continue;
       seen.add(importer);
+      const block = BLOCK_FOLDER.exec(importer);
       if (pageRoutes[importer]) routes.add(pageRoutes[importer]);
-      else if (importer.startsWith("src/app/")) return { all: true, routes };
+      else if (importer.startsWith("src/app/")) return { all: true, routes, types };
+      else if (block) types.add(block[1]);
       else queue.push(importer);
     }
   }
-  return { all: false, routes };
+  return { all: false, routes, types };
 }
 
 /** Files that cannot change how a page looks. */
-const NO_VISUAL_EFFECT = /^(?:docs|scripts|tests|\.github|\.claude)\/|\.md$|^src\/lib\/routes\.ts$/;
+const NO_VISUAL_EFFECT = /^(?:docs|scripts|tests|\.github|\.claude|worker)\/|\.md$|\.test\.(?:ts|mjs)$|^src\/lib\/routes\.ts$/;
 const LIBRARY_BLOCK = /^src\/blocks\/library\/([^/]+)\//;
 const BLOCK_CODE = /^src\/(?:blocks|site-blocks)\//;
 export const SHOWCASE_ROUTE = "/blocks";
@@ -133,7 +142,14 @@ export function affectedPages({ files, sources, pageRoutes = {}, allRoutes, page
     } else if (!NO_VISUAL_EFFECT.test(path)) {
       const reach = reachablePages(path, sources, pageRoutes);
       if (reach.all) for (const route of allRoutes) mark(route, `${path} changed (it reaches every page)`);
-      else for (const route of reach.routes) mark(route, `${path} changed`);
+      else {
+        for (const route of reach.routes) mark(route, `${path} changed`);
+        for (const type of reach.types) {
+          const uses = (pages) => Object.keys(pages).filter((route) => pages[route].types.includes(type));
+          for (const route of new Set([...uses(pagesHead), ...uses(pagesBase)])) mark(route, `${path} changed (this page uses the "${type}" block)`);
+        }
+        if (reach.types.size > 0) mark(SHOWCASE_ROUTE, `${path} changed (the block showcase shows every block)`);
+      }
     }
   }
   return [...entries.keys()]
