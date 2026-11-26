@@ -1,5 +1,8 @@
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { DEFAULT_UPLOADS, type EditorConfig } from "../config.ts";
-import { registry } from "../../src/blocks/definitions.ts";
+import { registry as libraryRegistry } from "../../src/blocks/definitions.ts";
+import { defineBlock, type AnyBlockDefinition } from "../../src/blocks/schema.ts";
+import { COLLECTION_KINDS } from "../../src/collections/schema.ts";
 import { FakeGitHub } from "./fake-github.ts";
 import { createEditor } from "./service.ts";
 import type { AssetsLike, Editor, EditorDeps } from "./types.ts";
@@ -74,6 +77,72 @@ export class FakeAssets implements AssetsLike {
     return Response.json({ commit: this.commit });
   }
 }
+
+const REPO = new URL("../../", import.meta.url);
+const template = (path: string): string => readFileSync(new URL(path, REPO), "utf8");
+
+/** The template's own settings files and example items, so the seeded site tracks the real template. Posts are left out (see blogFiles). */
+function templateDocuments(): Record<string, string> {
+  const files: Record<string, string> = {};
+  for (const name of ["business", "brand", "notice"]) files[`src/content/${name}.json`] = template(`src/content/${name}.json`);
+  for (const kind of COLLECTION_KINDS) {
+    if (kind === "posts") continue;
+    const dir = `src/content/collections/${kind}`;
+    if (!existsSync(new URL(dir, REPO))) continue;
+    for (const file of readdirSync(new URL(dir, REPO))) if (file.endsWith(".json")) files[`${dir}/${file}`] = template(`${dir}/${file}`);
+  }
+  return files;
+}
+
+/** A live blog: the template's /blog page and example posts. Posts are live, so the site needs the page (the build rule). */
+export function blogFiles(): Record<string, string> {
+  const files: Record<string, string> = {};
+  const dir = "src/content/collections/posts";
+  if (existsSync(new URL(dir, REPO))) for (const file of readdirSync(new URL(dir, REPO))) if (file.endsWith(".json")) files[`${dir}/${file}`] = template(`${dir}/${file}`).replace('"status": "draft"', '"status": "live"');
+  for (const text of Object.values(files)) {
+    for (const [, src] of text.matchAll(/"src": "(\/images\/[^"]+)"/g)) files[`public${src}`] = "image-bytes";
+  }
+  files["src/content/pages/blog.json"] = existsSync(new URL("src/content/pages/blog.json", REPO))
+    ? template("src/content/pages/blog.json")
+    : JSON.stringify(
+        {
+          path: "/blog",
+          title: "Blog",
+          description: "Posts from the shop.",
+          status: "live",
+          menu: { label: "Blog", order: 50, places: ["footer"] },
+          blocks: [
+            { type: "hero", content: { title: "The blog" } },
+            { type: "post-index", content: { emptyText: "No posts yet." } },
+          ],
+        },
+        null,
+        2,
+      ) + "\n";
+  return files;
+}
+
+const stub = (type: string, title: string, fields: object, example: unknown, variants: string[]): AnyBlockDefinition =>
+  defineBlock({
+    type,
+    title,
+    description: title,
+    source: "library",
+    fields,
+    variants: variants.map((name) => ({ name, description: name })),
+    placement: { position: "any", maxPerPage: 1, rhythm: "section" },
+    motion: { entrance: "default" },
+    example,
+  } as never) as unknown as AnyBlockDefinition;
+
+/** The real block registry, plus a stand-in for each list block the library does not have yet (the real one wins once it exists). */
+export const registry: AnyBlockDefinition[] = [
+  ...libraryRegistry,
+  ...[
+    stub("post-index", "Post list", { emptyText: { kind: "text", label: "Text when there are no posts", max: 120 } }, { emptyText: "No posts yet." }, ["list", "cards"]),
+    stub("latest-posts", "Latest posts", { heading: { kind: "text", label: "Heading", max: 90 }, count: { kind: "number", label: "How many", min: 1, max: 6, required: false } }, { heading: "Latest posts" }, ["cards", "list"]),
+  ].filter((block) => !libraryRegistry.some((real) => real.type === block.type)),
+];
 
 const hours = (extra: string[] = []) => ({
   path: "/hours",
@@ -153,7 +222,7 @@ export function seedFiles(overrides: Record<string, string> = {}): Record<string
     "public/images/team.png": "png-bytes",
   };
   for (const [file, page] of Object.entries(pages)) files[`src/content/pages/${file}`] = JSON.stringify(page, null, 2) + "\n";
-  return { ...files, ...overrides };
+  return { ...files, ...templateDocuments(), ...overrides };
 }
 
 export const seedSite = (overrides: Record<string, string> = {}): FakeGitHub => new FakeGitHub(seedFiles(overrides));
