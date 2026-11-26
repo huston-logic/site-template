@@ -16,8 +16,8 @@ The rules live in one file: [`scripts/change-scope-rules.mjs`](../scripts/change
 
 | Tier | What it is | What the check does |
 | --- | --- | --- |
-| **1** | Content: page files `src/content/pages/<name>.json` that pass the content check at the head commit, photos in `public/images/`, PDFs in `public/files/` (see "PDF rules"), and plain-data content modules in `src/content/` (for example `contact.ts` and `nav.ts`, see below) | Passes. Content problems **block** on `change/` branches (see below) |
-| **3** | Everything else: `worker/`, `public/_headers`, `wrangler.jsonc`, `site.config.ts`, the wiring modules in `src/content/` (`site.ts`, `providers.ts`, `auto-reply.ts`, `contact-fields.ts`), `src/lib/` (including `routes.ts`), every file under `src/app/`, `src/blocks/` and `src/site-blocks/` (a block's design is code), `package.json` and the lockfile, `.github/`, `.claude/`, `src/components/`, deleting or renaming a page file, and any other file | Fails (exit code 1) and lists each file with a plain reason |
+| **1** | Content: page files `src/content/pages/<name>.json` that pass the content check at the head commit, item files `src/content/collections/<kind>/<slug>.json` that pass the content check at the head commit, the settings files `src/content/business.json`, `brand.json` and `notice.json` that pass it, `src/app/palette.css` and `src/lib/fonts.ts` only when they match the generator's output for `brand.json` byte for byte (see "Items, settings and brand"), photos in `public/images/`, PDFs in `public/files/` (see "PDF rules"), and plain-data content modules in `src/content/` (for example `contact.ts` and `nav.ts`, see below) | Passes. Content problems **block** on `change/` branches (see below) |
+| **3** | Everything else: `worker/`, `public/_headers`, `wrangler.jsonc`, `site.config.ts`, the wiring modules in `src/content/` (`site.ts`, `providers.ts`, `auto-reply.ts`, `contact-fields.ts`), `src/lib/` (including `routes.ts`), every file under `src/app/`, `src/blocks/` and `src/site-blocks/` (a block's design is code), `package.json` and the lockfile, `.github/`, `.claude/`, `src/components/`, `src/collections/`, `src/brand/` and `src/settings/` (the rules), deleting or renaming a page file, an item file or a settings file, an unknown collection kind or a file nested under `src/content/collections/`, and any other file | Fails (exit code 1) and lists each file with a plain reason |
 
 (Tier 2, "ask first", is about a vague request and is handled by the agent, not by files, so the scope check does not know it.)
 
@@ -170,6 +170,24 @@ origin. That file is tier 3 and is changed with `npm run sync:config`; the edito
 
 Any new `[[placeholder]]` on a line the change **adds** in `src/content/` (page files included) or `src/app/`. A placeholder that was already on a
 line the change edited is not new (each added one cancels against a removed one with the same text), and the launch gate (`npm run check:placeholders`, which lists every placeholder in the repo) is unchanged.
+
+## Items, settings and brand
+
+Item files and the three settings files are checked by the same content rules as blocks: field kinds, limits, plain text,
+links, images with real alt text, and the post body. The content check also judges the brand:
+
+- every color pair in `src/brand/contrast-pairs.ts` must keep its contrast on the `brand.json` at the head commit. A pair
+  that fails blocks the change and names the pair and its ratio;
+- each font must be on the curated list in `src/brand/fonts.ts`;
+- a logo must be an upload that is at least 160 by 80 pixels, with a shape between 1:1 and 6:1.
+
+The change report maps these files to the pages they can change:
+
+- a post item maps to its own page and to `/blog`;
+- any other item maps to every page that holds a list block for its kind (latest posts, post index, video list, episode
+  list, testimonials or team). Examples do not change, so `/blocks` is not photographed for items;
+- `business.json`, `notice.json`, `brand.json`, `src/app/palette.css` and `src/lib/fonts.ts` map to every page. The report
+  flags a brand change as "touches every page".
 
 ## Running it
 
