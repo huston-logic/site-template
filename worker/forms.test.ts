@@ -232,6 +232,9 @@ describe("requests rejected before any outside call", () => {
     ["a required field missing", () => post({ ...quote, message: " " }), 400, "invalid"],
     ["bad email", () => post({ ...quote, email: "ada@" }), 400, "invalid"],
     ["unknown option", () => post({ ...quote, project: "Pool" }), 400, "rejected"],
+    ["a number for a text field", () => post({ ...quote, message: 42 }), 400, "rejected"],
+    ["true for a dropdown", () => post({ ...quote, project: true }), 400, "rejected"],
+    ["a word for a checkbox", () => post({ ...quote, terms: "yes" }), 400, "rejected"],
     ["missing token", () => post({ ...quote, turnstileToken: "" }), 403, "rejected"],
   ];
   for (const [label, request, status, error] of cases) {
@@ -324,7 +327,7 @@ describe("a valid quote request", () => {
     assert.equal(called("reply").length + called("download").length, 0, "a non-download form sends no visitor email");
   });
 
-  test("Review Focus keeps lines 1, 2 and 5", async () => {
+  test("a long answer keeps its line breaks in the Sheet and the notification", async () => {
     await makeWorker().fetch(post({ ...quote, focus: "one\ntwo\n\n\nfive" }), env());
     const { row } = rowOf();
     assert.ok((row[4] ?? "").includes("Review Focus:\none\ntwo\n\n\nfive"));
