@@ -1,7 +1,7 @@
 # Proposal: compress files in the Lighthouse test server, the way Cloudflare does
 
-Status: proposed, not applied. It changes what the required `lighthouse` check measures, so it is Grant's decision
-(CLAUDE.md: changing CI behavior stops for Grant). No threshold or assertion changes.
+Status: approved by Grant on 2026-11-25 and applied (`docs/PROCESS.md` rule 17). No threshold or assertion changed.
+The rest of this file is the record of why.
 
 ## The problem
 
@@ -47,8 +47,8 @@ res.end(zip ? gzipSync(body) : body);
 Plus a test in `scripts/preview.test.mjs` (or beside the existing preview tests) that a `.js` file comes back gzipped when
 asked and plain when not, and that images and fonts are never re-compressed.
 
-## Until it is decided
+## Before it was decided
 
-- The template's example post has no lead photo, so the template's own CI passes on text-led pages only.
-- `docs/EDITING.md`, Known limits, says that a post with a lead photo can fail the `lighthouse` check today.
+- The template's example post had no lead photo, so the template's own CI passed on text-led pages only.
+- `docs/EDITING.md`, Known limits, said that a post with a lead photo could fail the `lighthouse` check (removed when applied).
 - The 90 threshold is unchanged and must stay unchanged; the fix is the server's fidelity, not the bar.
