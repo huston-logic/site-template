@@ -9,8 +9,19 @@ Each item has one mark:
 - **Coming**: planned, not available yet.
 - **Huston Logic builds it**: this needs design, setup or a build by Huston Logic first.
 
-Today a change is made on its own branch (a separate copy of the site) and checked before it goes live. Chatting with
-your AI to make changes directly, including signing in to do it, is coming in a later update.
+You can change your site by chatting with your AI app. Sign in at `https://[[Site domain]]/owner`. That page shows the changes
+waiting for your yes, your recent changes (with Withdraw or Undo), and how to connect your AI app.
+
+## How a change works
+
+1. Ask your AI app for the change in plain words.
+2. Read the list it shows. It lists exactly what will change, with the old and new words.
+3. Say yes. The change goes live in a few minutes (about 5, after the same checks as every other change). Until your
+   AI app says it is live, it is not.
+4. Ask "is it live yet?" to check.
+5. Ask "undo that" to take a change back (a change still being checked is withdrawn instead). The undo shows a list
+   too, and you say yes to it.
+6. Anything outside these lanes is passed to Huston Logic.
 
 ## Lane 1: Do it yourself by chatting
 

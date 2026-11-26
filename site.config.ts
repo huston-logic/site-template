@@ -78,6 +78,35 @@ export const siteConfig = {
     // 2001) and add the row there. 1001 and 1002 are the template's own; `npm run check:config` rejects them on a real site.
     rateLimitIds: { production: "1001", preview: "1002" },
   },
+  /**
+   * The owner's chat tools (docs/superpowers/specs/2026-11-25-owner-chat-tools-design.md). Off by default: while
+   * `enabled` is false the Worker answers only /api/* and wrangler.jsonc gets none of the editor bindings. Owner-only
+   * file: a chat change can never add an owner.
+   */
+  editor: {
+    enabled: false,
+    /** Who may sign in. Lower-cased when compared. Removing someone takes effect at the next deploy. */
+    ownerEmails: [] as string[],
+    /** Cloudflare Access: the team name only (for <team>.cloudflareaccess.com) and the Access app's AUD tag. Not secrets. */
+    access: { teamDomain: null as string | null, aud: null as string | null },
+    /** The GitHub App installed on this site's repo only. appId and installationId are digits written as strings. */
+    github: {
+      owner: null as string | null,
+      repo: null as string | null,
+      appId: null as string | null,
+      installationId: null as string | null,
+      botLogin: null as string | null,
+    },
+    /** The account's workers.dev subdomain, used to compute preview links. */
+    workersSubdomain: null as string | null,
+    dailyChangeLimit: 10,
+    /** A whole number written as a string, unique in the Cloudflare account (docs/HOSTING.md). 1003 is the template's own. */
+    rateLimitId: "1003",
+    /** KV namespace ids (32 hex characters): OAuth tokens, and drafts with change times. */
+    kv: { oauth: null as string | null, editor: null as string | null },
+    /** Pull request checks that never count when judging whether a change is stuck. */
+    ignoredChecks: ["change-report", "change-scope", "Workers Builds"] as string[],
+  },
   theme: {
     // CLIENT: replace. A neutral grey and blue palette; every pair keeps WCAG AA contrast.
     colors: {

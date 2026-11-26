@@ -105,7 +105,7 @@ what enforces it. `npm run check:process` fails if a rule has no "Why" or this f
 
 ### 14. Every site has its own rate-limit ids
 
-- **What:** Each site sets its own pair of rate-limit namespace ids (`contact.rateLimitIds` in `site.config.ts`), taken from the register in `docs/HOSTING.md`. New sites start at 2001. The register is updated in the same PR that gives a site its ids.
+- **What:** Each site sets its own rate-limit namespace ids: the contact pair (`contact.rateLimitIds` in `site.config.ts`), plus one for the site editor (`editor.rateLimitId`), taken from the register in `docs/HOSTING.md`. New sites start at 2001. The register is updated in the same PR that gives a site its ids.
 - **Why:** Rate-limit bindings with the same `namespace_id` in one Cloudflare account share their counters, even across Workers (Cloudflare docs, "Rate Limiting" binding). Two sites on the same ids would count each other's visitors.
 - **Decided:** Grant, 2026-11-24
 - **Enforced by:** `npm run check:config` fails if the ids are missing or not numbers, if the two ids match, or if a configured site (a real `domain.workerName`) still uses the template's 1001 or 1002. The register itself is convention.

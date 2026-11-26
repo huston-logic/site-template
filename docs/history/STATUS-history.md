@@ -153,3 +153,39 @@ the docs; the review-code and review-security agents each read the code branch o
 | Commits | 7 (2 in #27, 5 in #28) |
 | Time in checks | about 4 minutes (`check:fast` per commit, the full check on each push) |
 | Time waiting on CI | 0: nothing waited on it. #27's slowest job, `lighthouse`, took 3 min 31 s |
+
+## Record: Pages as blocks run (2026-11-25, moved from STATUS.md unchanged)
+
+Process run, unattended, from Grant's brief. Design: `docs/superpowers/specs/2026-11-25-pages-as-blocks-design.md`
+(its rulings are marked "Ruling"). Plan: `docs/superpowers/plans/2026-11-25-pages-as-blocks.md`. Opus designed,
+coordinated and reviewed; Sonnet implemented Tasks 1 to 7a; Haiku drafted the client docs and the scope and process docs;
+the review-code, review-a11y and review-security agents each read the branch once, and the design critique used
+screenshots of `/blocks` at 1440 and 390 wide. One PR (one feature area).
+
+- **No visible change:** the five pages and the thanks page, screenshotted against a build of `main` at 390 and 1440 wide
+  (reduced motion), are pixel-identical apart from 1 to 2 levels of 255 inside the soft glows. `main`'s own pictures
+  differ by the same amounts between two runs of the same build, so that is gradient rendering noise.
+- **Checks:** full `npm run check` passes; the a11y scan passes (50 tests, `/blocks` included; run on Google Chrome);
+  Lighthouse is 100 in every category on every page (`/blocks` SEO not asserted: noindex by design).
+- **Judgment calls:** pages are JSON (no code in a page file); one-level paths; no colored bands (style guide v3 uses
+  glows); the entrance is a 16px rise with no fade, by `IntersectionObserver` (a first scroll-driven version broke
+  AGENTS.md's no-scroll-linked rule, and its fade made Lighthouse read faint text); YouTube and Vimeo frame and autoplay
+  permissions are on for every site; Lighthouse checks `/blocks` without SEO through `assertMatrix` (existing pages keep
+  all four thresholds); the contact-fields module and the route list moved to tier 3; deleting a page file is tier 3;
+  the "Flagged for Grant" list and the new-page code grammar were removed (nothing else used it); a video grid always has
+  a heading; three-column grids need three items to use three columns; no photo section yet (`docs/EDITING-LANES.md`
+  says so).
+- **Review fixes:** video play control named for what a press does; video words made plain data (a client may edit
+  them); a removed picture now runs the content check; the change report photographs the before side of a new page file
+  (needed for conversions); `/404` and `/index` reserved; per-page entrance reset.
+- **Not done, noted:** the thanks page's own links (in `contact.ts`) are not checked against archived pages; the change
+  report still photographs every page for most component changes (slow, not wrong); the header and footer nav labels
+  are written in JSX (older than this run); the README's "Framework step names" row is stale (older than this run).
+- **New dependencies:** none.
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | about 80 minutes (about 12:15 to 13:35, PR open and reviewed) |
+| Commits | 13 |
+| Time in checks | about 20 minutes (`check:fast` per commit, 4 cold builds, 3 a11y runs, 3 Lighthouse runs, 4 screenshot reports) |
+| Time waiting on CI | 0: auto-merge is queued; nothing waited on CI |
