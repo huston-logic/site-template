@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { rules } from "./change-scope-rules.mjs";
 import { pdfNames, pdfProblem } from "./pdf-check.mjs";
+import { PDF_ACTIVE_NAMES, pdfPageCount } from "../src/lib/pdf-scan.ts";
+import { checkPdf } from "../worker/uploads/pdf.ts";
 
 /** A tiny well-formed PDF, with `extra` placed inside the catalog dictionary. */
 const pdf =(extra = "") =>
@@ -59,4 +61,37 @@ test("a name followed straight by a delimiter still counts", () => {
 
 test("pdfNames decodes escapes and splits on delimiters", () => {
   assert.deepEqual([...pdfNames(Buffer.from("/A#42C/Foo<</Bar[/Baz]"))].sort(), ["ABC", "Bar", "Baz", "Foo"]);
+});
+
+test("the rules file's active names equal the shared scan's list", () => {
+  assert.deepEqual([...rules.pdfActiveNames], [...PDF_ACTIVE_NAMES]);
+});
+
+test("the Worker check and the script check give the same verdict on the same bytes", () => {
+  const fixtures = {
+    "NUL after /JS": ["/S /JS\u0000(alert(1)) ", true],
+    "NUL after /JavaScript": ["/JavaScript\u0000<< >> ", true],
+    "vertical tab after /JS is part of the name": ["/JS\u000b(x) ", false],
+    "#-escaped": ["/J#61vaScript 1 0 R ", true],
+    "/JSFoo": ["/JSFoo 1 /AAPL 2 ", false],
+    GoToR: ["<< /S /GoToR /F (x) >> ", true],
+    GoToE: ["/S/GoToE ", true],
+    Rendition: ["/Rendition 1 0 R ", true],
+    Movie: ["/Movie << >> ", true],
+    Sound: ["/Sound << >> ", true],
+    clean: ["/Type /Page ", false],
+  };
+  for (const [label, [extra, active]] of Object.entries(fixtures)) {
+    const bytes = pdf(extra);
+    const script = pdfProblem(bytes, rules) !== null;
+    const worker = checkPdf(bytes, 10_000_000);
+    assert.equal(script, active, `script: ${label}`);
+    assert.equal(!worker.ok && worker.reason === "active", active, `worker: ${label}`);
+  }
+});
+
+test("pdfPageCount takes /Type, optional PDF white space, then the whole name /Page", () => {
+  const body = (s) => Buffer.from(`%PDF-1.4\n${s}\n%%EOF`, "latin1");
+  assert.equal(pdfPageCount(body("/Type/Page /Type /Page /Type\u0000/Page /Type /Pages /Type /PageX /Type /Page(")), 4);
+  assert.equal(pdfPageCount(body("nothing")), 1);
 });

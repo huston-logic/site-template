@@ -16,9 +16,12 @@ export interface UploadContext {
   onSite: ReadonlySet<string>;
 }
 
-// buildChangeList is synchronous, so the rendering helpers below read the upload context from here instead of taking it
-// as a parameter through every recursive call.
-let active: { byValue: Map<string, ProposalUpload>; uploads: readonly ProposalUpload[]; onSite: ReadonlySet<string> } = { byValue: new Map(), uploads: [], onSite: new Set() };
+/** The upload context of one buildChangeList call, passed to every helper: nothing is kept between calls. */
+interface Ctx {
+  byValue: ReadonlyMap<string, ProposalUpload>;
+  uploads: readonly ProposalUpload[];
+  onSite: ReadonlySet<string>;
+}
 
 /** Decimal sizes, as the upload messages use: 240 KB, 3.4 MB. */
 export function formatSize(bytes: number): string {
@@ -27,16 +30,16 @@ export function formatSize(bytes: number): string {
 }
 
 /** A string value as shown: a link to an upload PDF reads as a download, anything else is quoted plain text. */
-function shown(value: unknown): string {
-  const upload = typeof value === "string" ? active.byValue.get(value) : undefined;
+function shown(value: unknown, ctx: Ctx): string {
+  const upload = typeof value === "string" ? ctx.byValue.get(value) : undefined;
   return upload?.kind === "pdf" ? `Download: ${quote(upload.name)} (PDF, ${formatSize(upload.bytes)})` : quote(value);
 }
 
 const isImageValue = (value: unknown): value is { src: string; alt: string; focus?: string } =>
   isObject(value) && typeof value.src === "string" && typeof value.alt === "string";
 
-function photoText(image: { src: string; alt: string; focus?: unknown }): string {
-  const upload = active.byValue.get(image.src);
+function photoText(image: { src: string; alt: string; focus?: unknown }, ctx: Ctx): string {
+  const upload = ctx.byValue.get(image.src);
   const where = upload ? `${quote(upload.name)} (upload ${upload.id})` : image.src;
   const focus = typeof image.focus === "string" ? `, focus: ${image.focus}` : "";
   return `Photo: ${where}, description: ${quote(image.alt)}${focus}`;
@@ -45,8 +48,8 @@ function photoText(image: { src: string; alt: string; focus?: unknown }): string
 const TRIM_LIMIT = 0.25;
 
 /** The sentence for an upload photo that the slot's shape would trim by more than a quarter, or null. */
-function fitNote(image: { src: string }, shape: ImageShape): string | null {
-  const upload = active.byValue.get(image.src);
+function fitNote(image: { src: string }, shape: ImageShape, ctx: Ctx): string | null {
+  const upload = ctx.byValue.get(image.src);
   if (!upload || upload.kind !== "photo" || !upload.width || !upload.height) return null;
   const [w, h] = shape.split(":").map(Number);
   const photo = upload.width / upload.height;
@@ -58,9 +61,9 @@ function fitNote(image: { src: string }, shape: ImageShape): string | null {
     : "This photo will be trimmed at the sides to fit the section. Say if the left or right side matters, and I'll set where it focuses.";
 }
 
-function imageLines(value: { src: string; alt: string; focus?: unknown }, def: Field | undefined): string[] {
-  const note = def?.kind === "image" ? fitNote(value, def.shape) : null;
-  return [photoText(value), ...(note ? [note] : [])];
+function imageLines(value: { src: string; alt: string; focus?: unknown }, def: Field | undefined, ctx: Ctx): string[] {
+  const note = def?.kind === "image" ? fitNote(value, def.shape, ctx) : null;
+  return [photoText(value, ctx), ...(note ? [note] : [])];
 }
 const text = (label: string): Field => ({ kind: "text", label, max: 0 });
 
@@ -101,46 +104,46 @@ function entryField(def: Field | undefined): Field | undefined {
 }
 
 /** Every text leaf of a value, as `Label, entry 2, Label: "text"` lines (a bare value when it has no label path). */
-function leaves(value: unknown, def: Field | undefined, path: string[], out: string[]): string[] {
+function leaves(value: unknown, def: Field | undefined, path: string[], out: string[], ctx: Ctx): string[] {
   if (def?.kind === "image" && isImageValue(value)) {
-    const [photo, ...rest] = imageLines(value, def);
+    const [photo, ...rest] = imageLines(value, def, ctx);
     out.push(path.length ? `${path.join(", ")}: ${photo}` : photo, ...rest);
   } else if (Array.isArray(value)) {
-    value.forEach((item, i) => leaves(item, entryField(def), [...path, `entry ${i + 1}`], out));
+    value.forEach((item, i) => leaves(item, entryField(def), [...path, `entry ${i + 1}`], out, ctx));
   } else if (isObject(value)) {
-    for (const [key, item] of Object.entries(value)) leaves(item, childField(def, key), [...path, keyLabel(def, key)], out);
+    for (const [key, item] of Object.entries(value)) leaves(item, childField(def, key), [...path, keyLabel(def, key)], out, ctx);
   } else {
-    out.push(path.length ? `${path.join(", ")}: ${shown(value)}` : shown(value));
+    out.push(path.length ? `${path.join(", ")}: ${shown(value, ctx)}` : shown(value, ctx));
   }
   return out;
 }
 
-function verbLines(verb: string, value: unknown, def: Field | undefined): string[] {
-  if (!Array.isArray(value) && !isObject(value)) return [`${verb}: ${shown(value)}`];
-  return [`${verb}:`, ...leaves(value, def, [], []).map((line) => `  ${line}`)];
+function verbLines(verb: string, value: unknown, def: Field | undefined, ctx: Ctx): string[] {
+  if (!Array.isArray(value) && !isObject(value)) return [`${verb}: ${shown(value, ctx)}`];
+  return [`${verb}:`, ...leaves(value, def, [], [], ctx).map((line) => `  ${line}`)];
 }
 
-function diffValue(before: unknown, after: unknown, def: Field | undefined, path: string[], out: Entry[]): void {
+function diffValue(before: unknown, after: unknown, def: Field | undefined, path: string[], out: Entry[], ctx: Ctx): void {
   if (deepEqual(before, after)) return;
   const container = (value: unknown) => Array.isArray(value) || isObject(value);
   if (def?.kind === "image" && isImageValue(before) && isImageValue(after)) {
-    out.push({ path, lines: [`was: ${photoText(before)}`, `now: ${photoText(after)}`, ...imageLines(after, def).slice(1)] });
+    out.push({ path, lines: [`was: ${photoText(before, ctx)}`, `now: ${photoText(after, ctx)}`, ...imageLines(after, def, ctx).slice(1)] });
   } else if (!container(before) && !container(after)) {
-    const show = (value: unknown) => (value === undefined ? "(nothing)" : shown(value));
+    const show = (value: unknown) => (value === undefined ? "(nothing)" : shown(value, ctx));
     out.push({ path, lines: [`was: ${show(before)}`, `now: ${show(after)}`] });
   } else if (Array.isArray(before) && Array.isArray(after)) {
-    diffList(before, after, entryField(def), path, out);
+    diffList(before, after, entryField(def), path, out, ctx);
   } else if (isObject(before) && isObject(after)) {
     for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
-      diffValue(before[key], after[key], childField(def, key), [...path, keyLabel(def, key)], out);
+      diffValue(before[key], after[key], childField(def, key), [...path, keyLabel(def, key)], out, ctx);
     }
   } else {
-    if (before !== undefined) out.push({ path, lines: verbLines("removes", before, def) });
-    if (after !== undefined) out.push({ path, lines: verbLines("adds", after, def) });
+    if (before !== undefined) out.push({ path, lines: verbLines("removes", before, def, ctx) });
+    if (after !== undefined) out.push({ path, lines: verbLines("adds", after, def, ctx) });
   }
 }
 
-function diffList(before: unknown[], after: unknown[], of: Field | undefined, path: string[], out: Entry[]): void {
+function diffList(before: unknown[], after: unknown[], of: Field | undefined, path: string[], out: Entry[], ctx: Ctx): void {
   let start = 0;
   while (start < before.length && start < after.length && deepEqual(before[start], after[start])) start += 1;
   let end = 0;
@@ -148,18 +151,18 @@ function diffList(before: unknown[], after: unknown[], of: Field | undefined, pa
   const removed = before.slice(start, before.length - end);
   const added = after.slice(start, after.length - end);
   if (removed.length === added.length) {
-    removed.forEach((item, i) => diffValue(item, added[i], of, [...path, `entry ${start + i + 1}`], out));
+    removed.forEach((item, i) => diffValue(item, added[i], of, [...path, `entry ${start + i + 1}`], out, ctx));
     return;
   }
-  removed.forEach((item, i) => out.push({ path: [...path, `entry ${start + i + 1}`], lines: verbLines("removes", item, of) }));
-  added.forEach((item, i) => out.push({ path: [...path, `entry ${start + i + 1}`], lines: verbLines("adds", item, of) }));
+  removed.forEach((item, i) => out.push({ path: [...path, `entry ${start + i + 1}`], lines: verbLines("removes", item, of, ctx) }));
+  added.forEach((item, i) => out.push({ path: [...path, `entry ${start + i + 1}`], lines: verbLines("adds", item, of, ctx) }));
 }
 
 const render = (entries: Entry[]) => entries.flatMap(({ path, lines }) => [`  ${path.join(", ")}:`, ...lines.map((line) => `    ${line}`)]);
 
-function blockFieldLines(block: Json, def: AnyBlockDefinition | undefined): string[] {
+function blockFieldLines(block: Json, def: AnyBlockDefinition | undefined, ctx: Ctx): string[] {
   const root: Field | undefined = def ? { kind: "object", label: "", fields: def.fields } : undefined;
-  const lines = leaves(block.content, root, [], []);
+  const lines = leaves(block.content, root, [], [], ctx);
   if (typeof block.variant === "string") lines.push(`Style: ${quote(block.variant)}`);
   if (typeof block.anchor === "string") lines.push(`Anchor: ${quote(block.anchor)}`);
   return lines;
@@ -200,12 +203,8 @@ export function buildChangeList(
   moved: readonly string[] = [],
   uploadContext: UploadContext = { uploads: [], onSite: new Set() },
 ): string {
-  active = { byValue: new Map(uploadContext.uploads.map((upload) => [pageValueFor(upload.path), upload])), ...uploadContext };
-  try {
-    return buildSections(before, after, ids, registry, moved);
-  } finally {
-    active = { byValue: new Map(), uploads: [], onSite: new Set() };
-  }
+  const ctx: Ctx = { byValue: new Map(uploadContext.uploads.map((upload) => [pageValueFor(upload.path), upload])), ...uploadContext };
+  return buildSections(before, after, ids, registry, moved, ctx);
 }
 
 function buildSections(
@@ -214,6 +213,7 @@ function buildSections(
   ids: BlockIds,
   registry: readonly AnyBlockDefinition[],
   moved: readonly string[],
+  ctx: Ctx,
 ): string {
   const definition = (block: unknown) => registry.find((d) => d.type === (isObject(block) ? block.type : undefined));
   const title = (block: unknown) => definition(block)?.title ?? (isObject(block) ? String(block.type) : "unknown");
@@ -230,7 +230,7 @@ function buildSections(
       lines.push(`New page ${path} (${quote(page.title)})${phrases.map((p) => `, ${p}`).join("")}`);
       if (typeof page.description === "string") lines.push(`  Description: ${quote(page.description)}`);
       blocks.forEach((block, i) => {
-        lines.push(`  Block ${i + 1} (${title(block)}):`, ...blockFieldLines(block as Json, definition(block)).map((l) => `    ${l}`));
+        lines.push(`  Block ${i + 1} (${title(block)}):`, ...blockFieldLines(block as Json, definition(block), ctx).map((l) => `    ${l}`));
       });
       sections.push(lines.join("\n"));
       continue;
@@ -247,7 +247,7 @@ function buildSections(
       }
     }
     const pageEntries: Entry[] = [];
-    diffValue({ title: old.title, description: old.description, menu: old.menu }, { title: page.title, description: page.description, menu: page.menu }, PAGE_FIELDS, [], pageEntries);
+    diffValue({ title: old.title, description: old.description, menu: old.menu }, { title: page.title, description: page.description, menu: page.menu }, PAGE_FIELDS, [], pageEntries, ctx);
     lines.push(...render(pageEntries));
 
     const oldBlocks = Array.isArray(old.blocks) ? old.blocks : [];
@@ -257,7 +257,7 @@ function buildSections(
 
     oldBlocks.forEach((block, i) => {
       if (keptIds.has(oldIds[i])) return;
-      lines.push(`  Removes block ${i + 1} (${title(block)}), which said:`, ...blockFieldLines(block as Json, definition(block)).map((l) => `    ${l}`));
+      lines.push(`  Removes block ${i + 1} (${title(block)}), which said:`, ...blockFieldLines(block as Json, definition(block), ctx).map((l) => `    ${l}`));
     });
 
     const survivors = newIds.map((id, i) => ({ id, at: i + 1 })).filter((s): s is { id: string; at: number } => s.id !== null);
@@ -272,7 +272,7 @@ function buildSections(
 
     newIds.forEach((id, i) => {
       if (id !== null) return;
-      lines.push(`  Adds block ${i + 1} (${title(blocks[i])}):`, ...blockFieldLines(blocks[i] as Json, definition(blocks[i])).map((l) => `    ${l}`));
+      lines.push(`  Adds block ${i + 1} (${title(blocks[i])}):`, ...blockFieldLines(blocks[i] as Json, definition(blocks[i]), ctx).map((l) => `    ${l}`));
     });
 
     for (const s of survivors) {
@@ -282,15 +282,15 @@ function buildSections(
       const prefix = `Block ${s.at} (${title(now)})`;
       const def = definition(now);
       const entries: Entry[] = [];
-      diffValue(was.content, now.content, def ? { kind: "object", label: "", fields: def.fields } : undefined, [prefix], entries);
-      diffValue(was.variant, now.variant, text("Style"), [prefix, "Style"], entries);
-      diffValue(was.anchor, now.anchor, text("Anchor"), [prefix, "Anchor"], entries);
+      diffValue(was.content, now.content, def ? { kind: "object", label: "", fields: def.fields } : undefined, [prefix], entries, ctx);
+      diffValue(was.variant, now.variant, text("Style"), [prefix, "Style"], entries, ctx);
+      diffValue(was.anchor, now.anchor, text("Anchor"), [prefix, "Anchor"], entries, ctx);
       lines.push(...render(entries));
     }
     sections.push(lines.join("\n"));
   }
-  const added = active.uploads
-    .filter((upload) => !active.onSite.has(pageValueFor(upload.path)))
+  const added = ctx.uploads
+    .filter((upload) => !ctx.onSite.has(pageValueFor(upload.path)))
     .map((upload) =>
       upload.kind === "photo"
         ? `New photo added to the site: ${quote(upload.name)} (upload ${upload.id}).`

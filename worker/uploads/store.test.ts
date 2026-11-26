@@ -152,6 +152,64 @@ test("a refused file does not count against the day", async () => {
   assert.equal(kv.store.has("uploads:2026-01-01"), false);
 });
 
+test("an attempt that reaches the conversion or the PDF check counts, accepted or not", async () => {
+  const detailed = setup({ images: { webpSizes: [900 * KB] }, config: { maxPerDay: 3 } });
+  assert.match(refused(await detailed.store.add(JPEG, "a.jpg")), /too detailed/);
+  assert.equal(detailed.kv.store.get("uploads:2026-01-01")?.value, "1");
+  assert.match(refused(await detailed.store.add(new TextEncoder().encode("%PDF-1.4 cut off"), "a.pdf")), /damaged/);
+  assert.match(refused(await detailed.store.add(pdfBytes("<< /JS (x) >>"), "b.pdf")), /holds a script/);
+  assert.equal(detailed.kv.store.get("uploads:2026-01-01")?.value, "3");
+  assert.match(refused(await detailed.store.add(pdfBytes(), "c.pdf")), /daily limit/);
+  const full = setup({ config: { maxTotalBytes: 10 * KB } });
+  assert.match(refused(await full.store.add(JPEG, "a.jpg")), /full/);
+  assert.equal(full.kv.store.get("uploads:2026-01-01")?.value, "1");
+});
+
+test("the inbox is scanned once per add; swept bytes are subtracted, not re-scanned", async () => {
+  const { store, r2, clock } = setup({ config: { maxTotalBytes: 250 * KB } });
+  await store.add(JPEG, "a.jpg");
+  clock.at = new Date("2026-03-01T00:00:00.000Z");
+  const original = r2.bucket.list.bind(r2.bucket);
+  let lists = 0;
+  (r2.bucket as unknown as { list: unknown }).list = (...args: Parameters<typeof original>) => {
+    lists += 1;
+    return original(...args);
+  };
+  assert.ok((await store.add(JPEG, "b.jpg")).ok);
+  assert.equal(lists, 1);
+});
+
+test("an id collision is retried with a new id", async () => {
+  const r2 = createFakeR2();
+  const kv = new FakeKv();
+  const store = createUploadStore({ bucket: r2.bucket, images: createFakeImages().images, kv: kv.asNamespace(), config: { ...DEFAULT_UPLOADS, enabled: true, bucket: "x" }, now: () => new Date("2026-01-01T00:00:00Z") });
+  const original = r2.bucket.head.bind(r2.bucket);
+  const probed: string[] = [];
+  (r2.bucket as unknown as { head: unknown }).head = async (key: string) => {
+    probed.push(key);
+    return probed.length <= 2 ? ({ key, size: 1, customMetadata: {} } as unknown as R2Object) : original(key);
+  };
+  const result = await store.add(pdfBytes(), "a.pdf");
+  assert.ok(result.ok);
+  assert.equal(probed.length, 3, "two collisions, then a free id");
+  assert.equal(new Set(probed).size, 3, "each retry tries a new id");
+  assert.deepEqual([...r2.objects.keys()], [`inbox/${result.upload.id}/file`]);
+});
+
+test("rename of a file that disappeared while it was read is refused and does not bring it back", async () => {
+  const { store, r2 } = setup();
+  const added = await store.add(pdfBytes(), "a.pdf");
+  assert.ok(added.ok);
+  const originalGet = r2.bucket.get.bind(r2.bucket);
+  (r2.bucket as unknown as { get: unknown }).get = async (key: string) => {
+    const object = await originalGet(key);
+    r2.objects.delete(key);
+    return object;
+  };
+  assert.match(refused(await store.rename(added.upload.id, "New name")), /isn't in your uploads/);
+  assert.equal(r2.objects.size, 0);
+});
+
 test("a failed save leaves nothing behind and says so", async () => {
   const { store, r2 } = setup();
   r2.failPutOn.match = "/file";

@@ -220,3 +220,15 @@ test("the fit note appears only when the slot would trim over a quarter, and nam
   assert.ok(!make({ width: 1600, height: 1200 }).includes("trimmed"), "an exact fit has no note");
   assert.ok(!make({ width: 1500, height: 1000 }).includes("trimmed"), "a 11% trim has no note");
 });
+
+test("the upload context of one call never carries over to the next", () => {
+  const before = withBlocks([]);
+  const after = withBlocks([photoBlock({ src: "/images/uploads/up000001.webp", alt: "The team" })]);
+  const ids = matchBlockIds(before, after);
+  const withContext = buildChangeList(before, after, ids, registry, [], { uploads: [upload()], onSite: new Set() });
+  assert.ok(withContext.includes('(upload up000001)') && withContext.includes("New photo added"), withContext);
+  const without = buildChangeList(before, after, ids, registry);
+  assert.ok(!without.includes("upload up000001") && !without.includes("New photo added"), without);
+  assert.ok(without.includes("Photo: /images/uploads/up000001.webp, description:"), without);
+  assert.equal(buildChangeList(before, after, ids, registry, [], { uploads: [upload()], onSite: new Set() }), withContext);
+});

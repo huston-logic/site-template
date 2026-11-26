@@ -105,29 +105,33 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
 
   const expired = (record: UploadRecord) => Date.parse(record.expiresAt) <= now().getTime();
 
-  /** Every upload (expired ones too) and the stored bytes in the whole inbox, from R2 lists. */
-  async function scan(): Promise<{ records: UploadRecord[]; totalBytes: number }> {
+  /** Every upload (expired ones too), the stored bytes in the whole inbox, and the bytes each upload holds, from R2 lists. */
+  async function scan(): Promise<{ records: UploadRecord[]; totalBytes: number; sizes: Map<string, number> }> {
     const records: UploadRecord[] = [];
+    const sizes = new Map<string, number>();
     let totalBytes = 0;
     let cursor: string | undefined;
     do {
       const page = await bucket.list({ prefix: "inbox/", include: ["customMetadata"], ...(cursor ? { cursor } : {}) });
       for (const object of page.objects) {
         totalBytes += object.size;
+        const owner = /^inbox\/([a-z0-9]{8})\//.exec(object.key);
+        if (owner) sizes.set(owner[1], (sizes.get(owner[1]) ?? 0) + object.size);
         const match = /^inbox\/([a-z0-9]{8})\/file$/.exec(object.key);
         const record = match ? toRecord(match[1], object.customMetadata, config.expireDays) : null;
         if (record) records.push(record);
       }
       cursor = page.truncated ? page.cursor : undefined;
     } while (cursor);
-    return { records, totalBytes };
+    return { records, totalBytes, sizes };
   }
 
-  async function deleteExpired(records: UploadRecord[]): Promise<number> {
+  /** Deletes up to 20 expired uploads and returns them. */
+  async function deleteExpired(records: UploadRecord[]): Promise<UploadRecord[]> {
     const doomed = records.filter(expired).slice(0, SWEEP_LIMIT);
     for (const record of doomed) await bucket.delete([fileKey(record.id), previewKey(record.id)]);
     if (doomed.length > 0) log("uploads_swept", { count: doomed.length });
-    return doomed.length;
+    return doomed;
   }
 
   async function load(id: string): Promise<UploadRecord | null> {
@@ -146,6 +150,8 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
     async add(bytes, fileName) {
       const at = now();
       const counterKey = `uploads:${at.toISOString().slice(0, 10)}`;
+      // The daily cap and the inbox total are soft limits: they are read, then written, with no lock, so uploads that
+      // run at the same moment can slightly overshoot either one.
       const today = Number(await kv.get(counterKey)) || 0;
       if (today >= config.maxPerDay) return { ok: false, message: messages.dailyCap(config.maxPerDay) };
 
@@ -166,6 +172,9 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
       let width: number | undefined;
       let height: number | undefined;
       let pages: number | undefined;
+      // An attempt that reaches the conversion or the PDF check counts against the day, whether or not it is accepted,
+      // so refused heavy photos cannot be retried without limit.
+      await kv.put(counterKey, String(today + 1), { expirationTtl: COUNTER_TTL });
       if (kind === "photo") {
         const converted = await convertPhoto(images, bytes);
         if (!converted.ok) {
@@ -186,10 +195,11 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
         pages = checked.pages;
       }
 
-      let inbox = await scan();
-      // Expired uploads are swept first so their space is not held against the owner.
-      if ((await deleteExpired(inbox.records)) > 0) inbox = await scan();
-      if (inbox.totalBytes + stored.length + (preview?.length ?? 0) > config.maxTotalBytes) return { ok: false, message: messages.inboxFull(config.maxTotalBytes) };
+      const inbox = await scan();
+      // Expired uploads are swept first so their space is not held against the owner (their bytes are subtracted, not re-scanned).
+      const swept = await deleteExpired(inbox.records);
+      const held = inbox.totalBytes - swept.reduce((sum, record) => sum + (inbox.sizes.get(record.id) ?? 0), 0);
+      if (held + stored.length + (preview?.length ?? 0) > config.maxTotalBytes) return { ok: false, message: messages.inboxFull(config.maxTotalBytes) };
 
       let id = deps.randomId ? deps.randomId() : newId();
       if (!deps.randomId) {
@@ -219,7 +229,6 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
         await bucket.delete([fileKey(id), previewKey(id)]).catch(() => undefined);
         return { ok: false, message: messages.SAVE_FAILED };
       }
-      await kv.put(counterKey, String(today + 1), { expirationTtl: COUNTER_TTL });
       log("uploads_added", { kind, bytes: stored.length });
       return { ok: true, upload };
     },
@@ -246,6 +255,8 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
       const body = record ? await bytesOf(fileKey(id)) : null;
       if (!record || !body) return { ok: false, message: messages.NOT_FOUND };
       const upload = { ...record, name: cleanLabel(name, record.kind) };
+      // The file may have been removed or swept while it was read; putting it back would bring a deleted upload back.
+      if (!(await bucket.head(fileKey(id)))) return { ok: false, message: messages.NOT_FOUND };
       await bucket.put(fileKey(id), body, {
         customMetadata: metadataFor(upload),
         httpMetadata: { contentType: record.kind === "photo" ? "image/webp" : "application/pdf" },
@@ -260,7 +271,7 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
     },
 
     async sweep() {
-      return deleteExpired((await scan()).records);
+      return (await deleteExpired((await scan()).records)).length;
     },
   };
   return store;

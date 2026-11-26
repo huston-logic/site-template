@@ -590,7 +590,7 @@ export function createEditor(deps: EditorDeps): Editor {
         const size = v.kind === "photo" && v.width && v.height ? `${v.width} x ${v.height}, ${formatSize(v.bytes)}` : formatSize(v.bytes);
         return `${v.id}: ${JSON.stringify(v.name)} (${v.kind === "photo" ? "photo" : "PDF"}, ${size}), uploaded ${v.uploadedAt.slice(0, 10)}, leaves the inbox ${v.expiresAt.slice(0, 10)}${v.onSite ? ", on the site" : ""}`;
       });
-      const text = lines.length === 0 ? "There are no uploads. The owner adds photos and PDFs on their owner page." : `Uploads, newest first:\n${lines.join("\n")}`;
+      const text = lines.length === 0 ? "There are no uploads. The owner adds photos and PDFs on their owner page." : `Uploads, newest first:\n${lines.join("\n")}\n${UPLOAD_INFO}`;
       return { text, data: views };
     },
 
