@@ -525,6 +525,69 @@ Two to twelve photos in a grid, each with an optional caption. The photos do not
 }
 ```
 
+## Latest posts (`latest-posts`)
+
+The newest blog posts, with a heading and an optional link to all of them. It updates by itself when a post is added, and is left out of the page while there is no post.
+
+**Where it can go:** anywhere, once.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `cards` (default): Each post is a card with its photo on top (a tinted panel with the date when it has no photo), then the date, title and summary.
+- `list`: Each post is a row with its date, title and summary, divided by soft lines.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `intro` | Introduction | no | up to 200 characters |
+| `count` | How many posts. From 1 to 6. Three when left empty. | no |  |
+| `action` | Link to all posts | no | button words up to 40 characters, and a link |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading for the newest posts",
+  "intro": "One sentence that says what the posts are about.",
+  "count": 3,
+  "action": {
+    "label": "All posts →",
+    "href": "/blog"
+  }
+}
+```
+
+## Post index (`post-index`)
+
+The list of every blog post, newest first, ten to a page, with links to newer and older pages. It belongs on the blog page only, once.
+
+**Where it can go:** anywhere, once; it sits close under the hero.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `list` (default): Each post is a row with its date, title and summary, divided by soft lines.
+- `cards`: The posts are cards in a grid, each with its photo on top (a tinted panel with the date when it has no photo).
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `emptyText` | Text while there are no posts. Shown on the blog page when no post is live yet. | yes | up to 160 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "emptyText": "No posts yet. The first one is on its way."
+}
+```
+
 ## Business details (`business-details`)
 
 A heading and the business's address, phone, email and opening hours, read from the business details settings (business.json), so they are written once and stay the same everywhere. Parts that are empty are left out.

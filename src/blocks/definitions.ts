@@ -8,8 +8,10 @@ import { faqDefinition } from "./library/faq/definition.ts";
 import { galleryDefinition } from "./library/gallery/definition.ts";
 import { heroDefinition } from "./library/hero/definition.ts";
 import { highlightsDefinition } from "./library/highlights/definition.ts";
+import { latestPostsDefinition } from "./library/latest-posts/definition.ts";
 import { legalSectionsDefinition } from "./library/legal-sections/definition.ts";
 import { photoTextDefinition } from "./library/photo-text/definition.ts";
+import { postIndexDefinition } from "./library/post-index/definition.ts";
 import { proseDefinition } from "./library/prose/definition.ts";
 import { stepsDefinition } from "./library/steps/definition.ts";
 import { videoDefinition } from "./library/video/definition.ts";
@@ -29,6 +31,8 @@ export const libraryBlocks: AnyBlockDefinition[] = [
   videoGridDefinition,
   photoTextDefinition,
   galleryDefinition,
+  latestPostsDefinition,
+  postIndexDefinition,
   businessDetailsDefinition,
 ];
 

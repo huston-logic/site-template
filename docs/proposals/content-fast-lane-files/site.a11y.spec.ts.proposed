@@ -2,7 +2,7 @@ import { readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { indexableRoutes, noindexRoutes } from "../../src/lib/routes";
+import { auditRoutes, indexableRoutes, noindexRoutes } from "../../src/lib/routes";
 import { KNOWN_ISSUES } from "./known-issues";
 
 // WCAG 2.0, 2.1 and 2.2 levels A and AA (axe tags are not cumulative), plus axe's best-practice rules
@@ -20,7 +20,7 @@ const lane = (process.env.CONTENT_LANE_ROUTES ?? "").split(",").filter((route) =
 const pages =
   lane.length > 0
     ? [...lane, ...(lane.includes("/contact") ? [PARTNER_VARIANT] : [])]
-    : [...indexableRoutes, ...noindexRoutes, PARTNER_VARIANT, NOT_FOUND_PATH];
+    : [...auditRoutes, ...noindexRoutes, PARTNER_VARIANT, NOT_FOUND_PATH];
 
 type Violation = Awaited<ReturnType<AxeBuilder["analyze"]>>["violations"][number];
 

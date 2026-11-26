@@ -1150,6 +1150,120 @@
       }
     },
     {
+      "type": "latest-posts",
+      "title": "Latest posts",
+      "description": "The newest blog posts, with a heading and an optional link to all of them. It updates by itself when a post is added, and is left out of the page while there is no post.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "cards",
+          "description": "Each post is a card with its photo on top (a tinted panel with the date when it has no photo), then the date, title and summary.",
+          "default": true
+        },
+        {
+          "name": "list",
+          "description": "Each post is a row with its date, title and summary, divided by soft lines.",
+          "default": false
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 1,
+        "rhythm": "section",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": null,
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": true,
+          "max": 90
+        },
+        {
+          "name": "intro",
+          "kind": "text",
+          "label": "Introduction",
+          "required": false,
+          "max": 200
+        },
+        {
+          "name": "count",
+          "kind": "number",
+          "label": "How many posts",
+          "help": "From 1 to 6. Three when left empty.",
+          "required": false
+        },
+        {
+          "name": "action",
+          "kind": "action",
+          "label": "Link to all posts",
+          "required": false,
+          "labelMax": 40
+        }
+      ],
+      "example": {
+        "heading": "A short heading for the newest posts",
+        "intro": "One sentence that says what the posts are about.",
+        "count": 3,
+        "action": {
+          "label": "All posts →",
+          "href": "/blog"
+        }
+      }
+    },
+    {
+      "type": "post-index",
+      "title": "Post index",
+      "description": "The list of every blog post, newest first, ten to a page, with links to newer and older pages. It belongs on the blog page only, once.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "list",
+          "description": "Each post is a row with its date, title and summary, divided by soft lines.",
+          "default": true
+        },
+        {
+          "name": "cards",
+          "description": "The posts are cards in a grid, each with its photo on top (a tinted panel with the date when it has no photo).",
+          "default": false
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 1,
+        "rhythm": "section",
+        "joinsHero": true
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": null,
+      "fields": [
+        {
+          "name": "emptyText",
+          "kind": "text",
+          "label": "Text while there are no posts",
+          "help": "Shown on the blog page when no post is live yet.",
+          "required": true,
+          "max": 160
+        }
+      ],
+      "example": {
+        "emptyText": "No posts yet. The first one is on its way."
+      }
+    },
+    {
       "type": "business-details",
       "title": "Business details",
       "description": "A heading and the business's address, phone, email and opening hours, read from the business details settings (business.json), so they are written once and stay the same everywhere. Parts that are empty are left out.",

@@ -137,8 +137,7 @@ describe("definitions", () => {
       const path = itemFilePath(def.kind, "example");
       const data: unknown = JSON.parse(readFileSync(path, "utf8"));
       const first = def.example[0] as LoadedItem;
-      // The posts example is a draft until the blog page (a live post needs /blog) ships.
-      assert.deepEqual(data, { status: def.kind === "posts" ? "draft" : "live", ...first.data }, path);
+      assert.deepEqual(data, { status: "live", ...first.data }, path);
       assert.deepEqual(validateItems([{ kind: def.kind, slug: "example", data }], real), [], path);
     }
   });
