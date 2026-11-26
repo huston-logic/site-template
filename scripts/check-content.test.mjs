@@ -6,6 +6,7 @@ import { test } from "node:test";
 import { defineBlock, GENERIC_ALT_WORDS } from "../src/blocks/schema.ts";
 import { embedOrigins, embedUrl, parseVideoUrl, videoProviders, watchUrl } from "../src/blocks/embeds.ts";
 import { validateContent, validatePages, validateRegistry } from "../src/blocks/validate.ts";
+import { thanksPageLinks } from "../src/lib/thanks-links.ts";
 import { livePages, pathForFile, readPageFiles } from "../src/lib/page-files.ts";
 import { rules } from "./change-scope-rules.mjs";
 
@@ -481,4 +482,27 @@ test("every library example validates", async () => {
     assert.ok(!text.includes("[["), `${def.type} example has no placeholder`);
     assert.ok(!/\$\d/.test(text), `${def.type} example has no price`);
   }
+});
+
+const thanksData = { after: { href: "/services" }, meanwhile: { links: [{ href: "/about" }, { href: "/services" }] } };
+
+test("thanks links to an archived page fail", () => {
+  const services = { file: "services.json", data: page("/services", [heroBlock()], { status: "archived" }) };
+  const problems = validatePages([home(), contact(), aboutWith([heroBlock()]), services], registry, repo, { links: thanksPageLinks(thanksData) });
+  assert.equal(problems.length, 2);
+  assert.ok(problems[0].startsWith('contact.ts, thanks page "after" link: "/services" points to /services, which is archived'));
+  assert.ok(problems[1].startsWith('contact.ts, thanks page link 2: "/services" points to /services, which is archived'));
+});
+
+test("a thanks link to a page whose file failed to parse gives the parse error only", () => {
+  const broken = { file: "services.json", data: undefined, error: "is not valid JSON (Unexpected token). Look for a comma." };
+  const problems = validatePages([home(), contact(), aboutWith([heroBlock()]), broken], registry, repo, { links: thanksPageLinks(thanksData) });
+  assert.equal(problems.length, 1);
+  assert.ok(problems[0].startsWith("services.json: is not valid JSON"));
+});
+
+test("thanks links to live pages pass", () => {
+  const services = { file: "services.json", data: page("/services", [heroBlock()]) };
+  const problems = validatePages([home(), contact(), aboutWith([heroBlock()]), services], registry, repo, { links: thanksPageLinks(thanksData) });
+  assert.deepEqual(problems, []);
 });

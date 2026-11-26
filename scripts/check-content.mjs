@@ -9,11 +9,13 @@ const load = (path) => import(pathToFileURL(join(root, path)).href);
 const { registry } = await load("src/blocks/definitions.ts");
 const { validatePages, validateRegistry } = await load("src/blocks/validate.ts");
 const { readPageFiles } = await load("src/lib/page-files.ts");
+const { thanks } = await load("src/content/contact.ts");
+const { thanksPageLinks } = await load("src/lib/thanks-links.ts");
 
 const repo = { imageExists: (src) => existsSync(join(root, "public", src)) };
 const files = readPageFiles(root);
 const { catalogProblem } = await import("./blocks-catalog.mjs");
-const problems = [...validateRegistry(registry, repo), ...validatePages(files, registry, repo)];
+const problems = [...validateRegistry(registry, repo), ...validatePages(files, registry, repo, { links: thanksPageLinks(thanks) })];
 const stale = catalogProblem(registry, root);
 if (stale) problems.push(stale);
 

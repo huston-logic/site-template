@@ -33,6 +33,8 @@ export const siteConfig = {
     // production workers.dev host from branch previews.
     workerName: "[[Worker name]]",
     previewHostSuffix: ".workers.dev",
+    // The branch Workers Builds deploys to production. scripts/finish-build.mjs drops the /blocks showcase from builds of this branch.
+    productionBranch: "main",
   },
   contact: {
     // CLIENT: replace. From, notify To and Reply-To. null means not set yet: check:placeholders fails, and the contact

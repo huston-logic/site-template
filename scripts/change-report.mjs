@@ -53,30 +53,57 @@ export function findImporters(path, sources) {
   });
 }
 
-/** Follows imports upward until it reaches pages. `all` is true when it reaches the shared layout or cannot tell. */
+const BLOCK_FOLDER = /^src\/(?:blocks\/library|site-blocks)\/([^/]+)\//;
+
+/**
+ * The block types a file inside a block folder belongs to: its own, plus the types of other block folders that import it
+ * (video-grid imports video's player). Importers outside block folders are not followed; they would reach every page.
+ */
+function blockTypesReaching(path, sources) {
+  const types = new Set();
+  const seen = new Set([path]);
+  const queue = [path];
+  while (queue.length > 0) {
+    const file = queue.shift();
+    types.add(BLOCK_FOLDER.exec(file)[1]);
+    for (const importer of findImporters(file, sources)) {
+      if (seen.has(importer) || !BLOCK_FOLDER.test(importer)) continue;
+      seen.add(importer);
+      queue.push(importer);
+    }
+  }
+  return types;
+}
+
+/**
+ * Follows imports upward until it reaches pages. `all` is true when it reaches the shared layout or cannot tell. Tracing
+ * stops at a file inside a block's folder and records that block type in `types`, so a component only one block uses maps
+ * to the pages using that block, not to every page.
+ */
 function reachablePages(path, sources, pageRoutes) {
   const routes = new Set();
+  const types = new Set();
   const seen = new Set([path]);
   const queue = [path];
   let first = true;
   while (queue.length > 0) {
     const importers = findImporters(queue.shift(), sources);
-    if (first && importers.length === 0) return { all: true, routes };
+    if (first && importers.length === 0) return { all: true, routes, types };
     first = false;
     for (const importer of importers) {
       if (seen.has(importer)) continue;
       seen.add(importer);
       if (pageRoutes[importer]) routes.add(pageRoutes[importer]);
-      else if (importer.startsWith("src/app/")) return { all: true, routes };
+      else if (importer.startsWith("src/app/")) return { all: true, routes, types };
+      else if (BLOCK_FOLDER.test(importer)) for (const type of blockTypesReaching(importer, sources)) types.add(type);
       else queue.push(importer);
     }
   }
-  return { all: false, routes };
+  return { all: false, routes, types };
 }
 
 /** Files that cannot change how a page looks. */
-const NO_VISUAL_EFFECT = /^(?:docs|scripts|tests|\.github|\.claude)\/|\.md$|^src\/lib\/routes\.ts$/;
-const LIBRARY_BLOCK = /^src\/blocks\/library\/([^/]+)\//;
+const NO_VISUAL_EFFECT = /^(?:docs|scripts|tests|\.github|\.claude|worker)\/|\.md$|\.test\.(?:ts|mjs)$|^src\/lib\/routes\.ts$/;
 const BLOCK_CODE = /^src\/(?:blocks|site-blocks)\//;
 export const SHOWCASE_ROUTE = "/blocks";
 
@@ -112,9 +139,16 @@ export function affectedPages({ files, sources, pageRoutes = {}, allRoutes, page
   // a page that only became a file on this branch. The screenshot step asks that side's build and skips a 404.
   const liveAt = (pages, route) => (Object.hasOwn(pages, route) ? pages[route].status === "live" : true);
   const mark = (route, reason, sides = {}) => entries.has(route) || entries.set(route, { reason, ...sides });
+  const markTypes = (types, path) => {
+    for (const type of types) {
+      const uses = (pages) => Object.keys(pages).filter((route) => pages[route].types.includes(type));
+      for (const route of new Set([...uses(pagesHead), ...uses(pagesBase)])) mark(route, `${path} changed (this page uses the "${type}" block)`);
+    }
+    mark(SHOWCASE_ROUTE, `${path} changed (the block showcase shows every block)`);
+  };
   for (const { status, path } of files) {
     const own = routeForPageFile(path);
-    const library = LIBRARY_BLOCK.exec(path);
+    const inBlock = BLOCK_FOLDER.test(path);
     if (own) {
       const baseLive = liveAt(pagesBase, own);
       const headLive = liveAt(pagesHead, own);
@@ -123,17 +157,17 @@ export function affectedPages({ files, sources, pageRoutes = {}, allRoutes, page
       else if (baseLive && !headLive) mark(own, "page archived", { before: true, after: false });
       else if (!baseLive && headLive) mark(own, "page restored", { before: false, after: true });
       else mark(own, `${path} changed`);
-    } else if (library) {
-      const type = library[1];
-      const uses = (pages) => Object.keys(pages).filter((route) => pages[route].types.includes(type));
-      for (const route of new Set([...uses(pagesHead), ...uses(pagesBase)])) mark(route, `${path} changed (this page uses the "${type}" block)`);
-      mark(SHOWCASE_ROUTE, `${path} changed (the block showcase shows every block)`);
+    } else if (inBlock) {
+      markTypes(blockTypesReaching(path, sources), path);
     } else if (BLOCK_CODE.test(path)) {
       for (const route of allRoutes) mark(route, `${path} changed (it reaches every page)`);
     } else if (!NO_VISUAL_EFFECT.test(path)) {
       const reach = reachablePages(path, sources, pageRoutes);
       if (reach.all) for (const route of allRoutes) mark(route, `${path} changed (it reaches every page)`);
-      else for (const route of reach.routes) mark(route, `${path} changed`);
+      else {
+        for (const route of reach.routes) mark(route, `${path} changed`);
+        if (reach.types.size > 0) markTypes(reach.types, path);
+      }
     }
   }
   return [...entries.keys()]
