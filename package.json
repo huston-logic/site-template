@@ -14,7 +14,7 @@
     "sync:config": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/sync-config.mjs",
     "check:config": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/sync-config.mjs --check",
     "blocks:catalog": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/blocks-catalog.mjs",
-    "check:content":"node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-content.mjs",
+    "check:content": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-content.mjs",
     "check:design": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-design.mjs",
     "compare:screens": "node scripts/compare-screenshots.mjs",
     "check:scope": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-change-scope.mjs",
@@ -29,6 +29,7 @@
     "check:fast": "npm run check:config && npm run check:process && npm run lint && npm run typecheck && npm run test:worker && npm run test:scripts && npm run check:content && npm run check:design"
   },
   "dependencies": {
+    "@cloudflare/workers-oauth-provider": "1.2.4",
     "next": "16.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1"
