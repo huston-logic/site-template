@@ -2,8 +2,9 @@ import { fileForPath, pathForFile, type AnyBlockDefinition } from "../../src/blo
 import type { PageFile } from "../../src/blocks/validate.ts";
 import type { Palette } from "../../src/brand/contrast-pairs.ts";
 import { fontsModule, type FontRole } from "../../src/brand/fonts.ts";
+import { FONTS_PATH, GENERATED_BRAND_FILES, PALETTE_PATH } from "../../src/brand/generated.ts";
 import { paletteCss } from "../../src/brand/palette.ts";
-import { ITEM_DIR, itemFilePath, type ItemFile } from "../../src/collections/schema.ts";
+import { COLLECTION_KINDS, ITEM_DIR, itemFilePath, SLUG_RE, type ItemFile } from "../../src/collections/schema.ts";
 import { SETTINGS_NAMES, settingsPath, validateSite, type SettingsName } from "../../src/collections/site-validate.ts";
 import type { GitHub } from "./github.ts";
 import { isObject } from "./json.ts";
@@ -14,11 +15,12 @@ const PAGES_DIR = "src/content/pages";
 const IMAGES_DIR = "public/images";
 const FILES_DIR = "public/files";
 const FILE_BLOB = /^public\/files\/[^/]+\.pdf$/;
-const PAGE_FILE = /^src\/content\/pages\/[^/]+\.json$/;
-const ITEM_FILE = /^src\/content\/collections\/([^/]+)\/([^/]+)\.json$/;
+const PAGE_FILE = /^src\/content\/pages\/[a-z0-9]+(?:-[a-z0-9]+)*\.json$/;
+const ITEM_FILE = new RegExp(`^${ITEM_DIR}/(${COLLECTION_KINDS.join("|")})/([a-z0-9]+(?:-[a-z0-9]+)*)\\.json$`);
+const UPLOAD_PHOTO = /^public\/images\/uploads\/[a-z0-9]{8}\.webp$/;
+const UPLOAD_PDF = /^public\/files\/[a-z0-9]+(?:-[a-z0-9]+)*\.pdf$/;
 /** The files a brand change regenerates from brand.json. */
-export const PALETTE_PATH = "src/app/palette.css";
-export const FONTS_PATH = "src/lib/fonts.ts";
+export { FONTS_PATH, PALETTE_PATH };
 
 export type ThanksLinks = readonly { where: string; href: string }[];
 
@@ -196,6 +198,16 @@ export function settingsFilesFor(after: ReadonlyMap<string, unknown>, touched: r
     }
   }
   return out;
+}
+
+/**
+ * The only paths an editor commit may write: a page file, an item file (known kind, real slug), a settings file, a generated
+ * brand file, or an uploaded photo or PDF. A defence in depth: the operations already build these paths, and anything else is refused.
+ */
+export function isCommittablePath(path: string): boolean {
+  const item = ITEM_FILE.exec(path);
+  if (item !== null) return SLUG_RE.test(item[2] ?? "");
+  return PAGE_FILE.test(path) || settingNameOf(path) !== null || GENERATED_BRAND_FILES.includes(path) || UPLOAD_PHOTO.test(path) || UPLOAD_PDF.test(path);
 }
 
 /** "<collection>/<slug>" for an item file's repo path, or null. */

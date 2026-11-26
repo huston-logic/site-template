@@ -1180,7 +1180,7 @@ test("with the site read, the whole site is judged: a problem in an item is a bl
 });
 
 test("a new [[placeholder]] in an item or in business.json blocks like one in a page file", () => {
-  const added = (path, line) => item(path, "M");
+  const added = (path) => item(path, "M");
   const result = withSite([{ ...added("src/content/collections/posts/a.json"), added: ['"title": "[[todo]]"'] }, { ...added("src/content/business.json"), added: ['"phone": "[[phone]]"'] }]);
   assert.deepEqual(result.placeholders.map((p) => p.text), ["[[todo]]", "[[phone]]"]);
 });

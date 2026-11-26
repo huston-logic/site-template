@@ -231,7 +231,7 @@ function tier3Reason(path, rules) {
 }
 
 /** True when the generated brand file at the head commit is exactly what brand.json (at the head commit) generates. */
-function generatedMatches(file, site, rules) {
+function generatedMatches(file, site) {
   try {
     const expected = brandFiles(site.brand)[file.path];
     return typeof expected === "string" && file.content === expected;
@@ -271,7 +271,7 @@ function classify(file, rules, site) {
   if (isSettingsFile(path, rules)) return status === "D" ? { ok: false, reason: rules.itemArchiveReason } : { ok: true };
   if (isGeneratedFile(path, rules)) {
     if (status === "D") return { ok: false, reason: rules.generatedMismatchReason };
-    return generatedMatches(file, site ?? {}, rules) ? { ok: true } : { ok: false, reason: rules.generatedMismatchReason };
+    return generatedMatches(file, site ?? {}) ? { ok: true } : { ok: false, reason: rules.generatedMismatchReason };
   }
   return { ok: false, reason: tier3Reason(path, rules) };
 }

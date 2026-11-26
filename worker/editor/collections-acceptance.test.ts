@@ -465,7 +465,7 @@ test('7. "Put a notice on the site that we are closed December 24 to 26."', asyn
   assert.match(proposed.text, /Notice:/);
   assert.ok(proposed.text.includes('now: "We are closed December 24 to 26."'), proposed.text);
   assert.ok(proposed.text.includes('now: "2026-12-26"'), proposed.text);
-  assert.match(proposed.text, /The notice shows above the header on every page, through 2026-12-26\./);
+  assert.match(proposed.text, /The notice shows above the header on every page\. Shows through 2026-12-26; it comes down at the first publish after that date\./);
   const files = await publishAndMerge(t, ai, proposalId(proposed));
   assert.deepEqual(JSON.parse(files["src/content/notice.json"]), { text: "We are closed December 24 to 26.", endsOn: "2026-12-26" });
 

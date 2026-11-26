@@ -5,7 +5,10 @@
 // Tier 3 = everything else (code, settings, security, packages, workflows, blocks). A change that touches any tier 3 file
 // stops for Grant, whatever the request said. Editing this file is itself tier 3.
 //
-// No imports and no TypeScript syntax: plain Node loads it directly.
+// Plain Node loads it directly: no TypeScript syntax. The only imports are the two import-free lists of settings and
+// generated files, shared with the Worker and the build.
+import { GENERATED_BRAND_FILES } from "../src/brand/generated.ts";
+import { SETTINGS_NAMES, settingsPath } from "../src/settings/names.ts";
 
 export const rules = {
   // ---- Tier 1 ---------------------------------------------------------------------------------------------------
@@ -43,9 +46,9 @@ export const rules = {
   /** An item file: exactly one folder (the kind) below the collections folder. The kind and the slug are judged by check-change-scope.mjs. */
   itemFile: /^src\/content\/collections\/([^/]+)\/([^/]+)\.json$/,
   /** The three settings files. Tier 1 when they pass the content check at the head commit. */
-  settingsFiles: ["src/content/business.json", "src/content/brand.json", "src/content/notice.json"],
+  settingsFiles: SETTINGS_NAMES.map(settingsPath),
   /** Files generated from brand.json. Tier 1 only when byte-equal to what brand.json generates at the head commit. */
-  generatedFiles: ["src/app/palette.css", "src/lib/fonts.ts"],
+  generatedFiles: [...GENERATED_BRAND_FILES],
   /** The settings file whose change reaches every page, and so needs a preview before the yes. */
   brandFile: "src/content/brand.json",
   /** Why deleting (or renaming) an item or a settings file is tier 3. */

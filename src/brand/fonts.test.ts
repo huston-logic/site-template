@@ -28,7 +28,8 @@ test("the curated lists are the ruled ones, defaults first", () => {
   assert.deepEqual(ids("accent"), ["newsreader", "fraunces", "lora", "playfair-display"]);
 });
 
-const TODAY_WITH_ACCENT_NOT_PRELOADED = `import { Inter, Newsreader, Outfit } from "next/font/google";
+const TODAY_WITH_ACCENT_NOT_PRELOADED = `// Generated from src/content/brand.json by \`npm run sync:config\`; do not edit by hand.
+import { Inter, Newsreader, Outfit } from "next/font/google";
 
 // Design v3 fonts (docs/STYLE-GUIDE.md §3). Each is self-hosted at build time by next/font; no third-party font tags.
 // Preloaded: Outfit (header and every heading) and Inter (body) render above the fold on every page; Newsreader is below the fold, so it is not.
@@ -60,6 +61,10 @@ export const newsreader = Newsreader({
   preload: false,
 });
 `;
+
+test("fontsModule starts with the generated-file header", () => {
+  assert.match(fontsModule({ display: "outfit", body: "inter", accent: "newsreader" }), /^\/\/ Generated from src\/content\/brand\.json by `npm run sync:config`; do not edit by hand\.\n/);
+});
 
 test("fontsModule for the defaults is today's fonts.ts, except the accent is not preloaded", () => {
   assert.equal(fontsModule({ display: "outfit", body: "inter", accent: "newsreader" }), TODAY_WITH_ACCENT_NOT_PRELOADED);
