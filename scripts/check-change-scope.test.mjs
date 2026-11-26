@@ -263,6 +263,27 @@ test("parseArgs --ci treats change/ in any capitalisation as a change branch", (
   assert.equal(parseArgs(["--ci"], { GITHUB_BASE_REF: "main", GITHUB_HEAD_REF: "exchange/x" }).mode, "report-only");
 });
 
+test("parseArgs --ci is strict for a pull request opened by the editor's bot, whatever the branch", () => {
+  const dir = mkdtempSync(join(tmpdir(), "scope-event-"));
+  try {
+    const eventFor = (login) => {
+      const path = join(dir, `${login}.json`);
+      writeFileSync(path, JSON.stringify({ pull_request: { user: { login } } }));
+      return { GITHUB_BASE_REF: "main", GITHUB_HEAD_REF: "editor/hours", GITHUB_EVENT_PATH: path };
+    };
+    assert.equal(parseArgs(["--ci"], eventFor("site-editor[bot]"), "site-editor[bot]").mode, "strict");
+    assert.equal(parseArgs(["--ci"], eventFor("someone-else"), "site-editor[bot]").mode, "report-only");
+    assert.equal(parseArgs(["--ci"], eventFor("site-editor[bot]"), null).mode, "report-only");
+    assert.equal(parseArgs(["--ci"], eventFor(""), "").mode, "report-only");
+    const missing = { GITHUB_BASE_REF: "main", GITHUB_HEAD_REF: "x", GITHUB_EVENT_PATH: join(dir, "nope.json") };
+    assert.equal(parseArgs(["--ci"], missing, "site-editor[bot]").mode, "report-only");
+    writeFileSync(join(dir, "bad.json"), "{");
+    assert.equal(parseArgs(["--ci"], { ...missing, GITHUB_EVENT_PATH: join(dir, "bad.json") }, "site-editor[bot]").mode, "report-only");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("parseArgs rejects unknown flags, missing values and refs that look like options", () => {
   assert.match(parseArgs(["--nope"], {}).error, /--nope/);
   assert.match(parseArgs(["--base"], {}).error, /--base/);
