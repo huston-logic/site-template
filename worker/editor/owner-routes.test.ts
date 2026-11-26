@@ -39,7 +39,7 @@ interface Fake {
 function fakeEditor(): Fake {
   const state: Fake = {
     calls: [],
-    waiting: result("", [{ id: "p1", summary: "Update the hours", createdAt: "2026-01-01T12:00:00.000Z", changeList: "Page /about: hours change", previewLink: "https://preview.example.test" }]),
+    waiting: result("", [{ id: "p1", summary: "Update the hours", createdAt: "2026-01-01T12:00:00.000Z", changeList: "Page /about: hours change", previewLink: "https://preview.example.test", uploads: [] }]),
     recent: result("", [{ change: 12, title: "Update hours", state: "live", publishedAt: "2026-01-01T10:00:00.000Z", liveAt: "2026-01-01T10:05:00.000Z" }]),
     undo: result("Proposal p9: Withdraw", { proposal_id: "p9" }),
     editor: undefined as unknown as Editor,
@@ -242,7 +242,7 @@ test("Publish passes the owner's approval wording; Discard discards", async () =
 
 test("text from the owner's own proposals is escaped", async () => {
   const fake = fakeEditor();
-  fake.waiting = result("", [{ id: "p1", summary: "<img src=x onerror=alert(1)>", createdAt: "2026-01-01T12:00:00.000Z", changeList: "<script>alert(2)</script>", previewLink: null }]);
+  fake.waiting = result("", [{ id: "p1", summary: "<img src=x onerror=alert(1)>", createdAt: "2026-01-01T12:00:00.000Z", changeList: "<script>alert(2)</script>", previewLink: null, uploads: [] }]);
   const ctx = context(fake.editor, fakeOAuth().oauth);
   for (const path of ["/owner", "/owner/publish?proposal=p1"]) {
     const page = await (await call(ctx, path)).text();

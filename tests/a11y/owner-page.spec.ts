@@ -13,6 +13,7 @@ const proposal = {
   createdAt: "2026-01-01T12:00:00.000Z",
   changeList: "Page /about\n- Changes the heading to: Open Monday to Friday\n- Adds a block: a call to action with a very long unbroken value https://example.test/some/very/long/address/that/keeps/going/and/going",
   previewLink: "https://change-owner-p1-example.acct.workers.dev",
+  uploads: [],
 };
 
 const states: Record<string, string> = {

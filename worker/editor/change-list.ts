@@ -1,12 +1,67 @@
 // Builds the plain-text change list the owner reads before saying yes, from the real before and after page values (not
 // from the operations). Every value is printed with JSON.stringify, so text is always quoted plain text.
-import type { AnyBlockDefinition, Field } from "../../src/blocks/schema.ts";
+import type { AnyBlockDefinition, Field, ImageShape } from "../../src/blocks/schema.ts";
+import { pageValueFor } from "../uploads/paths.ts";
 import { isObject, type Json } from "./json.ts";
 import { deepEqual, type BlockIds } from "./operations.ts";
+import type { ProposalUpload } from "./uploads.ts";
 
 type Entry = { path: string[]; lines: string[] };
 
 const quote = (value: unknown) => JSON.stringify(value);
+
+/** The uploads a proposal uses, and which page values (/images/..., /files/...) the site already has. */
+export interface UploadContext {
+  uploads: readonly ProposalUpload[];
+  onSite: ReadonlySet<string>;
+}
+
+// buildChangeList is synchronous, so the rendering helpers below read the upload context from here instead of taking it
+// as a parameter through every recursive call.
+let active: { byValue: Map<string, ProposalUpload>; uploads: readonly ProposalUpload[]; onSite: ReadonlySet<string> } = { byValue: new Map(), uploads: [], onSite: new Set() };
+
+/** Decimal sizes, as the upload messages use: 240 KB, 3.4 MB. */
+export function formatSize(bytes: number): string {
+  if (bytes < 1_000_000) return `${Math.max(1, Math.round(bytes / 1000))} KB`;
+  return `${Math.round((bytes / 1_000_000) * 10) / 10} MB`;
+}
+
+/** A string value as shown: a link to an upload PDF reads as a download, anything else is quoted plain text. */
+function shown(value: unknown): string {
+  const upload = typeof value === "string" ? active.byValue.get(value) : undefined;
+  return upload?.kind === "pdf" ? `Download: ${quote(upload.name)} (PDF, ${formatSize(upload.bytes)})` : quote(value);
+}
+
+const isImageValue = (value: unknown): value is { src: string; alt: string; focus?: string } =>
+  isObject(value) && typeof value.src === "string" && typeof value.alt === "string";
+
+function photoText(image: { src: string; alt: string; focus?: unknown }): string {
+  const upload = active.byValue.get(image.src);
+  const where = upload ? `${quote(upload.name)} (upload ${upload.id})` : image.src;
+  const focus = typeof image.focus === "string" ? `, focus: ${image.focus}` : "";
+  return `Photo: ${where}, description: ${quote(image.alt)}${focus}`;
+}
+
+const TRIM_LIMIT = 0.25;
+
+/** The sentence for an upload photo that the slot's shape would trim by more than a quarter, or null. */
+function fitNote(image: { src: string }, shape: ImageShape): string | null {
+  const upload = active.byValue.get(image.src);
+  if (!upload || upload.kind !== "photo" || !upload.width || !upload.height) return null;
+  const [w, h] = shape.split(":").map(Number);
+  const photo = upload.width / upload.height;
+  const slot = w / h;
+  const trimmed = photo > slot ? 1 - slot / photo : 1 - photo / slot;
+  if (trimmed <= TRIM_LIMIT) return null;
+  return photo < slot
+    ? "This photo will be trimmed at the top and bottom to fit the section. Say if the top or bottom matters, and I'll set where it focuses."
+    : "This photo will be trimmed at the sides to fit the section. Say if the left or right side matters, and I'll set where it focuses.";
+}
+
+function imageLines(value: { src: string; alt: string; focus?: unknown }, def: Field | undefined): string[] {
+  const note = def?.kind === "image" ? fitNote(value, def.shape) : null;
+  return [photoText(value), ...(note ? [note] : [])];
+}
 const text = (label: string): Field => ({ kind: "text", label, max: 0 });
 
 const PLACE_NAMES: Record<string, string> = { header: "header menu", footer: "footer menu", legal: "legal menu" };
@@ -47,26 +102,31 @@ function entryField(def: Field | undefined): Field | undefined {
 
 /** Every text leaf of a value, as `Label, entry 2, Label: "text"` lines (a bare value when it has no label path). */
 function leaves(value: unknown, def: Field | undefined, path: string[], out: string[]): string[] {
-  if (Array.isArray(value)) {
+  if (def?.kind === "image" && isImageValue(value)) {
+    const [photo, ...rest] = imageLines(value, def);
+    out.push(path.length ? `${path.join(", ")}: ${photo}` : photo, ...rest);
+  } else if (Array.isArray(value)) {
     value.forEach((item, i) => leaves(item, entryField(def), [...path, `entry ${i + 1}`], out));
   } else if (isObject(value)) {
     for (const [key, item] of Object.entries(value)) leaves(item, childField(def, key), [...path, keyLabel(def, key)], out);
   } else {
-    out.push(path.length ? `${path.join(", ")}: ${quote(value)}` : quote(value));
+    out.push(path.length ? `${path.join(", ")}: ${shown(value)}` : shown(value));
   }
   return out;
 }
 
 function verbLines(verb: string, value: unknown, def: Field | undefined): string[] {
-  if (!Array.isArray(value) && !isObject(value)) return [`${verb}: ${quote(value)}`];
+  if (!Array.isArray(value) && !isObject(value)) return [`${verb}: ${shown(value)}`];
   return [`${verb}:`, ...leaves(value, def, [], []).map((line) => `  ${line}`)];
 }
 
 function diffValue(before: unknown, after: unknown, def: Field | undefined, path: string[], out: Entry[]): void {
   if (deepEqual(before, after)) return;
   const container = (value: unknown) => Array.isArray(value) || isObject(value);
-  if (!container(before) && !container(after)) {
-    const show = (value: unknown) => (value === undefined ? "(nothing)" : quote(value));
+  if (def?.kind === "image" && isImageValue(before) && isImageValue(after)) {
+    out.push({ path, lines: [`was: ${photoText(before)}`, `now: ${photoText(after)}`, ...imageLines(after, def).slice(1)] });
+  } else if (!container(before) && !container(after)) {
+    const show = (value: unknown) => (value === undefined ? "(nothing)" : shown(value));
     out.push({ path, lines: [`was: ${show(before)}`, `now: ${show(after)}`] });
   } else if (Array.isArray(before) && Array.isArray(after)) {
     diffList(before, after, entryField(def), path, out);
@@ -138,6 +198,22 @@ export function buildChangeList(
   ids: BlockIds,
   registry: readonly AnyBlockDefinition[],
   moved: readonly string[] = [],
+  uploadContext: UploadContext = { uploads: [], onSite: new Set() },
+): string {
+  active = { byValue: new Map(uploadContext.uploads.map((upload) => [pageValueFor(upload.path), upload])), ...uploadContext };
+  try {
+    return buildSections(before, after, ids, registry, moved);
+  } finally {
+    active = { byValue: new Map(), uploads: [], onSite: new Set() };
+  }
+}
+
+function buildSections(
+  before: ReadonlyMap<string, unknown>,
+  after: ReadonlyMap<string, unknown>,
+  ids: BlockIds,
+  registry: readonly AnyBlockDefinition[],
+  moved: readonly string[],
 ): string {
   const definition = (block: unknown) => registry.find((d) => d.type === (isObject(block) ? block.type : undefined));
   const title = (block: unknown) => definition(block)?.title ?? (isObject(block) ? String(block.type) : "unknown");
@@ -213,6 +289,14 @@ export function buildChangeList(
     }
     sections.push(lines.join("\n"));
   }
+  const added = active.uploads
+    .filter((upload) => !active.onSite.has(pageValueFor(upload.path)))
+    .map((upload) =>
+      upload.kind === "photo"
+        ? `New photo added to the site: ${quote(upload.name)} (upload ${upload.id}).`
+        : `New PDF added to the site: ${quote(upload.name)} (upload ${upload.id}), ${formatSize(upload.bytes)}.`,
+    );
+  if (added.length > 0) sections.push(added.join("\n"));
   return sections.join("\n\n");
 }
 

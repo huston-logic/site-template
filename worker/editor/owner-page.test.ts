@@ -8,7 +8,7 @@ const base: PageBase = {
   email: "owner@example.test",
   theme: { white: "#ffffff", ink: "#1c1917", ink2: "#44403c", silver: "#f5f5f4", silver2: "#e7e5e4", green: "#1e4fa3", greenDeep: "#173b7a", rust: "#9a3412", line: "#d6d3d1", tint: "#e8eefa" },
 };
-const proposal = { id: "p1", summary: "Update hours", createdAt: "2026-01-01T12:00:00.000Z", changeList: "Page /about", previewLink: "https://preview.example.test" };
+const proposal = { id: "p1", summary: "Update hours", createdAt: "2026-01-01T12:00:00.000Z", changeList: "Page /about", previewLink: "https://preview.example.test", uploads: [] };
 
 const pages = {
   home: renderOwnerHome({
