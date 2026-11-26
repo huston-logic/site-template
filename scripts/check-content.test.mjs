@@ -487,7 +487,7 @@ test("registry problems: the real registry has none", async () => {
   assert.deepEqual(validateRegistry(registry), []);
   assert.deepEqual(
     libraryBlocks.map((def) => def.type),
-    ["hero", "highlights", "prose", "faq", "closing-cta", "contact-form", "steps", "legal-sections", "video", "video-grid", "photo-text", "gallery", "latest-posts", "post-index", "business-details"],
+    ["hero", "highlights", "prose", "faq", "closing-cta", "contact-form", "steps", "legal-sections", "video", "video-grid", "photo-text", "gallery", "latest-posts", "post-index", "business-details", "video-list", "episode-list", "testimonials", "team"],
   );
 });
 
