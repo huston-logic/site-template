@@ -124,6 +124,13 @@ what enforces it. `npm run check:process` fails if a rule has no "Why" or this f
 - **Decided:** Grant, 2026-11-25
 - **Enforced by:** `npm run check:content` (registry, example, catalog), `npm run check:design` (tokens and motion), the `a11y` and `lighthouse` jobs (they cover the showcase), and the design critique (convention, no automatic check).
 
+### 17. The Lighthouse test server compresses like Cloudflare
+
+- **What:** `scripts/preview.mjs`, the server the `lighthouse` and `a11y` jobs audit, gzips html, css, js, json, txt, xml and svg files when the browser accepts gzip, as Cloudflare does on the live site. Images and fonts are sent as they are. Every Lighthouse threshold and assertion is unchanged.
+- **Why:** Uncompressed, a page led by a photo on a phone's first screen (a blog post with a lead photo, or a photo section right under a short hero) scored 77 to 79 and failed the required check although the live site is fast; with gzip it scored 90 and every other page 100 (`docs/proposals/lighthouse-compression.md`). The check should measure the site visitors get, not a slower test server. Gzip is a conservative stand-in for Cloudflare's brotli.
+- **Decided:** Grant, 2026-11-25
+- **Enforced by:** `scripts/preview.test.mjs` (text files come back gzipped when asked and plain when not; images and fonts never re-compressed); the required `lighthouse` check.
+
 ## What still stops for Grant
 
 - Adding or upgrading a dependency. (In an autonomous run this item is replaced; see "Autonomous runs" in CLAUDE.md.)

@@ -44,9 +44,9 @@ The proposed `ci.yml` also removes the job-level `if:` from `change-scope`, so t
 
 ## The proposed rule
 
-This is the proposed `docs/PROCESS.md` rule 17, in the same format as the other rules. It is not written into PROCESS.md yet.
+This is the proposed `docs/PROCESS.md` rule 18 (17 went to the Lighthouse test server rule), in the same format as the other rules. It is not written into PROCESS.md yet.
 
-### 17. Content-only changes take the content lane
+### 18. Content-only changes take the content lane
 
 - **What:** For a pull request whose changed files are all page files (`src/content/pages/*.json`), and where no page's `menu` changed and no page changed status, the `a11y` and `lighthouse` jobs scan only the pages the change touched. Any other change scans every page, as today. The same jobs, job names and thresholds apply. Once the ruleset requires it, `change-scope` is a required check, so the bot-author rule applies to every pull request the site editor opens.
 - **Why:** An owner waits for the slowest check after saying yes, and most of that time audits pages the change did not touch.

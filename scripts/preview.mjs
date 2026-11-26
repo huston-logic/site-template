@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { pathToFileURL } from "node:url";
+import { gzipSync } from "node:zlib";
 
 const defaultOutDir = new URL("../out", import.meta.url).pathname;
 const defaultPort = Number(process.env.PORT ?? 4822);
@@ -23,6 +24,7 @@ const types = {
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
 };
+const compressible = /\.(html|css|js|json|txt|xml|svg)$/;
 
 // Apply the site-wide `/*` block of _headers so CSP problems show up locally, not only on Cloudflare, plus blocks for
 // one exact path (such as a downloadable file). Wildcard paths other than `/*` and absolute-URL blocks are skipped.
@@ -67,12 +69,17 @@ export function startPreviewServer({ outDir = defaultOutDir, port = defaultPort 
       res.writeHead(500).end("Run `npm run build` first.");
       return;
     }
+    // Cloudflare compresses text files on the live site; the Lighthouse check measures this server, so it does too
+    // (docs/PROCESS.md rule 17). Images and fonts are already compressed and are sent as they are.
+    const body = readFileSync(target);
+    const zip = /\bgzip\b/.test(req.headers["accept-encoding"] ?? "") && compressible.test(target);
     res.writeHead(status, {
       ...headerBlocks["/*"],
       "content-type": types[extname(target)] ?? "application/octet-stream",
       ...(file ? headerBlocks[pathname] : undefined),
+      ...(zip ? { "content-encoding": "gzip", vary: "Accept-Encoding" } : {}),
     });
-    res.end(readFileSync(target));
+    res.end(zip ? gzipSync(body) : body);
   });
   return new Promise((resolve, reject) => {
     server.once("error", reject);
