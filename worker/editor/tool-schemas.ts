@@ -35,7 +35,7 @@ const strict = (properties: Record<string, unknown>) => ({
 });
 
 /** One schema per operation kind, as worker/editor/operations.ts accepts them. */
-export const operationSchemas: Record<string, unknown>[] = [
+const operationSchemas: Record<string, unknown>[] = [
   strict({ op: { const: "set" }, page: pagePath, pointer, value: { description: "The new value. Null removes an optional field." } }),
   strict({ op: { const: "insert_item" }, page: pagePath, pointer, at: position("Where the new item goes in the list"), value: { description: "The new list item." } }),
   strict({ op: { const: "remove_item" }, page: pagePath, pointer, at: position("The list item to remove") }),

@@ -1,6 +1,7 @@
 import type { EditorConfig } from "../config.ts";
 import { log } from "../env.ts";
 import { readBody } from "../read-body.ts";
+import { isOwner } from "./access.ts";
 import { serverInstructions } from "./instructions.ts";
 import { ownerKey } from "./owner-id.ts";
 import { argumentProblems, findTool, tools } from "./tools.ts";
@@ -50,7 +51,7 @@ export async function handleMcp(request: Request, ctx: McpContext): Promise<Resp
     return refusal(403, "Not allowed from this origin.");
   }
   const email = ctx.email.trim().toLowerCase();
-  if (!ctx.config.ownerEmails.some((owner) => owner.trim().toLowerCase() === email)) {
+  if (!isOwner(ctx.config, email)) {
     log("mcp_not_owner");
     return refusal(403, "This sign-in is no longer allowed to edit the site.");
   }
@@ -72,6 +73,7 @@ export async function handleMcp(request: Request, ctx: McpContext): Promise<Resp
   if (Array.isArray(message)) return rpcError(400, null, -32600, "Batches are not supported.");
   if (typeof message !== "object" || message === null) return rpcError(400, null, -32600, "The request must be a JSON-RPC object.");
   const { jsonrpc, method, id, params } = message as Record<string, unknown>;
+  if (jsonrpc === "2.0" && method === undefined && ("result" in message || "error" in message)) return new Response(null, { status: 202, headers: HEADERS });
   if (jsonrpc !== "2.0" || typeof method !== "string") return rpcError(400, null, -32600, 'The request must have "jsonrpc": "2.0" and a method.');
   if (!("id" in message)) return new Response(null, { status: 202, headers: HEADERS });
   if (typeof id !== "string" && typeof id !== "number") return rpcError(400, null, -32600, "The id must be text or a number.");
@@ -115,8 +117,8 @@ async function callTool(params: unknown, ctx: McpContext): Promise<unknown> {
   let result: ToolResult;
   try {
     result = await tool.run(ctx.editor, (args ?? {}) as Record<string, unknown>, { email: ctx.email });
-  } catch {
-    log("editor_tool_failed", { tool: tool.name });
+  } catch (caught) {
+    log("editor_tool_failed", { tool: tool.name, errorName: caught instanceof Error ? caught.name : "unknown" });
     return toolResult(FAILED, undefined, true);
   }
   return toolResult(result.text, result.data, result.isError === true);

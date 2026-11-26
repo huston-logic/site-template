@@ -113,9 +113,13 @@ test("enableAutoMerge sends the squash mutation and maps the clean-status answer
   const gh2 = createGitHub({ ...BASE, privateKeyPem: PKCS8_PEM, fetch: clean.fetcher });
   assert.equal(await gh2.enableAutoMerge("PR_node"), "clean");
 
-  const other = mock({ ...TOKEN_ROUTE, "POST /graphql": { json: { errors: [{ message: "Auto merge is not allowed" }] } } });
+  const off = mock({ ...TOKEN_ROUTE, "POST /graphql": { json: { errors: [{ message: "Auto merge is not allowed for this repository" }] } } });
+  const gh4 = createGitHub({ ...BASE, privateKeyPem: PKCS8_PEM, fetch: off.fetcher });
+  assert.equal(await gh4.enableAutoMerge("PR_node"), "not_allowed");
+
+  const other = mock({ ...TOKEN_ROUTE, "POST /graphql": { json: { errors: [{ message: "Something else went wrong" }] } } });
   const gh3 = createGitHub({ ...BASE, privateKeyPem: PKCS8_PEM, fetch: other.fetcher });
-  await assert.rejects(gh3.enableAutoMerge("PR_node"), (e: unknown) => e instanceof GitHubError && !e.message.includes("allowed"));
+  await assert.rejects(gh3.enableAutoMerge("PR_node"), (e: unknown) => e instanceof GitHubError && !e.message.includes("wrong"));
 });
 
 test("a 404 becomes a GitHubError whose message holds no secret, URL or body", async () => {
@@ -144,6 +148,45 @@ test("one retry on a server error, then success", async () => {
   const gh = createGitHub({ ...BASE, privateKeyPem: PKCS8_PEM, fetch: fetcher });
   assert.equal(await gh.commitParent("c1"), "c0");
   assert.equal(calls.filter((c) => c.url.includes("/git/commits/c1")).length, 2);
+});
+
+test("a write is never sent twice: a 5xx on POST /pulls is tried once", async () => {
+  const { calls, fetcher } = mock({ ...TOKEN_ROUTE, "POST /repos/acme/site/pulls": [{ status: 502 }, { status: 201, json: { number: 4 } }] });
+  const gh = createGitHub({ ...BASE, privateKeyPem: PKCS8_PEM, fetch: fetcher });
+  await assert.rejects(gh.openPull({ head: "change/owner-a", title: "t", body: "b" }), (e: unknown) => e instanceof GitHubError && e.status === 502);
+  assert.equal(calls.filter((c) => c.url.endsWith("/pulls")).length, 1);
+});
+
+test("the token request is retried like a read", async () => {
+  const { calls, fetcher } = mock({
+    "POST /app/installations/77/access_tokens": [{ status: 502 }, { status: 201, json: { token: "ghs_x", expires_at: "2026-11-25T13:00:00Z" } }],
+    "GET /repos/acme/site/git/commits/c1": { json: { parents: [{ sha: "c0" }] } },
+  });
+  const gh = createGitHub({ ...BASE, privateKeyPem: PKCS8_PEM, fetch: fetcher });
+  assert.equal(await gh.commitParent("c1"), "c0");
+  assert.equal(calls.filter((c) => c.url.endsWith("/access_tokens")).length, 2);
+});
+
+test("branchHead and listBranches read refs; listPulls reads 100 a page and up to 3 pages of open ones", async () => {
+  const hundred = Array.from({ length: 100 }, (_, i) => ({ number: i + 1, state: "open" }));
+  const { calls, fetcher } = mock({
+    ...TOKEN_ROUTE,
+    "GET /repos/acme/site/git/ref/heads/change/owner-a": { json: { object: { sha: "s1" } } },
+    "GET /repos/acme/site/git/ref/heads/change/owner-b": { status: 404 },
+    "GET /repos/acme/site/git/matching-refs/heads/change/owner-": { json: [{ ref: "refs/heads/change/owner-a", object: { sha: "s1" } }, { ref: "refs/heads/change/owner-c", object: { sha: "s2" } }] },
+    "GET /repos/acme/site/pulls?state=open&sort=created&direction=desc&per_page=100&page=1": { json: hundred },
+    "GET /repos/acme/site/pulls?state=open&sort=created&direction=desc&per_page=100&page=2": { json: hundred },
+    "GET /repos/acme/site/pulls?state=open&sort=created&direction=desc&per_page=100&page=3": { json: hundred },
+  });
+  const gh = createGitHub({ ...BASE, privateKeyPem: PKCS8_PEM, fetch: fetcher });
+  assert.equal(await gh.branchHead("change/owner-a"), "s1");
+  assert.equal(await gh.branchHead("change/owner-b"), null);
+  assert.deepEqual(await gh.listBranches("change/owner-"), [
+    { name: "change/owner-a", sha: "s1" },
+    { name: "change/owner-c", sha: "s2" },
+  ]);
+  assert.equal((await gh.listPulls("open")).length, 300);
+  assert.equal(calls.filter((c) => c.url.includes("/pulls?state=open")).length, 3);
 });
 
 test("fileAt decodes UTF-8 base64 and returns null on 404", async () => {
@@ -219,7 +262,7 @@ test("compare, checkRuns, pullFiles, listPulls and openIssue use the right reque
     "GET /repos/acme/site/compare/a...b": { json: { status: "ahead" } },
     "GET /repos/acme/site/commits/b/check-runs?per_page=100": { json: { check_runs: [{ name: "check", status: "completed", conclusion: "success" }, { name: "a11y", status: "in_progress", conclusion: null }] } },
     "GET /repos/acme/site/pulls/5/files?per_page=100": { json: [{ filename: "x.json", status: "modified" }] },
-    "GET /repos/acme/site/pulls?state=all&sort=created&direction=desc&per_page=50": { json: [] },
+    "GET /repos/acme/site/pulls?state=all&sort=created&direction=desc&per_page=100&page=1": { json: [] },
     "POST /repos/acme/site/issues": { status: 201, json: { number: 9, html_url: "https://github.com/acme/site/issues/9" } },
   });
   const gh = createGitHub({ ...BASE, privateKeyPem: PKCS8_PEM, fetch: fetcher });

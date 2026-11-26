@@ -2,13 +2,13 @@ import { pathForFile } from "../../src/blocks/schema.ts";
 import { log } from "../env.ts";
 import { addedPlaceholders, buildChangeList, matchBlockIds } from "./change-list.ts";
 import { GitHubError, type Pull } from "./github.ts";
+import { isObject } from "./json.ts";
 import { applyOperations, deepEqual } from "./operations.ts";
 import { catalogResult, guideResult, overviewResult, pageResult } from "./read-tools.ts";
 import { filesFor, isPageFile, readSite, validateSet } from "./site-reader.ts";
 import { BRANCH_PREFIX, changeTitle, createStatusReader, deployedReader, editorPulls, isEditorPull, statusLine, type ChangeStatus } from "./status.ts";
-import { GITHUB_DOWN, type Editor, type EditorDeps, type ToolResult } from "./types.ts";
-
-export type { AssetsLike, Editor, EditorDeps, Owner, ToolResult } from "./types.ts";
+import { GITHUB_DOWN, type ChangeView, type Editor, type EditorDeps, type Owner, type ProposalView, type ToolResult } from "./types.ts";
+import { AGENCY_NAME } from "./words.ts";
 
 /**
  * The code behind every owner chat tool. Proposals are drafts in KV; nothing reaches the repo until publish, and publish
@@ -21,6 +21,9 @@ const ID_RE = /^[a-z0-9]{8}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const EXPIRED = "That proposal has expired or does not exist. Propose it again.";
 const ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+const KINDS = ["change", "undo", "withdraw"];
+const PREVIEW_COUNT_TTL = 172_800;
+const SWEEP_LIMIT = 10;
 
 interface Proposal {
   id: string;
@@ -39,8 +42,21 @@ interface Proposal {
 }
 
 const error = (text: string, data: Record<string, unknown> = {}): ToolResult => ({ text, data, isError: true });
+const isCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value > 0;
 const defuse = (text: string): string => text.replace(/@/g, "@​");
-const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** A stored draft, or null when any field the tools rely on is missing or the wrong type (treated as expired). */
+function parseProposal(value: unknown, id: string): Proposal | null {
+  if (!isObject(value) || value.id !== id) return null;
+  const { kind, summary, createdAt, email, baseCommit, pagesTree, imagesTree, files, changeList, undoOf, withdraw, preview } = value;
+  const strings = [summary, createdAt, email, baseCommit, pagesTree, imagesTree, changeList];
+  if (typeof kind !== "string" || !KINDS.includes(kind) || !strings.every((item) => typeof item === "string")) return null;
+  if (!Array.isArray(files) || !files.every((file) => isObject(file) && typeof file.path === "string" && typeof file.content === "string")) return null;
+  if (undoOf !== undefined && !isCount(undoOf)) return null;
+  if (kind === "withdraw" ? !isCount(withdraw) : withdraw !== undefined) return null;
+  if (preview !== undefined && !(isObject(preview) && typeof preview.branch === "string" && typeof preview.commit === "string")) return null;
+  return value as unknown as Proposal;
+}
 
 function refusal(problems: string[]): ToolResult {
   return error(`This change can't be made as asked:\n${problems.join("\n")}\nNothing was changed.`, { problems });
@@ -89,8 +105,7 @@ export function createEditor(deps: EditorDeps): Editor {
 
   async function load(id: string): Promise<Proposal | null> {
     if (typeof id !== "string" || !ID_RE.test(id)) return null;
-    const value = await kv.get(`proposal:${id}`, "json");
-    return isObject(value) && value.id === id && typeof value.summary === "string" && Array.isArray(value.files) ? (value as unknown as Proposal) : null;
+    return parseProposal(await kv.get(`proposal:${id}`, "json"), id);
   }
   const save = (proposal: Proposal) => kv.put(`proposal:${proposal.id}`, JSON.stringify(proposal), { expirationTtl: PROPOSAL_TTL });
 
@@ -102,6 +117,44 @@ export function createEditor(deps: EditorDeps): Editor {
     return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   }
   const madeToday = (pulls: Pull[]): number => pulls.filter((pull) => Date.parse(pull.createdAt) >= startOfToday()).length;
+
+  /** Closes a pull request the editor opened and deletes its branch. Best effort: each step has its own try/catch. */
+  async function stopPull(pull: Pull): Promise<void> {
+    try {
+      await github.closePull(pull.number);
+    } catch {
+      log("editor_stop_failed", { step: "close" });
+    }
+    try {
+      await github.deleteBranch(pull.headRef);
+    } catch {
+      log("editor_stop_failed", { step: "branch" });
+    }
+  }
+
+  /** Deletes up to 10 leftover change branches that have no open pull request and no waiting proposal. Never throws. */
+  async function sweep(): Promise<void> {
+    try {
+      const [branches, open] = await Promise.all([github.listBranches(BRANCH_PREFIX), github.listPulls("open")]);
+      const inUse = new Set(open.map((pull) => pull.headRef));
+      let removed = 0;
+      for (const branch of branches) {
+        if (removed >= SWEEP_LIMIT) break;
+        if (inUse.has(branch.name) || !branch.name.startsWith(BRANCH_PREFIX)) continue;
+        if ((await kv.get(`proposal:${branch.name.slice(BRANCH_PREFIX.length)}`)) !== null) continue;
+        try {
+          await github.deleteBranch(branch.name);
+          removed += 1;
+        } catch {
+          log("editor_sweep_failed", { step: "delete" });
+        }
+      }
+    } catch {
+      log("editor_sweep_failed", { step: "list" });
+    }
+  }
+
+  const previewsKey = (): string => `previews:${now().toISOString().slice(0, 10)}`;
 
   async function store(input: Omit<Proposal, "id" | "createdAt">): Promise<ToolResult> {
     const proposal: Proposal = { ...input, id: makeId(), createdAt: now().toISOString() };
@@ -117,9 +170,9 @@ export function createEditor(deps: EditorDeps): Editor {
     return null;
   }
 
-  async function undoMerged(pull: Pull, owner: { email: string }): Promise<ToolResult> {
+  async function undoMerged(pull: Pull, owner: Owner): Promise<ToolResult> {
     const merge = pull.mergeCommitSha;
-    if (merge === null) return error(`I can't find where change ${pull.number} landed on the site, so I can't undo it. Ask Huston Logic.`);
+    if (merge === null) return error(`I can't find where change ${pull.number} landed on the site, so I can't undo it. Ask ${AGENCY_NAME}.`);
     const snapshot = await readSite(github);
     const paths = (await github.pullFiles(pull.number)).map((file) => file.path).filter(isPageFile);
     const parent = await github.commitParent(merge);
@@ -137,7 +190,7 @@ export function createEditor(deps: EditorDeps): Editor {
         const own = isObject(restored) && typeof restored.path === "string" ? restored.path : pathForFile(path);
         after.set(own, restored);
       } catch {
-        problems.push(`${pathForFile(path)} cannot be read, so it cannot be restored. Ask Huston Logic.`);
+        problems.push(`${pathForFile(path)} cannot be read, so it cannot be restored. Ask ${AGENCY_NAME}.`);
       }
     }
     if (problems.length > 0) return error(problems.join("\n"), { problems });
@@ -174,33 +227,59 @@ export function createEditor(deps: EditorDeps): Editor {
   }
 
   async function publishChange(proposal: Proposal, confirmation: string, opened: { value: boolean }): Promise<ToolResult> {
-    const all = await editorPulls(github, config, "all");
-    const today = madeToday(all);
-    if (today >= config.dailyChangeLimit) return error(`This site has had ${today} changes today, the daily limit. Try again tomorrow, or ask Huston Logic.`);
-    const inFlight = all.find((pull) => pull.state === "open");
-    if (inFlight) return error(`Change ${inFlight.number} is still going live. Publish this when it is live.`);
+    const today = madeToday(await editorPulls(github, config, "all"));
+    if (today >= config.dailyChangeLimit) return error(`This site has had ${today} changes today, the daily limit. Try again tomorrow, or ask ${AGENCY_NAME}.`);
+    const [inFlight] = await editorPulls(github, config, "open");
+    if (inFlight) {
+      const stuck = (await statuses.read(inFlight, deployed())).state === "stuck";
+      return error(
+        stuck
+          ? `Change ${inFlight.number} is stuck: a check found a problem, so it can't go live. Withdraw it first (ask me to undo change ${inFlight.number}), then publish this.`
+          : `Change ${inFlight.number} is still going live. Publish this when it is live.`,
+      );
+    }
 
     const snapshot = await readSite(github);
     if (snapshot.pagesTree !== proposal.pagesTree || snapshot.imagesTree !== proposal.imagesTree) {
       return error("The site changed since this was proposed. Propose it again.");
     }
     const branch = `${BRANCH_PREFIX}${proposal.id}`;
-    if (!(proposal.preview && proposal.baseCommit === snapshot.commit)) {
+    const reusable = proposal.preview !== undefined && proposal.baseCommit === snapshot.commit && (await github.branchHead(branch)) === proposal.preview.commit;
+    if (!reusable) {
       const commit = await github.createCommit({ baseCommit: snapshot.commit, files: proposal.files, message: `content: ${proposal.summary}` });
       await github.setBranch(branch, commit);
     }
     opened.value = true;
     const pull = await github.openPull({ head: branch, title: defuse(`change: ${proposal.summary}`), body: pullBody(proposal, confirmation) });
 
-    const open = await editorPulls(github, config, "open");
-    if (open.some((other) => other.number < pull.number)) {
-      await github.closePull(pull.number);
-      return error("Another change was published at the same moment. This one was stopped; try again when that one is live.");
-    }
+    // From here a pull request exists: every way out either leaves it queued or stops it, never half open.
+    const stopped = async (text: string, event: string): Promise<ToolResult> => {
+      await stopPull(pull);
+      log(event, { change: pull.number });
+      return error(text);
+    };
     try {
-      if ((await github.enableAutoMerge(pull.nodeId)) === "clean") await github.mergePull(pull.number);
+      const bot = config.github.botLogin;
+      if (bot === null || pull.author.toLowerCase() !== bot.toLowerCase()) {
+        return await stopped(`The site editor's settings don't match its GitHub App, so nothing was published. ${AGENCY_NAME} needs to fix the editor's settings.`, "editor_bot_mismatch");
+      }
+      const open = await editorPulls(github, config, "open");
+      if (open.some((other) => other.number < pull.number)) {
+        return await stopped("Another change was published at the same moment. This one was stopped; try again when that one is live.", "editor_race_stopped");
+      }
+      const queued = await github.enableAutoMerge(pull.nodeId);
+      if (queued === "not_allowed") {
+        return await stopped(`Auto-merge is turned off for this site's repository, so nothing was published. ${AGENCY_NAME} needs to turn it on.`, "editor_auto_merge_off");
+      }
+      if (queued === "clean") {
+        // Merging by hand here would skip the checks, so the pull request stays open for the owner of the repository.
+        await kv.delete(`proposal:${proposal.id}`);
+        log("editor_no_required_checks", { change: pull.number });
+        return error(`This site's required checks aren't set up, so the change was not published. It is waiting for ${AGENCY_NAME}.`, { change: pull.number });
+      }
     } catch (caught) {
-      await github.closePull(pull.number).catch(() => undefined);
+      await stopPull(pull);
+      if (caught instanceof GitHubError) return error("The change was opened but could not be queued, so it was stopped. Nothing is live.", { reason: "github" });
       throw caught;
     }
     await kv.delete(`proposal:${proposal.id}`);
@@ -222,6 +301,7 @@ export function createEditor(deps: EditorDeps): Editor {
         const open = pulls.find((pull) => pull.state === "open");
         const inFlight = open ? { change: open.number, state: (await statuses.read(open, deployed())).state } : null;
         const changesLeftToday = Math.max(0, config.dailyChangeLimit - madeToday(pulls));
+        await sweep();
         return overviewResult({ snapshot, registry, site: { name: config.siteName, url: config.siteUrl }, inFlight, changesLeftToday });
       }, () => "GitHub could not be reached right now, so I can't read the site. Try again in a minute.");
     },
@@ -273,10 +353,14 @@ export function createEditor(deps: EditorDeps): Editor {
       return guarded(async () => {
         let preview = proposal.preview;
         if (!preview) {
+          const used = Number(await kv.get(previewsKey())) || 0;
+          if (used >= config.dailyChangeLimit) return error(`This site has had ${used} previews today, the daily limit. Publish or try tomorrow.`);
+          await sweep();
           const branch = `${BRANCH_PREFIX}${proposal.id}`;
           const commit = await github.createCommit({ baseCommit: proposal.baseCommit, files: proposal.files, message: `preview: ${proposal.summary}` });
           await github.setBranch(branch, commit);
           preview = { branch, commit };
+          await kv.put(previewsKey(), String(used + 1), { expirationTtl: PREVIEW_COUNT_TTL });
           await save({ ...proposal, preview });
         }
         const link = previewLink(proposal.id) as string;
@@ -314,14 +398,26 @@ export function createEditor(deps: EditorDeps): Editor {
       }, () => "GitHub could not be reached right now, so I can't check. Try again in a minute.");
     },
 
-    async recent() {
-      return guarded(async () => {
+    async recent(): Promise<ToolResult<ChangeView[]>> {
+      try {
         const pulls = (await editorPulls(github, config, "all")).slice(0, 10);
         const read = deployed();
-        const changes = await Promise.all(pulls.map((pull) => statuses.read(pull, read)));
+        const changes: ChangeView[] = await Promise.all(
+          pulls.map(async (pull): Promise<ChangeView> => {
+            try {
+              return await statuses.read(pull, read);
+            } catch {
+              log("editor_status_failed", { change: pull.number });
+              return { change: pull.number, title: changeTitle(pull), state: "unknown", publishedAt: pull.createdAt };
+            }
+          }),
+        );
         const text = changes.length === 0 ? "No changes have been published yet." : changes.map((c) => `${statusLine(c)} (${c.title})`).join("\n");
-        return { text, data: { changes } };
-      }, () => "GitHub could not be reached right now, so I can't list changes. Try again in a minute.");
+        return { text, data: changes };
+      } catch (caught) {
+        if (!(caught instanceof GitHubError)) throw caught;
+        return { text: "GitHub could not be reached right now, so I can't list changes. Try again in a minute.", data: [], isError: true };
+      }
     },
 
     async undo(change, owner) {
@@ -360,30 +456,35 @@ export function createEditor(deps: EditorDeps): Editor {
           "",
           ...request.split(/\r?\n/).map((line) => `> ${defuse(line)}`),
           "",
-          `Why it needs Huston Logic (from the owner's AI app): ${defuse(reason)}`,
+          `Why it needs ${AGENCY_NAME} (from the owner's AI app): ${defuse(reason)}`,
           "",
           `Date: ${now().toISOString().slice(0, 10)}. Recorded by the site editor.`,
         ].join("\n");
         const issue = await github.openIssue({ title, body, labels: ["owner-request"] });
         return {
-          text: `Recorded for Huston Logic as request ${issue.number}. This needs Huston Logic: the site's sections can't do it. Huston Logic has the request and will say what it takes.`,
+          text: `Recorded for ${AGENCY_NAME} as request ${issue.number}. This needs ${AGENCY_NAME}: the site's sections can't do it. ${AGENCY_NAME} has the request and will say what it takes.`,
           data: { request: issue.number },
         };
       }, () => "GitHub could not be reached right now, so the request was not recorded. Try again in a minute.");
     },
 
-    async waiting() {
-      const listed = await kv.list({ prefix: "proposal:" });
-      const found = await Promise.all(listed.keys.map((key) => load(key.name.slice("proposal:".length))));
-      const proposals = found
-        .filter((p): p is Proposal => p !== null)
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-        .map((p) => ({ id: p.id, kind: p.kind, summary: p.summary, createdAt: p.createdAt, changeList: p.changeList, previewLink: p.preview ? previewLink(p.id) : null }));
-      const text =
-        proposals.length === 0
-          ? "Nothing is waiting for the owner's yes."
-          : proposals.map((p) => `Proposal ${p.id}: ${p.summary}${p.previewLink ? ` (preview: ${p.previewLink})` : ""}\n${p.changeList}`).join("\n\n");
-      return { text, data: { proposals } };
+    async waiting(): Promise<ToolResult<ProposalView[]>> {
+      try {
+        const listed = await kv.list({ prefix: "proposal:" });
+        const found = await Promise.all(listed.keys.map((key) => load(key.name.slice("proposal:".length))));
+        const proposals: ProposalView[] = found
+          .filter((p): p is Proposal => p !== null)
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+          .map((p) => ({ id: p.id, summary: p.summary, createdAt: p.createdAt, changeList: p.changeList, previewLink: p.preview ? previewLink(p.id) : null }));
+        const text =
+          proposals.length === 0
+            ? "Nothing is waiting for the owner's yes."
+            : proposals.map((p) => `Proposal ${p.id}: ${p.summary}${p.previewLink ? ` (preview: ${p.previewLink})` : ""}\n${p.changeList}`).join("\n\n");
+        return { text, data: proposals };
+      } catch {
+        log("editor_waiting_failed");
+        return { text: "The waiting list could not be read right now. Try again in a minute.", data: [], isError: true };
+      }
     },
   };
 }

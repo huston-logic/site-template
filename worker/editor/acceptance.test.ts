@@ -104,7 +104,7 @@ test("Change Friday hours to 9 to 3.", async () => {
 
   t.github.merge(1);
   const going = await ai("get_change_status", { change: 1 });
-  assert.equal(going.text, "Change 1 passed its checks and is being published. It is not live yet. I can't confirm it is live yet.");
+  assert.equal(going.text, "Change 1 passed its checks and is being published. I can't confirm it is live yet.");
   assert.equal(going.data.state, "going live");
 
   t.assets.commit = t.github.pulls[0].mergeCommitSha;

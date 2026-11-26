@@ -112,7 +112,7 @@ test("a tool that throws says nothing about why and logs only its name", async (
   } finally {
     console.log = original;
   }
-  assert.deepEqual(lines.map((line) => JSON.parse(line)), [{ event: "editor_tool_failed", tool: "get_site" }]);
+  assert.deepEqual(lines.map((line) => JSON.parse(line)), [{ event: "editor_tool_failed", tool: "get_site", errorName: "Error" }]);
 });
 
 test("protocol errors: bad JSON, batches, malformed messages, unknown methods", async () => {
@@ -151,4 +151,12 @@ test("the rate limit is keyed by a hash of the owner, never the email", async ()
   assert.match(keys[0], /^user:[0-9a-f]{16}$/);
   allow = false;
   assert.equal((await call(rpc("ping"), context({ rateLimit }))).response.status, 429);
+});
+
+test("a client's reply to the server is accepted with no body", async () => {
+  for (const reply of [{ jsonrpc: "2.0", id: 7, result: {} }, { jsonrpc: "2.0", id: 7, error: { code: -32601, message: "nope" } }]) {
+    const response = await handleMcp(post(reply), context());
+    assert.equal(response.status, 202);
+    assert.equal(await response.text(), "");
+  }
 });

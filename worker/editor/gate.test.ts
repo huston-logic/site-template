@@ -76,7 +76,11 @@ test("missingBindings names every binding and setting that is absent, and nothin
     "editor.github.repo",
     "editor.github.appId",
     "editor.github.installationId",
+    "editor.github.botLogin",
     "editor.access.teamDomain",
     "editor.access.aud",
   ]);
+  const login = (botLogin: string | null) => config({ access: ready.editor.access, github: { ...ready.editor.github, botLogin } });
+  assert.deepEqual(missingBindings(login("editor-bot"), full), ["editor.github.botLogin"], "a GitHub App login ends in [bot]");
+  assert.deepEqual(missingBindings(login("editor-bot[bot]"), full), []);
 });

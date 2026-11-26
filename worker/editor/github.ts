@@ -1,4 +1,5 @@
 import { log, retryable, TIMEOUT_MS } from "../env.ts";
+import { isObject, str, type Json } from "./json.ts";
 
 /**
  * The owner chat tools' GitHub client. It signs in as the site's own GitHub App (an RS256 JWT made with Web Crypto,
@@ -41,11 +42,16 @@ export interface GitHub {
   createCommit(input: { baseCommit: string; files: { path: string; content: string }[]; message: string }): Promise<string>;
   setBranch(name: string, sha: string): Promise<void>;
   deleteBranch(name: string): Promise<void>;
+  /** The commit a branch points at, or null when there is no such branch. */
+  branchHead(name: string): Promise<string | null>;
+  /** Branches whose names start with the prefix. */
+  listBranches(prefix: string): Promise<{ name: string; sha: string }[]>;
   openPull(input: { head: string; title: string; body: string }): Promise<Pull>;
-  enableAutoMerge(nodeId: string): Promise<"queued" | "clean">;
-  mergePull(number: number): Promise<void>;
+  /** "clean": no required check is waiting, so GitHub would not queue it. "not_allowed": the repository has auto-merge switched off. */
+  enableAutoMerge(nodeId: string): Promise<"queued" | "clean" | "not_allowed">;
   closePull(number: number): Promise<void>;
   getPull(number: number): Promise<Pull | null>;
+  /** "open": every open pull request (up to 300). "all": the newest 100 of any state. */
   listPulls(state: "open" | "all"): Promise<Pull[]>;
   pullFiles(number: number): Promise<{ path: string; status: string }[]>;
   checkRuns(sha: string): Promise<CheckRun[]>;
@@ -79,6 +85,7 @@ export interface GitHubOptions {
 
 const API = "https://api.github.com";
 const PERMISSIONS = { contents: "write", pull_requests: "write", issues: "write", checks: "read", metadata: "read" };
+const OPEN_PAGES = 3;
 const TOKEN_MARGIN_MS = 5 * 60 * 1000;
 
 function base64url(bytes: Uint8Array): string {
@@ -123,12 +130,9 @@ export async function signAppJwt(appId: string, privateKeyPem: string, nowMs: nu
   return `${header}.${claims}.${base64url(new Uint8Array(signature))}`;
 }
 
-type Json = Record<string, unknown>;
-
 function asJson(value: unknown): Json {
-  return typeof value === "object" && value !== null ? (value as Json) : {};
+  return isObject(value) ? value : {};
 }
-const str = (value: unknown): string => (typeof value === "string" ? value : "");
 const strOrNull = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
 function mapPull(raw: unknown): Pull {
@@ -185,14 +189,16 @@ export function createGitHub(opts: GitHubOptions): GitHub {
 
   async function raw(operation: string, url: string, init: RequestInit): Promise<Response> {
     let last = 0;
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    // Only reads (and the token exchange) are safe to send twice; a repeated write could open a second pull request.
+    const attempts = (init.method ?? "GET") === "GET" || operation === "installation token" ? 2 : 1;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
         const response = await doFetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
-        if (!retryable(response.status) || attempt === 2) return response;
+        if (!retryable(response.status) || attempt === attempts) return response;
         last = response.status;
       } catch {
         last = 0;
-        if (attempt === 2) break;
+        if (attempt === attempts) break;
       }
     }
     log("github_error", { operation, status: last });
@@ -297,6 +303,23 @@ export function createGitHub(opts: GitHubOptions): GitHub {
       await call("delete branch", "DELETE", `${repoPath}${refPath(name)}`, undefined, [404, 422]);
     },
 
+    async branchHead(name) {
+      const { status, data } = await call("read branch", "GET", `${repoPath}/git/ref/heads/${encodePath(name)}`, undefined, [404]);
+      return status === 404 ? null : str(asJson(asJson(data).object).sha) || null;
+    },
+
+    async listBranches(prefix) {
+      const { data } = await call("list branches", "GET", `${repoPath}/git/matching-refs/heads/${encodePath(prefix)}`);
+      return Array.isArray(data)
+        ? data.flatMap((item) => {
+            const ref = asJson(item);
+            const name = str(ref.ref).replace(/^refs\/heads\//, "");
+            const sha = str(asJson(ref.object).sha);
+            return name !== "" && sha !== "" ? [{ name, sha }] : [];
+          })
+        : [];
+    },
+
     async openPull({ head, title, body }) {
       return mapPull((await call("open pull request", "POST", `${repoPath}/pulls`, { title, head, base: main, body })).data);
     },
@@ -305,13 +328,11 @@ export function createGitHub(opts: GitHubOptions): GitHub {
       const { data } = await call("enable auto-merge", "POST", "/graphql", { query: AUTO_MERGE_MUTATION, variables: { pullRequestId: nodeId } });
       const errors = asJson(data).errors;
       if (!Array.isArray(errors) || errors.length === 0) return "queued";
-      if (errors.some((error) => str(asJson(error).message).includes("clean status"))) return "clean";
+      const messages = errors.map((error) => str(asJson(error).message));
+      if (messages.some((message) => /auto[- ]merge is not allowed/i.test(message))) return "not_allowed";
+      if (messages.some((message) => message.includes("clean status"))) return "clean";
       log("github_error", { operation: "enable auto-merge", status: 422 });
       throw new GitHubError(422, "enable auto-merge");
-    },
-
-    async mergePull(number) {
-      await call("merge pull request", "PUT", `${repoPath}/pulls/${number}/merge`, { merge_method: "squash" });
     },
 
     async closePull(number) {
@@ -324,8 +345,14 @@ export function createGitHub(opts: GitHubOptions): GitHub {
     },
 
     async listPulls(state) {
-      const { data } = await call("list pull requests", "GET", `${repoPath}/pulls?state=${state}&sort=created&direction=desc&per_page=50`);
-      return Array.isArray(data) ? data.map(mapPull) : [];
+      const pulls: Pull[] = [];
+      for (let page = 1; page <= (state === "open" ? OPEN_PAGES : 1); page++) {
+        const { data } = await call("list pull requests", "GET", `${repoPath}/pulls?state=${state}&sort=created&direction=desc&per_page=100&page=${page}`);
+        const batch = Array.isArray(data) ? data.map(mapPull) : [];
+        pulls.push(...batch);
+        if (batch.length < 100) break;
+      }
+      return pulls;
     },
 
     async pullFiles(number) {

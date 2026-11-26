@@ -121,13 +121,6 @@ test("publish opens one pull request with the change list, the owner's words and
   assert.equal(t.github.pulls.length, 1);
 });
 
-test("publish merges at once when GitHub says the pull request is already clean", async () => {
-  const t = makeTestEditor();
-  t.github.autoMergeClean = true;
-  await t.editor.publish(await propose(t), "Yes", OWNER);
-  assert.equal(t.github.pulls[0].merged, true);
-});
-
 test("publish needs the owner's words", async () => {
   const t = makeTestEditor();
   const id = await propose(t);
@@ -168,7 +161,7 @@ test("a race closes the newer pull request", async () => {
   const github = seedSite();
   const real = github.listPulls.bind(github);
   let calls = 0;
-  const hidden = withOverrides(github, { listPulls: async (state) => (++calls === 1 ? [] : real(state)) });
+  const hidden = withOverrides(github, { listPulls: async (state) => (++calls <= 2 ? [] : real(state)) });
   const t = makeTestEditor({ github: hidden });
   const main = (await github.headOfMain()).commit;
   await github.setBranch("change/owner-older000", await github.createCommit({ baseCommit: main, files: [{ path: "a.txt", content: "a" }], message: "x" }));
@@ -192,6 +185,8 @@ test("the daily cap counts today's editor pull requests, not other people's or y
   const next = await t.editor.publish(await propose(t, "Friday: 9 to 4"), "Yes", OWNER);
   assert.equal(next.isError, undefined);
 });
+
+const minutes = (count: number) => new Date(Date.parse(TEST_NOW) + count * 60_000);
 
 test("status walks through checking, stuck, going live, live and stopped", async () => {
   const t = makeTestEditor();
@@ -219,34 +214,84 @@ test("status walks through checking, stuck, going live, live and stopped", async
 
   t.github.merge(change);
   const unknown = await t.editor.status(change);
-  assert.equal(unknown.text, "Change 1 passed its checks and is being published. It is not live yet. I can't confirm it is live yet.");
+  assert.equal(unknown.text, "Change 1 passed its checks and is being published. I can't confirm it is live yet.");
   assert.equal((unknown.data as { state: string }).state, "going live");
   assert.equal(t.kv.store.has("live:1"), false);
 
   t.assets.commit = (await t.github.headOfMain()).commit.replace(/^c\d+/, "c1");
   const old = await t.editor.status(change);
+  assert.equal(old.text, "Change 1 passed its checks and is being published. It is not live yet.");
   assert.equal((old.data as { state: string }).state, "going live");
-  assert.equal(old.text.includes("can't confirm"), false);
 
+  t.now.value = minutes(5);
   t.assets.commit = t.github.pulls[0].mergeCommitSha;
   const live = await t.editor.status(change);
-  assert.match(live.text, /^Change 1 is live\. It went live 719 minutes after it was published\.$/);
-  const data = live.data as { state: string; liveAt: string; minutesToLive: number; publishedAt: string };
+  assert.match(live.text, /^Change 1 is live\. It went live 5 minutes after it was published\.$/);
+  const data = live.data as { state: string; liveAt: string; minutesToLive: number };
   assert.equal(data.state, "live");
-  assert.equal(data.liveAt, TEST_NOW);
-  assert.equal(data.minutesToLive, 719);
+  assert.equal(data.liveAt, minutes(5).toISOString());
+  assert.equal(data.minutesToLive, 5);
   assert.deepEqual(t.kv.puts.filter((p) => p.key === "live:1"), [{ key: "live:1", ttl: undefined }]);
 
-  t.now.value = new Date(Date.parse(TEST_NOW) + 3600_000);
+  t.now.value = minutes(65);
   t.assets.commit = null;
   const later = await t.editor.status(change);
-  assert.equal((later.data as { liveAt: string }).liveAt, TEST_NOW);
+  assert.equal((later.data as { liveAt: string }).liveAt, minutes(5).toISOString());
   assert.equal(t.kv.puts.filter((p) => p.key === "live:1").length, 1);
 
   const other = makeTestEditor();
   const stopped = await ship(other, "Friday: 9 to 1", false);
   other.github.close(stopped);
   assert.equal((await other.editor.status(stopped)).text, "Change 1 was stopped before it went live. Nothing changed on the site.");
+});
+
+test("a change that is slow to go live says so, and keeps its going live state", async () => {
+  const t = makeTestEditor();
+  const change = await ship(t, "Friday: 9 to 1");
+  t.now.value = minutes(31);
+  const slow = await t.editor.status(change);
+  assert.equal(slow.text, "Change 1 passed its checks and is being published. I can't confirm it is live yet. This is taking longer than usual. Huston Logic can see it.");
+  assert.equal((slow.data as { state: string }).state, "going live");
+  t.assets.commit = "c1-old";
+  assert.equal((await t.editor.status(change)).text, "Change 1 passed its checks and is being published. It is not live yet. This is taking longer than usual. Huston Logic can see it.");
+});
+
+test("a live time is only called a measurement when it was seen soon after the merge", async () => {
+  const t = makeTestEditor();
+  const change = await ship(t, "Friday: 9 to 1");
+  t.now.value = minutes(61);
+  t.assets.commit = t.github.pulls[0].mergeCommitSha;
+  const late = await t.editor.status(change);
+  assert.equal(late.text, "Change 1 is live. It is live (confirmed 2026-01-01 13:01 UTC).");
+  assert.equal((late.data as { minutesToLive?: number }).minutesToLive, undefined);
+  assert.equal((late.data as { state: string }).state, "live");
+});
+
+test("an open change with no check at all for 30 minutes is stuck, and says which checks are missing", async () => {
+  const t = makeTestEditor();
+  const change = await ship(t, "Friday: 9 to 1", false);
+  t.github.setChecks(t.github.pulls[0].headSha, [{ name: "Workers Builds: example-site", status: "completed", conclusion: "success" }]);
+  t.now.value = minutes(29);
+  assert.equal(((await t.editor.status(change)).data as { state: string }).state, "checking");
+  t.now.value = minutes(31);
+  const stuck = await t.editor.status(change);
+  assert.equal((stuck.data as { state: string }).state, "stuck");
+  assert.deepEqual((stuck.data as { failedChecks: string[] }).failedChecks, ["required checks missing"]);
+  t.github.setChecks(t.github.pulls[0].headSha, [{ name: "check", status: "queued", conclusion: null }]);
+  assert.equal(((await t.editor.status(change)).data as { state: string }).state, "checking");
+});
+
+test("an ignored check name matches the entry itself or the entry followed by a colon or space", async () => {
+  const t = makeTestEditor();
+  const change = await ship(t, "Friday: 9 to 1", false);
+  t.github.setChecks(t.github.pulls[0].headSha, [
+    { name: "Workers Builds: example-site", status: "completed", conclusion: "failure" },
+    { name: "change-report", status: "completed", conclusion: "failure" },
+    { name: "change-scoped", status: "completed", conclusion: "failure" },
+    { name: "check", status: "queued", conclusion: null },
+  ]);
+  const status = await t.editor.status(change);
+  assert.deepEqual((status.data as { failedChecks: string[] }).failedChecks, ["change-scoped"]);
 });
 
 test("a deployed site that names no commit is never reported live", async () => {
@@ -270,7 +315,7 @@ test("recent lists at most the 10 newest changes", async () => {
   const t = makeTestEditor({ config: { dailyChangeLimit: 50 } });
   for (let i = 1; i <= 11; i++) await ship(t, `Friday: 9 to ${i}`);
   const result = await t.editor.recent();
-  const changes = (result.data as { changes: { change: number }[] }).changes;
+  const changes = result.data;
   assert.equal(changes.length, 10);
   assert.equal(changes[0].change, 11);
   assert.equal(result.text.split("\n").length, 10);
@@ -394,11 +439,11 @@ test("waiting lists drafts and discard removes one with its preview branch", asy
   const id = await propose(t);
   await t.editor.preview(id);
   const waiting = await t.editor.waiting();
-  const items = (waiting.data as { proposals: { id: string; previewLink: string | null }[] }).proposals;
+  const items = waiting.data;
   assert.equal(items[0].id, id);
   assert.match(items[0].previewLink ?? "", /^https:\/\/change-owner-p0000001-example-site\.acct\.workers\.dev$/);
   assert.equal((await t.editor.discard(id)).text, "Proposal p0000001 was discarded.");
-  assert.equal(t.kv.store.size, 0);
+  assert.deepEqual([...t.kv.store.keys()].filter((key) => key.startsWith("proposal:")), []);
   assert.throws(() => t.github.filesOn("change/owner-p0000001"));
   assert.equal((await t.editor.publish(id, "Yes", OWNER)).isError, true);
 });
@@ -419,5 +464,196 @@ test("GitHub failures become plain errors that carry no detail", async () => {
   const v = makeTestEditor({ github: withOverrides(seedSite(), { enableAutoMerge: async () => Promise.reject(down) }) });
   const unqueued = await v.editor.publish(await propose(v), "Yes", OWNER);
   assert.equal(unqueued.isError, true);
+  assert.equal(unqueued.text, "The change was opened but could not be queued, so it was stopped. Nothing is live.");
   assert.equal(v.github.pulls[0].state, "closed");
+  assert.throws(() => v.github.filesOn("change/owner-p0000001"), "the stopped change's branch is deleted");
+});
+
+test("a stuck change in flight says it is stuck and how to clear it", async () => {
+  const t = makeTestEditor();
+  const first = await propose(t, "Friday: 9 to 1");
+  const second = await propose(t, "Friday: 9 to 2");
+  await t.editor.publish(first, "Yes", OWNER);
+  t.github.setChecks(t.github.pulls[0].headSha, [{ name: "a11y", status: "completed", conclusion: "failure" }]);
+  const result = await t.editor.publish(second, "Yes", OWNER);
+  assert.equal(
+    result.text,
+    "Change 1 is stuck: a check found a problem, so it can't go live. Withdraw it first (ask me to undo change 1), then publish this.",
+  );
+  assert.equal(result.isError, true);
+});
+
+test("a pull request that is not from the site's GitHub App is stopped, and the owner is told the settings are wrong", async () => {
+  const t = makeTestEditor();
+  t.github.botLogin = "someone-else[bot]";
+  const lines: string[] = [];
+  const original = console.log;
+  console.log = (line: string) => lines.push(line);
+  let result: ToolResult;
+  try {
+    result = await t.editor.publish(await propose(t), "Yes", OWNER);
+  } finally {
+    console.log = original;
+  }
+  assert.equal(result.text, "The site editor's settings don't match its GitHub App, so nothing was published. Huston Logic needs to fix the editor's settings.");
+  assert.equal(result.isError, true);
+  assert.equal(t.github.pulls[0].state, "closed");
+  assert.throws(() => t.github.filesOn("change/owner-p0000001"));
+  assert.ok(lines.some((line) => JSON.parse(line).event === "editor_bot_mismatch"));
+});
+
+test("the GitHub App's login is compared without case", async () => {
+  const t = makeTestEditor({ config: { github: { owner: "example", repo: "site", appId: "1", installationId: "2", botLogin: "Editor-Bot[bot]" } } });
+  const result = await t.editor.publish(await propose(t), "Yes", OWNER);
+  assert.equal(result.isError, undefined, result.text);
+  assert.equal(t.github.pulls[0].state, "open");
+  assert.equal(((await t.editor.status(1)).data as { change: number }).change, 1);
+});
+
+test("a repository with no required checks is never merged by the editor", async () => {
+  const t = makeTestEditor();
+  t.github.autoMergeClean = true;
+  const result = await t.editor.publish(await propose(t), "Yes", OWNER);
+  assert.equal(result.text, "This site's required checks aren't set up, so the change was not published. It is waiting for Huston Logic.");
+  assert.equal(result.isError, true);
+  assert.equal(t.github.pulls[0].state, "open");
+  assert.equal(t.github.pulls[0].merged, false);
+  assert.match(t.github.filesOn("main")["src/content/pages/hours.json"] ?? "", /Friday: 9 to 5/);
+});
+
+test("a repository with auto-merge switched off has its pull request stopped", async () => {
+  const t = makeTestEditor();
+  t.github.autoMergeNotAllowed = true;
+  const result = await t.editor.publish(await propose(t), "Yes", OWNER);
+  assert.equal(result.text, "Auto-merge is turned off for this site's repository, so nothing was published. Huston Logic needs to turn it on.");
+  assert.equal(result.isError, true);
+  assert.equal(t.github.pulls[0].state, "closed");
+  assert.throws(() => t.github.filesOn("change/owner-p0000001"));
+});
+
+test("a failure after the pull request opened never leaves it open", async () => {
+  const github = seedSite();
+  const t = makeTestEditor({ github: withOverrides(github, { enableAutoMerge: async () => Promise.reject(new GitHubError(500, "enable auto-merge")) }) });
+  await t.editor.publish(await propose(t), "Yes", OWNER);
+  assert.equal(github.pulls.filter((pull) => pull.state === "open").length, 0);
+});
+
+test("previews are capped per day, and reusing a preview does not count", async () => {
+  const t = makeTestEditor({ config: { dailyChangeLimit: 2 } });
+  const [a, b, c] = [await propose(t, "Friday: 9 to 1"), await propose(t, "Friday: 9 to 2"), await propose(t, "Friday: 9 to 3")];
+  assert.equal((await t.editor.preview(a)).isError, undefined);
+  assert.equal((await t.editor.preview(a)).isError, undefined, "the same preview again");
+  assert.equal((await t.editor.preview(b)).isError, undefined);
+  const refused = await t.editor.preview(c);
+  assert.equal(refused.text, "This site has had 2 previews today, the daily limit. Publish or try tomorrow.");
+  assert.equal(refused.isError, true);
+  assert.equal(t.kv.ttlOf("previews:2026-01-01"), 172800);
+  assert.equal(await t.kv.get("previews:2026-01-01", "text"), "2");
+  t.now.value = new Date(Date.parse(TEST_NOW) + 24 * 3600_000);
+  assert.equal((await t.editor.preview(c)).isError, undefined);
+});
+
+test("publish does not reuse a preview branch that moved; it builds the commit again", async () => {
+  const t = makeTestEditor();
+  const id = await propose(t);
+  await t.editor.preview(id);
+  const main = (await t.github.headOfMain()).commit;
+  const moved = await t.github.createCommit({ baseCommit: main, files: [{ path: "src/content/pages/hours.json", content: "{\"tampered\":true}\n" }], message: "x" });
+  await t.github.setBranch("change/owner-p0000001", moved);
+  const result = await t.editor.publish(id, "Yes", OWNER);
+  assert.equal(result.isError, undefined, result.text);
+  const [pull] = t.github.pulls;
+  assert.notEqual(pull.headSha, moved);
+  assert.match(t.github.filesOn(pull.headRef)["src/content/pages/hours.json"] ?? "", /Friday: 9 to 3/);
+});
+
+test("leftover change branches with no pull request and no proposal are swept, at most 10 a call", async () => {
+  const t = makeTestEditor();
+  const main = (await t.github.headOfMain()).commit;
+  for (let i = 0; i < 12; i++) await t.github.setBranch(`change/owner-old${String(i).padStart(5, "0")}`, main);
+  await t.github.setBranch("feature/keep", main);
+  const kept = await propose(t);
+  await t.github.setBranch(`change/owner-${kept}`, main);
+  await t.editor.overview();
+  const left = (await t.github.listBranches("change/owner-")).map((branch) => branch.name);
+  assert.equal(left.filter((name) => name.startsWith("change/owner-old")).length, 2);
+  assert.ok(left.includes(`change/owner-${kept}`), "a branch with a waiting proposal stays");
+  assert.ok((await t.github.listBranches("feature/")).length === 1, "other branches are never touched");
+  await t.editor.preview(await propose(t, "Friday: 9 to 4"));
+  assert.equal((await t.github.listBranches("change/owner-old")).length, 0);
+});
+
+test("a branch that has an open pull request is not swept", async () => {
+  const t = makeTestEditor();
+  const id = await propose(t);
+  await t.editor.publish(id, "Yes", OWNER);
+  t.github.close(1);
+  await t.github.openPull({ head: "change/owner-p0000001", title: "change: again", body: "" });
+  await t.editor.overview();
+  assert.equal((await t.github.listBranches("change/owner-p0000001")).length, 1);
+});
+
+test("an editor change that is older than 100 other pull requests is still found in flight", async () => {
+  const t = makeTestEditor();
+  const first = await propose(t, "Friday: 9 to 1");
+  const second = await propose(t, "Friday: 9 to 2");
+  await t.editor.publish(first, "Yes", OWNER);
+  const main = (await t.github.headOfMain()).commit;
+  for (let i = 0; i < 60; i++) {
+    await t.github.setBranch(`feature/other-${i}`, main);
+    await t.github.openPull({ head: `feature/other-${i}`, title: `other ${i}`, body: "" });
+  }
+  const result = await t.editor.publish(second, "Yes", OWNER);
+  assert.equal(result.text, "Change 1 is still going live. Publish this when it is live.");
+  assert.equal(((await t.editor.overview()).data as { inFlight: { change: number } }).inFlight.change, 1);
+  assert.equal((await t.editor.recent()).data.length, 1);
+});
+
+test("one change whose status cannot be read does not fail the list", async () => {
+  const github = seedSite();
+  const real = github.checkRuns.bind(github);
+  let broken = false;
+  const t = makeTestEditor({ github: withOverrides(github, { checkRuns: async (sha) => (broken ? Promise.reject(new GitHubError(500, "read check runs")) : real(sha)) }) });
+  await ship(t, "Friday: 9 to 1");
+  await ship(t, "Friday: 9 to 2", false);
+  broken = true;
+  const result = await t.editor.recent();
+  assert.equal(result.isError, undefined);
+  assert.deepEqual(result.data.map((change) => change.state), ["unknown", "going live"]);
+  assert.match(result.text, /Change 2: Status unavailable right now\. \(Friday hours Friday: 9 to 2\)/);
+});
+
+test("a stored proposal with a missing or wrong-typed field is treated as expired", async () => {
+  const t = makeTestEditor();
+  const id = await propose(t);
+  const good = (await t.kv.get(`proposal:${id}`, "json")) as Record<string, unknown>;
+  const bad: Record<string, unknown>[] = [
+    { ...good, kind: "bogus" },
+    { ...good, files: [{ path: "a.json", content: 5 }] },
+    { ...good, files: "none" },
+    { ...good, email: undefined },
+    { ...good, baseCommit: 7 },
+    { ...good, preview: { branch: "x" } },
+    { ...good, kind: "withdraw" },
+    { ...good, undoOf: "3" },
+  ];
+  for (const record of bad) {
+    await t.kv.put(`proposal:${id}`, JSON.stringify(record));
+    assert.equal((await t.editor.publish(id, "Yes", OWNER)).text, "That proposal has expired or does not exist. Propose it again.", JSON.stringify(record).slice(0, 60));
+    assert.equal((await t.editor.preview(id)).isError, true);
+    assert.deepEqual((await t.editor.waiting()).data, []);
+  }
+  await t.kv.put(`proposal:${id}`, JSON.stringify(good));
+  assert.equal((await t.editor.waiting()).data.length, 1);
+});
+
+test("waiting turns a KV failure into an error result", async () => {
+  const t = makeTestEditor();
+  t.kv.list = async () => {
+    throw new Error("kv down");
+  };
+  const result = await t.editor.waiting();
+  assert.equal(result.isError, true);
+  assert.deepEqual(result.data, []);
+  assert.equal(result.text.includes("kv down"), false);
 });

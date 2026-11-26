@@ -38,6 +38,11 @@ function hash(text: string): string {
 export class FakeGitHub implements GitHub {
   /** When true, enableAutoMerge answers "clean", as GitHub does for an already-mergeable pull request. */
   autoMergeClean = false;
+  /** When true, enableAutoMerge answers "not_allowed", as GitHub does when the repository has auto-merge off. */
+  autoMergeNotAllowed = false;
+  /** The login pull requests are opened as. */
+  botLogin = "editor-bot[bot]";
+  private clockSource: (() => number) | null = null;
   readonly issues: FakeIssue[] = [];
   private readonly commits = new Map<string, Commit>();
   private readonly branches = new Map<string, string>();
@@ -52,6 +57,11 @@ export class FakeGitHub implements GitHub {
 
   get pulls(): readonly Pull[] {
     return this.records.map((record) => this.view(record));
+  }
+
+  /** Makes every timestamp the fake writes follow the given clock (the tests' movable one). */
+  useClock(source: () => number): void {
+    this.clockSource = source;
   }
 
   setChecks(sha: string, runs: CheckRun[]): void {
@@ -125,6 +135,14 @@ export class FakeGitHub implements GitHub {
     this.branches.delete(name);
   }
 
+  async branchHead(name: string) {
+    return this.branches.get(name) ?? null;
+  }
+
+  async listBranches(prefix: string) {
+    return [...this.branches].filter(([name]) => name.startsWith(prefix)).map(([name, sha]) => ({ name, sha }));
+  }
+
   async openPull({ head, title, body }: { head: string; title: string; body: string }) {
     const sha = this.branches.get(head);
     if (!sha) throw new GitHubError(422, "open pull request");
@@ -141,7 +159,7 @@ export class FakeGitHub implements GitHub {
       headRef: head,
       headSha: sha,
       mergeCommitSha: null,
-      author: "editor-bot[bot]",
+      author: this.botLogin,
       body,
       url: `https://github.com/fake/fake/pull/${number}`,
     };
@@ -152,14 +170,10 @@ export class FakeGitHub implements GitHub {
   async enableAutoMerge(nodeId: string) {
     const record = this.records.find((r) => r.pull.nodeId === nodeId);
     if (!record) throw new GitHubError(404, "enable auto-merge");
+    if (this.autoMergeNotAllowed) return "not_allowed" as const;
     if (this.autoMergeClean) return "clean" as const;
     record.autoMerge = true;
     return "queued" as const;
-  }
-
-  async mergePull(number: number) {
-    if (this.record(number).pull.state !== "open") throw new GitHubError(405, "merge pull request");
-    this.merge(number);
   }
 
   async closePull(number: number) {
@@ -176,7 +190,7 @@ export class FakeGitHub implements GitHub {
       .filter((r) => state === "all" || r.pull.state === "open")
       .map((r) => this.view(r))
       .reverse()
-      .slice(0, 50);
+      .slice(0, state === "open" ? 300 : 100);
   }
 
   async pullFiles(number: number) {
@@ -258,6 +272,7 @@ export class FakeGitHub implements GitHub {
   }
 
   private tick(): string {
+    if (this.clockSource) return new Date(this.clockSource()).toISOString();
     this.clock += 60_000;
     return new Date(this.clock).toISOString();
   }

@@ -171,6 +171,7 @@ export function makeTestEditor(options: { github?: FakeGitHub; config?: Partial<
   const kv = new FakeKv();
   const assets = new FakeAssets();
   const now = { value: new Date(TEST_NOW) };
+  github.useClock(() => now.value.getTime());
   let counter = 0;
   const editor = createEditor({
     config: testEditorConfig(options.config),

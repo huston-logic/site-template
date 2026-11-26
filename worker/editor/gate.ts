@@ -28,6 +28,7 @@ export function missingBindings(config: WorkerConfig, env: EditorEnv): string[] 
   if (github.repo === null) missing.push("editor.github.repo");
   if (github.appId === null) missing.push("editor.github.appId");
   if (github.installationId === null) missing.push("editor.github.installationId");
+  if (github.botLogin === null || !github.botLogin.endsWith("[bot]")) missing.push("editor.github.botLogin");
   if (access.teamDomain === null) missing.push("editor.access.teamDomain");
   if (access.aud === null) missing.push("editor.access.aud");
   return missing;

@@ -2,6 +2,8 @@
 // The editor service validates the result with the build's validator; this file only refuses what an operation itself
 // may not do. Block numbers and list positions are 1-based (as the owner sees them); pointers are RFC 6901 (0-based).
 
+import { isObject, type Json } from "./json.ts";
+
 export const MAX_OPERATIONS = 40;
 export const MAX_PAGES = 5;
 
@@ -25,8 +27,6 @@ export type ApplyResult =
   | { ok: true; after: Map<string, unknown>; touched: string[]; moved: string[]; ids: BlockIds }
   | { ok: false; problems: string[] };
 
-type Json = Record<string, unknown>;
-
 const OP_NAMES = ["set", "insert_item", "remove_item", "insert_block", "move_block", "remove_block", "add_page", "archive_page", "restore_page"];
 const OP_KEYS: Record<string, string[]> = {
   set: ["op", "page", "pointer", "value"],
@@ -41,10 +41,6 @@ const OP_KEYS: Record<string, string[]> = {
 };
 const BLOCK_KEYS = ["type", "variant", "anchor", "content"];
 const UNSAFE_KEYS = ["__proto__", "constructor", "prototype"];
-
-function isObject(value: unknown): value is Json {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;

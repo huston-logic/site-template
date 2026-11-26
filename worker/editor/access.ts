@@ -2,6 +2,7 @@
 // itself (RS256 only, issuer, audience, expiry) and that its email is on the site's owner list. Ported from the
 // Pipeline app's auth code. Failure responses never say why a token failed.
 import type { EditorConfig } from "../config.ts";
+import type { Owner } from "./types.ts";
 
 export type AccessVerdict = { ok: true; email: string } | { ok: false; reason: "invalid" | "unavailable" };
 
@@ -132,6 +133,12 @@ export async function verifyAccessJwt(token: string, opts: VerifyOptions): Promi
   }
 }
 
+/** True when the email is on the site's owner list (compared without case or surrounding spaces). */
+export function isOwner(config: Pick<EditorConfig, "ownerEmails">, email: string): boolean {
+  const wanted = email.trim().toLowerCase();
+  return config.ownerEmails.some((owner) => owner.trim().toLowerCase() === wanted);
+}
+
 /** The Access token from the Cf-Access-Jwt-Assertion header, or else the CF_Authorization cookie. */
 function accessToken(request: Request): string | null {
   const header = request.headers.get("Cf-Access-Jwt-Assertion")?.trim();
@@ -155,7 +162,7 @@ export async function ownerFromRequest(
   request: Request,
   config: Pick<EditorConfig, "ownerEmails" | "access">,
   fetchFn?: typeof fetch,
-): Promise<{ email: string } | Response> {
+): Promise<Owner | Response> {
   const { teamDomain, aud } = config.access;
   if (!teamDomain || !aud || config.ownerEmails.length === 0 || !issuerFor(teamDomain)) {
     return refusal(500, "Sign-in isn't set up yet.");
@@ -168,7 +175,7 @@ export async function ownerFromRequest(
       ? refusal(503, "Sign-in is unavailable right now. Try again in a minute.")
       : refusal(401, "Please sign in.");
   }
-  if (!config.ownerEmails.some((owner) => owner.trim().toLowerCase() === verdict.email)) {
+  if (!isOwner(config, verdict.email)) {
     return refusal(403, "This email can't manage this site.");
   }
   return { email: verdict.email };

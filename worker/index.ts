@@ -71,8 +71,8 @@ function createProvider(origin: string): OAuthProvider<ProviderEnv> {
     accessTokenTTL: 3600,
     resourceMetadata: { resource: `${origin}${MCP_PATH}`, resource_name: `${config.siteName} site editor` },
     // Fixed fields only: the library's default logs the error description, which can quote what a client sent.
-    onError: ({ code, status, internal }) => {
-      log("oauth_error", { code, status, reason: internal.reason });
+    onError: ({ code, status }) => {
+      log("oauth_error", { code, status });
     },
   });
 }

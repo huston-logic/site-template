@@ -8,11 +8,10 @@ import {
   renderConsent,
   renderMessage,
   renderOwnerHome,
-  type ChangeView,
   type PageBase,
-  type ProposalView,
   type ThemeColors,
 } from "./owner-page.ts";
+import { isObject } from "./json.ts";
 import type { Editor } from "./types.ts";
 
 interface AuthRequestLike {
@@ -47,7 +46,7 @@ export interface OwnerContext {
   config: EditorConfig;
   oauth: OAuthHelpersLike;
   theme: ThemeColors;
-  rateLimit?: { limit(options: { key: string }): Promise<{ success: boolean }> };
+  rateLimit?: RateLimit;
   fetch?: typeof fetch;
 }
 
@@ -80,40 +79,6 @@ function formActionFor(redirectUri: string, loopback: boolean): string | undefin
     // A private-use scheme such as com.example.app:/callback has no origin to allow.
   }
   return undefined;
-}
-
-const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
-const text = (value: unknown): string => (typeof value === "string" ? value : "");
-
-function proposalsFrom(data: unknown): ProposalView[] | null {
-  if (!isObject(data) || !Array.isArray(data.proposals)) return null;
-  return data.proposals.filter(isObject).map((p) => ({
-    id: text(p.id),
-    summary: text(p.summary),
-    createdAt: text(p.createdAt),
-    changeList: text(p.changeList),
-    previewLink: typeof p.previewLink === "string" ? p.previewLink : null,
-  }));
-}
-
-const STATES = ["checking", "stuck", "going live", "live", "stopped"] as const;
-
-function changesFrom(data: unknown): ChangeView[] | null {
-  if (!isObject(data) || !Array.isArray(data.changes)) return null;
-  const out: ChangeView[] = [];
-  for (const c of data.changes.filter(isObject)) {
-    const state = STATES.find((s) => s === c.state);
-    if (!state || typeof c.change !== "number") continue;
-    out.push({
-      change: c.change,
-      title: text(c.title),
-      state,
-      publishedAt: text(c.publishedAt),
-      ...(typeof c.liveAt === "string" ? { liveAt: c.liveAt } : {}),
-      ...(Array.isArray(c.failedChecks) ? { failedChecks: c.failedChecks.filter((x): x is string => typeof x === "string") } : {}),
-    });
-  }
-  return out;
 }
 
 export async function handleOwner(request: Request, ctx: OwnerContext): Promise<Response> {
@@ -166,14 +131,14 @@ export async function handleOwner(request: Request, ctx: OwnerContext): Promise<
   if (path === "/owner") {
     const [waiting, recent] = await Promise.all([editor.waiting(), editor.recent()]);
     return html(
-      renderOwnerHome({ ...base, proposals: waiting.isError ? null : proposalsFrom(waiting.data), changes: recent.isError ? null : changesFrom(recent.data) }),
+      renderOwnerHome({ ...base, proposals: waiting.isError ? null : waiting.data, changes: recent.isError ? null : recent.data }),
     );
   }
 
   if (path === "/owner/publish" && method === "GET") {
     const id = url.searchParams.get("proposal") ?? "";
     const result = await editor.waiting();
-    const proposal = result.isError ? undefined : proposalsFrom(result.data)?.find((p) => p.id === id);
+    const proposal = result.isError ? undefined : result.data.find((p) => p.id === id);
     if (!proposal) return message("Nothing to publish", "That change is not waiting any more. It may already be published or discarded.", 404);
     return html(renderConfirm({ ...base, proposal }));
   }

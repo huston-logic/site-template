@@ -1,6 +1,10 @@
 // The owner page and the sign-in consent page: pure functions, data in and an HTML string out. No scripts, no external
 // resources, no style attributes. Every interpolated value goes through escapeHtml.
 
+import type { ChangeView, ProposalView } from "./views.ts";
+
+export type { ChangeView, ProposalView };
+
 export interface ThemeColors {
   white: string;
   ink: string;
@@ -19,23 +23,6 @@ export interface PageBase {
   siteUrl: string;
   email: string;
   theme: ThemeColors;
-}
-
-export interface ProposalView {
-  id: string;
-  summary: string;
-  createdAt: string;
-  changeList: string;
-  previewLink: string | null;
-}
-
-export interface ChangeView {
-  change: number;
-  title: string;
-  state: "checking" | "stuck" | "going live" | "live" | "stopped";
-  publishedAt: string;
-  liveAt?: string;
-  failedChecks?: string[];
 }
 
 export interface HomeData extends PageBase {
@@ -82,7 +69,7 @@ export function formatTime(iso: string): string {
 
 const time = (iso: string): string => `<time datetime="${e(iso)}">${e(formatTime(iso))}</time>`;
 
-export function styles(theme: ThemeColors): string {
+function styles(theme: ThemeColors): string {
   const c = (key: keyof ThemeColors, fallback: string): string => safeColor(theme[key], fallback);
   const ink = c("ink", "#1c1917");
   const line = c("line", "#d6d3d1");
@@ -116,7 +103,7 @@ code{overflow-wrap:anywhere;background:${c("silver", "#f5f5f4")};border:1px soli
 `;
 }
 
-export function layout({ title, siteName, email, theme, body }: { title: string; siteName: string; email?: string; theme: ThemeColors; body: string }): string {
+function layout({ title, siteName, email, theme, body }: { title: string; siteName: string; email?: string; theme: ThemeColors; body: string }): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -159,6 +146,7 @@ const STATE_WORDS: Record<ChangeView["state"], string> = {
   "going live": "Passed its checks, going live",
   live: "Live",
   stopped: "Stopped before it went live",
+  unknown: "Status unavailable right now",
 };
 
 function proposalCard(proposal: ProposalView, withReview: boolean): string {

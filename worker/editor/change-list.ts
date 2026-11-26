@@ -1,12 +1,11 @@
 // Builds the plain-text change list the owner reads before saying yes, from the real before and after page values (not
 // from the operations). Every value is printed with JSON.stringify, so text is always quoted plain text.
 import type { AnyBlockDefinition, Field } from "../../src/blocks/schema.ts";
+import { isObject, type Json } from "./json.ts";
 import { deepEqual, type BlockIds } from "./operations.ts";
 
-type Json = Record<string, unknown>;
 type Entry = { path: string[]; lines: string[] };
 
-const isObject = (value: unknown): value is Json => typeof value === "object" && value !== null && !Array.isArray(value);
 const quote = (value: unknown) => JSON.stringify(value);
 const text = (label: string): Field => ({ kind: "text", label, max: 0 });
 
@@ -153,6 +152,7 @@ export function buildChangeList(
     if (!isObject(old)) {
       const phrases = menuPhrases(page.menu);
       lines.push(`New page ${path} (${quote(page.title)})${phrases.map((p) => `, ${p}`).join("")}`);
+      if (typeof page.description === "string") lines.push(`  Description: ${quote(page.description)}`);
       blocks.forEach((block, i) => {
         lines.push(`  Block ${i + 1} (${title(block)}):`, ...blockFieldLines(block as Json, definition(block)).map((l) => `    ${l}`));
       });
@@ -203,7 +203,7 @@ export function buildChangeList(
       const was = oldBlocks[oldPos(s.id) - 1];
       const now = blocks[s.at - 1];
       if (!isObject(was) || !isObject(now)) continue;
-      const prefix = `Block ${oldPos(s.id)} (${title(now)})`;
+      const prefix = `Block ${s.at} (${title(now)})`;
       const def = definition(now);
       const entries: Entry[] = [];
       diffValue(was.content, now.content, def ? { kind: "object", label: "", fields: def.fields } : undefined, [prefix], entries);

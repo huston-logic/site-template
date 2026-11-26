@@ -1,12 +1,11 @@
 import type { AnyBlockDefinition, Field } from "../../src/blocks/schema.ts";
 import { MAX_BLOCKS, MAX_HEADER_LINKS } from "../../src/blocks/validate.ts";
+import { isObject, type Json } from "./json.ts";
 import type { Snapshot } from "./site-reader.ts";
 import type { ToolResult } from "./types.ts";
 
 /** The read-only tools' answers, built from data already fetched: the site overview, one page, the block catalog, the guide. */
 
-type Json = Record<string, unknown>;
-const isObject = (value: unknown): value is Json => typeof value === "object" && value !== null && !Array.isArray(value);
 
 interface BlockSummary {
   number: number;

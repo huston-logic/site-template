@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
-import { ownerFromRequest, resetAccessKeyCache, verifyAccessJwt } from "./access.ts";
+import { isOwner, ownerFromRequest, resetAccessKeyCache, verifyAccessJwt } from "./access.ts";
 
 const TEAM = "example-team.cloudflareaccess.com";
 const ISS = `https://${TEAM}`;
@@ -230,4 +230,12 @@ test("ownerFromRequest: not set up is 500; no or bad token is 401; non-owner is 
     503,
     "Sign-in is unavailable right now. Try again in a minute.",
   );
+});
+
+test("isOwner compares without case or surrounding spaces", () => {
+  const list = { ownerEmails: [" Owner@Example.com ", "two@example.com"] };
+  assert.equal(isOwner(list, "owner@example.com"), true);
+  assert.equal(isOwner(list, " TWO@example.com "), true);
+  assert.equal(isOwner(list, "three@example.com"), false);
+  assert.equal(isOwner({ ownerEmails: [] }, "owner@example.com"), false);
 });

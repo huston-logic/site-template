@@ -3,7 +3,7 @@ import { beforeEach, test } from "node:test";
 import { resetAccessKeyCache } from "./access.ts";
 import { ownerKey } from "./owner-id.ts";
 import { handleOwner, type OAuthHelpersLike, type OwnerContext } from "./owner-routes.ts";
-import type { ThemeColors } from "./owner-page.ts";
+import type { ChangeView, ProposalView, ThemeColors } from "./owner-page.ts";
 import { makeTestEditor, testEditorConfig } from "./test-support.ts";
 import type { Editor, ToolResult } from "./types.ts";
 
@@ -26,21 +26,21 @@ async function token(email: string): Promise<string> {
   return `${head}.${body}.${Buffer.from(sig).toString("base64url")}`;
 }
 
-const result = (text: string, data: unknown, isError?: boolean): ToolResult => ({ text, data, ...(isError ? { isError } : {}) });
+const result = <T>(text: string, data: T, isError?: boolean): ToolResult<T> => ({ text, data, ...(isError ? { isError } : {}) });
 
 interface Fake {
   editor: Editor;
   calls: string[];
-  waiting: ToolResult;
-  recent: ToolResult;
+  waiting: ToolResult<ProposalView[]>;
+  recent: ToolResult<ChangeView[]>;
   undo: ToolResult;
 }
 
 function fakeEditor(): Fake {
   const state: Fake = {
     calls: [],
-    waiting: result("", { proposals: [{ id: "p1", kind: "change", summary: "Update the hours", createdAt: "2026-01-01T12:00:00.000Z", changeList: "Page /about: hours change", previewLink: "https://preview.example.test" }] }),
-    recent: result("", { changes: [{ change: 12, title: "Update hours", state: "live", publishedAt: "2026-01-01T10:00:00.000Z", liveAt: "2026-01-01T10:05:00.000Z" }] }),
+    waiting: result("", [{ id: "p1", summary: "Update the hours", createdAt: "2026-01-01T12:00:00.000Z", changeList: "Page /about: hours change", previewLink: "https://preview.example.test" }]),
+    recent: result("", [{ change: 12, title: "Update hours", state: "live", publishedAt: "2026-01-01T10:00:00.000Z", liveAt: "2026-01-01T10:05:00.000Z" }]),
     undo: result("Proposal p9: Withdraw", { proposal_id: "p9" }),
     editor: undefined as unknown as Editor,
   };
@@ -219,7 +219,7 @@ test("Publish passes the owner's approval wording; Discard discards", async () =
 
 test("text from the owner's own proposals is escaped", async () => {
   const fake = fakeEditor();
-  fake.waiting = result("", { proposals: [{ id: "p1", kind: "change", summary: "<img src=x onerror=alert(1)>", createdAt: "2026-01-01T12:00:00.000Z", changeList: "<script>alert(2)</script>", previewLink: null }] });
+  fake.waiting = result("", [{ id: "p1", summary: "<img src=x onerror=alert(1)>", createdAt: "2026-01-01T12:00:00.000Z", changeList: "<script>alert(2)</script>", previewLink: null }]);
   const ctx = context(fake.editor, fakeOAuth().oauth);
   for (const path of ["/owner", "/owner/publish?proposal=p1"]) {
     const page = await (await call(ctx, path)).text();

@@ -94,7 +94,7 @@ test("a new page lists its menu places and every block", () => {
     blocks: [faq(1), { type: "hero", content: { title: "Watch" } }],
   });
   const { text } = run([{ op: "add_page", page: added }]);
-  assert.match(text, /^New page \/videos \("Videos"\), in the header menu as "Videos"\n {2}Block 1 \(Questions and answers\):\n {4}Heading: "Heading 1"/);
+  assert.match(text, /^New page \/videos \("Videos"\), in the header menu as "Videos"\n {2}Description: "When we are open\."\n {2}Block 1 \(Questions and answers\):\n {4}Heading: "Heading 1"/);
   assert.match(text, /Block 2 \(.*\):\n {4}Headline: "Watch"/);
 });
 
@@ -149,4 +149,16 @@ test("matchBlockIds: equal blocks keep their id, a same-position same-type block
   assert.deepEqual(ids.before.get("/x"), ["/x#1", "/x#2", "/x#3"]);
   assert.deepEqual(ids.after.get("/x"), ["/x#1", "/x#3", null]);
   assert.deepEqual(ids.after.get("/new"), [null]);
+});
+
+test("an edited block is named by its place on the new page, a removed one by its old place", () => {
+  const { text } = run([
+    { op: "insert_block", page: "/hours", at: 1, block: { type: "hero", content: { title: "New opening" } } },
+    { op: "set", page: "/hours", pointer: "/blocks/1/content/title", value: "Hours, updated" },
+  ]);
+  assert.match(text, /Adds block 1 \(/);
+  assert.match(text, /Block 2 \(.*\), Headline:\n {4}was: "Hours"\n {4}now: "Hours, updated"/);
+  assert.equal(text.includes("moves from"), false);
+  const removed = run([{ op: "remove_block", page: "/hours", block: 2 }]).text;
+  assert.match(removed, /Removes block 2 \(/);
 });
