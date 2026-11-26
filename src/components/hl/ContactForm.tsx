@@ -1,50 +1,28 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useRef, useState, type ReactNode, type SyntheticEvent } from "react";
+import { Suspense, useRef, useState, type SyntheticEvent } from "react";
 import { Text } from "@/components/ui/Text";
 import { noteForm } from "@/content/contact";
-import { fieldLimits, honeypot, urlTopics, type Need, type UrlTopic } from "@/content/contact-fields";
+import { honeypot, needOptions, urlTopics, type Need, type UrlTopic } from "@/content/contact-fields";
 import { providers } from "@/content/providers";
+import { contactDefinitionFor } from "@/forms/contact";
+import type { FormField } from "@/forms/schema";
 import { saveHandoff } from "@/lib/contact-handoff";
 import { validateContact, type ContactField, type ContactInput } from "@/lib/contact-validation";
 import { firstName } from "@/lib/first-name";
+import { errorFor, FieldView, Honeypot, SubmitButton, type FieldIds } from "./form/controls";
 import { turnstileSiteKey, useTurnstile } from "./useTurnstile";
 
 type Errors = Partial<Record<ContactField, string>>;
 type SendError = keyof typeof noteForm.sendErrors;
 
-const FIELD_ORDER: ContactField[] = ["need", "name", "email", "message"];
+const CONTACT_FIELDS: readonly string[] = ["need", "name", "email", "message"];
 
-const label = "block font-ui text-label font-medium text-ink";
-const control =
-  "mt-2 block w-full rounded-field border border-ink-2 bg-white px-3.5 font-text text-control text-ink placeholder:text-ink-2 focus:border-ink aria-[invalid=true]:border-rust";
-const input = `${control} h-13`;
-
-function ErrorLine({ id, message }: { id: string; message?: string }) {
-  return (
-    <div id={id} aria-live="polite">
-      {message ? (
-        <p className="mt-2 flex items-start gap-2 text-label text-rust">
-          <svg aria-hidden="true" viewBox="0 0 16 16" className="mt-0.75 size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.75">
-            <circle cx="8" cy="8" r="6.25" />
-          </svg>
-          {message}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function Labeled({ id, text, children }: { id: string; text: string; children: ReactNode }) {
-  return (
-    <div>
-      <label htmlFor={id} className={label}>
-        {text}
-      </label>
-      {children}
-    </div>
-  );
+/** The contact form's element ids, as they have always been: `cf-<field>`, with the website field's `cf-site` and the one help line `cf-privacy`. */
+function idsFor(field: FormField): FieldIds {
+  const input = `cf-${field.id === "website" ? "site" : field.id}`;
+  return { input, help: "cf-privacy", error: `${input}-error` };
 }
 
 function asUrlTopic(value: string | null): UrlTopic | "" {
@@ -52,20 +30,19 @@ function asUrlTopic(value: string | null): UrlTopic | "" {
 }
 
 /**
- * The contact form (docs/website-plan.md B7). It validates with the same rules as the Worker
- * (`src/lib/contact-validation.ts`), gets a Turnstile token, and posts JSON to `/api/contact` (worker/contact.ts).
- * Only a real success moves on to /contact/thanks, with the first name passed through sessionStorage, never the URL.
- * Every failure keeps the visitor's answers. No `action`, and `method="post"`, so without JavaScript nothing is sent
- * and nothing lands in the URL.
+ * The contact form (docs/website-plan.md B7). Its fields come from src/content/forms/contact.json, drawn by the same
+ * primitives as the `form` block. It validates with the same rules as the Worker (`src/lib/contact-validation.ts`), gets a
+ * Turnstile token, and posts JSON to `/api/contact` (worker/contact.ts). Only a real success moves on to /contact/thanks,
+ * with the first name passed through sessionStorage, never the URL. Every failure keeps the visitor's answers. No
+ * `action`, and `method="post"`, so without JavaScript nothing is sent and nothing lands in the URL.
  */
 function Form({ urlTopic }: { urlTopic: string | null }) {
   const topic = asUrlTopic(urlTopic);
   const partner = topic === "partner";
+  const definition = contactDefinitionFor(topic);
   const router = useRouter();
-  const [need, setNeed] = useState<Need | null>(topic === "website" || topic === "workflow" ? topic : null);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
+  const preselected = topic === "website" || topic === "workflow" ? needOptions.find((option) => option.value === topic)?.label : undefined;
+  const [need, setNeed] = useState<string>(preselected ?? "");
   const [errors, setErrors] = useState<Errors>({});
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<SendError | null>(null);
@@ -78,19 +55,23 @@ function Form({ urlTopic }: { urlTopic: string | null }) {
     isConfigError: turnstileConfigError,
   } = useTurnstile(providers.turnstileSiteKey);
 
-  const key = need === "website" || need === "workflow" ? need : "other";
-  const e = noteForm.errors;
+  const needValue: Need | null = needOptions.find((option) => option.label === need)?.value ?? null;
+  const key = needValue === "website" || needValue === "workflow" ? needValue : "other";
+  const needChoices = (definition.fields.find((field) => field.id === "need")?.options ?? []).map((label) => ({
+    value: needOptions.find((option) => option.label === label)?.value ?? label,
+    label,
+  }));
 
   function showFieldErrors(fields: ContactField[]) {
     const next: Errors = {};
-    for (const field of fields) next[field] = e[field];
+    for (const field of definition.fields) if (fields.includes(field.id as ContactField)) next[field.id as ContactField] = errorFor(field);
     setErrors(next);
-    const first = FIELD_ORDER.find((f) => next[f]);
+    const first = definition.fields.find((field) => next[field.id as ContactField]);
     if (!first) return;
     const target =
-      first === "need"
+      first.id === "need"
         ? formRef.current?.querySelector<HTMLInputElement>('input[name="need"]')
-        : formRef.current?.querySelector<HTMLElement>(`#cf-${first}`);
+        : formRef.current?.querySelector<HTMLElement>(`#${idsFor(first).input}`);
     target?.focus();
   }
 
@@ -109,11 +90,11 @@ function Form({ urlTopic }: { urlTopic: string | null }) {
       return typeof value === "string" ? value : "";
     };
     const answers: ContactInput = {
-      need: need ?? "",
+      need: needValue ?? "",
       topic,
-      name,
-      email,
-      message,
+      name: text("name"),
+      email: text("email"),
+      message: text("message"),
       business: text("business"),
       tools: text("tools"),
       website: text("website"),
@@ -160,16 +141,13 @@ function Form({ urlTopic }: { urlTopic: string | null }) {
     if (response.status === 400 && body?.error === "invalid" && Array.isArray(body.fields)) {
       resetTurnstile();
       setSending(false);
-      showFieldErrors(body.fields.filter((f): f is ContactField => FIELD_ORDER.includes(f as ContactField)));
+      showFieldErrors(body.fields.filter((f): f is ContactField => CONTACT_FIELDS.includes(f as string)));
       return;
     }
     if (response.status === 429) return fail("rateLimited");
     if (body?.error === "rejected") return fail("notVerified");
     return fail("failed");
   }
-
-  const invalid = (f: ContactField) => (errors[f] ? ("true" as const) : undefined);
-  const described = (f: ContactField, extra?: string) => [extra, errors[f] ? `cf-${f}-error` : undefined].filter(Boolean).join(" ") || undefined;
 
   return (
     <div className="rounded-panel bg-white p-6 shadow-card md:p-9">
@@ -180,135 +158,41 @@ function Form({ urlTopic }: { urlTopic: string | null }) {
       <form ref={formRef} method="post" noValidate onSubmit={submit} onFocus={startTurnstile} className="mt-6 space-y-6">
         <input type="hidden" name="topic" value={topic} />
 
-        {partner ? null : (
-          <fieldset role="radiogroup" aria-required="true" aria-describedby={described("need")}>
-            <legend className={label}>{noteForm.needLegend}</legend>
-            <div className="mt-3 flex flex-wrap gap-2.5">
-              {noteForm.needOptions.map((option) => (
-                <label key={option.value} className="relative">
-                  <input
-                    type="radio"
-                    name="need"
-                    value={option.value}
-                    checked={need === option.value}
-                    onChange={() => {
-                      setNeed(option.value);
-                      setErrors((previous) => ({ ...previous, need: undefined }));
-                    }}
-                    className="peer sr-only"
-                  />
-                  <span
-                    className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-pill border px-4.5 font-ui text-chip font-medium peer-focus-visible:outline-2 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-rust ${
-                      need === option.value ? "border-ink bg-ink text-silver" : errors.need ? "border-rust text-ink" : "border-ink-2 text-ink"
-                    }`}
-                  >
-                    {need === option.value ? <span aria-hidden="true" className="size-2 rounded-pill bg-rust" /> : null}
-                    {option.label}
-                  </span>
-                </label>
-              ))}
-            </div>
-            <ErrorLine id="cf-need-error" message={errors.need} />
-          </fieldset>
-        )}
+        {definition.fields.map((field) => {
+          const placeholder = field.id === "message" ? noteForm.message.placeholders[key] : field.id === "tools" ? noteForm.tools.placeholders[key] : undefined;
+          return (
+            <FieldView
+              key={field.id}
+              field={field}
+              ids={idsFor(field)}
+              label={field.label}
+              error={errors[field.id as ContactField]}
+              rich={false}
+              placeholder={placeholder}
+              oneLine={field.id === "tools"}
+              emptyChoice={noteForm.source.empty}
+              chips={
+                field.display === "buttons"
+                  ? {
+                      options: needChoices,
+                      selected: needValue ?? "",
+                      onSelect: (value) => {
+                        setNeed(needChoices.find((choice) => choice.value === value)?.label ?? "");
+                        setErrors((previous) => ({ ...previous, need: undefined }));
+                      },
+                    }
+                  : undefined
+              }
+            />
+          );
+        })}
 
-        <Labeled id="cf-name" text={noteForm.name.label}>
-          <input
-            id="cf-name"
-            name="name"
-            type="text"
-            autoComplete="name"
-            required
-            aria-required="true"
-            maxLength={fieldLimits.name}
-            aria-invalid={invalid("name")}
-            aria-describedby={described("name")}
-            value={name}
-            onChange={(ev) => setName(ev.target.value)}
-            className={input}
-          />
-          <ErrorLine id="cf-name-error" message={errors.name} />
-        </Labeled>
-
-        <Labeled id="cf-email" text={noteForm.email.label}>
-          <input
-            id="cf-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            aria-required="true"
-            maxLength={fieldLimits.email}
-            aria-invalid={invalid("email")}
-            aria-describedby={described("email")}
-            value={email}
-            onChange={(ev) => setEmail(ev.target.value)}
-            className={input}
-          />
-          <ErrorLine id="cf-email-error" message={errors.email} />
-        </Labeled>
-
-        <Labeled id="cf-business" text={noteForm.business.label}>
-          <input id="cf-business" name="business" type="text" autoComplete="organization" maxLength={fieldLimits.business} className={input} />
-        </Labeled>
-
-        <Labeled id="cf-message" text={noteForm.message.label}>
-          <textarea
-            id="cf-message"
-            name="message"
-            rows={5}
-            required
-            aria-required="true"
-            maxLength={fieldLimits.message}
-            aria-invalid={invalid("message")}
-            aria-describedby={described("message", "cf-privacy")}
-            placeholder={noteForm.message.placeholders[key]}
-            value={message}
-            onChange={(ev) => setMessage(ev.target.value)}
-            className={`${control} min-h-35 py-3`}
-          />
-          <p id="cf-privacy" className="mt-2 text-small text-ink-2">
-            {noteForm.privacyNote}
-          </p>
-          <ErrorLine id="cf-message-error" message={errors.message} />
-        </Labeled>
-
-        <Labeled id="cf-tools" text={noteForm.tools.label}>
-          <input id="cf-tools" name="tools" type="text" maxLength={fieldLimits.tools} placeholder={noteForm.tools.placeholders[key]} className={input} />
-        </Labeled>
-
-        <Labeled id="cf-site" text={noteForm.website.label}>
-          <input id="cf-site" name="website" type="url" autoComplete="url" maxLength={fieldLimits.website} className={input} />
-        </Labeled>
-
-        <Labeled id="cf-source" text={noteForm.source.label}>
-          <select id="cf-source" name="source" defaultValue="" className={input}>
-            <option value="">{noteForm.source.empty}</option>
-            {noteForm.source.options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </Labeled>
-
-        {/* Spam trap: hidden from people and screen readers, out of the tab order. A filled value is refused. */}
-        <div aria-hidden="true" className="sr-only">
-          <label htmlFor="cf-fax">{noteForm.honeypotLabel}</label>
-          <input id="cf-fax" name={honeypot.name} type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
-        </div>
+        <Honeypot id="cf-fax" />
 
         <div>
           {/* Turnstile draws here only if Cloudflare needs the visitor to click. */}
-          <div ref={turnstileRef}className="not-empty:mb-4" />
-          <button
-            type="submit"
-            aria-disabled={sending ? "true" : undefined}
-            aria-busy={sending ? "true" : undefined}
-            className="inline-flex min-h-13.5 w-full items-center justify-center rounded-btn bg-ink px-6 font-ui text-btn font-semibold text-silver aria-disabled:cursor-wait aria-disabled:opacity-70 md:w-auto md:justify-start md:pl-5.5"
-          >
-            {noteForm.submitLabel}
-          </button>
+          <div ref={turnstileRef} className="not-empty:mb-4" />
+          <SubmitButton label={definition.button} sending={sending} />
         </div>
 
         <div role="status">

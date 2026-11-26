@@ -85,6 +85,7 @@ Each section below is one block you can place on a page. The list says what each
 - **Questions and answers**: A heading and a list of questions that open to show their answers.
 - **Closing call to action**: The last block on a page: a heading, a line of text and one button that says what to do next.
 - **Contact form**: A booking column next to the site's contact form. The form itself is wired to the site's own settings.
+- **Form**: One of the site's forms (a quote request, a download sign-up) in a panel, with an optional heading and a sentence above or beside it. The form's fields, button and thank-you message are in its own form file. (You can choose a look: **stacked**, the heading and intro above the form panel, in one centred column; **beside**, the heading and intro on the left, the form panel on the right, stacked on phones.)
 - **Numbered steps**: A heading and a short numbered list that says what happens, step by step. It can end with an email line.
 - **Policy sections**: A run of titled sections for a policy or terms page, with an optional line at the end such as a last-updated date.
 - **Video**: One video from YouTube or Vimeo, with a title and a short caption. It plays on the page when a visitor presses play. (You can choose a look: **wide**, as wide as the page column; **inset**, narrower and centered, the width of a reading column.)
