@@ -366,7 +366,7 @@ export function evaluateChange(
     const presentFiles = new Set(headFiles);
     const repo = { imageExists: (src) => present.has(`public${src}`), fileExists: (href) => presentFiles.has(`public${href}`) };
     // With the items and settings read, the whole site is judged; without them (a test with fake pages) only the pages are.
-    const problems = site ? validateSite({ pages, ...site }, registry, repo) : validate(pages, registry, repo);
+    const problems = site ? validateSite({ pages, forms: [], ...site }, registry, repo) : validate(pages, registry, repo);
     for (const problem of problems) result.contentProblems.push(safe(problem));
   }
   if (result.outside.length > 0) result.tier = 3;

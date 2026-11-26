@@ -97,6 +97,7 @@ function fieldInfo(name: string, field: Field): FieldInfo {
   } else if (field.kind === "action") info.max = field.labelMax;
   else if (field.kind === "choice") info.options = field.options;
   else if (field.kind === "number") info.note = `a whole number from ${field.min} to ${field.max}`;
+  else if (field.kind === "form") info.note = "the id of a live form (never the contact form)";
   else if (field.kind === "date") info.note = "a date written YYYY-MM-DD";
   else if (field.kind === "body") info.note = `a list of parts, up to ${field.maxParts} parts and ${field.maxChars} characters`;
   else if (field.kind === "list") {

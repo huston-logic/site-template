@@ -153,6 +153,7 @@ export function validateSet(
     {
       pages: files,
       items,
+      forms: [],
       business: documents.settings.get("business"),
       brand: documents.settings.get("brand"),
       notice: documents.settings.get("notice"),
