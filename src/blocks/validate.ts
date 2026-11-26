@@ -472,6 +472,18 @@ function anchorsOf(page: Record<string, unknown>, defs: Map<string, AnyBlockDefi
   return anchors;
 }
 
+/** Every readable page by path, with its status and anchors: what an internal link is judged against. */
+export function buildPageIndex(files: readonly PageFile[], registry: readonly AnyBlockDefinition[]): Map<string, { status: string; anchors: ReadonlySet<string> }> {
+  const defs = new Map<string, AnyBlockDefinition>();
+  for (const def of registry) if (!defs.has(def.type)) defs.set(def.type, def);
+  const index = new Map<string, { status: string; anchors: ReadonlySet<string> }>();
+  for (const { data, error } of files) {
+    if (error !== undefined || !isRecord(data) || typeof data["path"] !== "string" || data["path"] === "" || index.has(data["path"])) continue;
+    index.set(data["path"], { status: String(data["status"]), anchors: anchorsOf(data, defs) });
+  }
+  return index;
+}
+
 function checkString(data: Record<string, unknown>, key: string, min: number, max: number, file: string, out: string[]): void {
   const value = data[key];
   if (value === undefined) return;
