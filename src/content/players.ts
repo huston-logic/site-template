@@ -9,7 +9,7 @@ export const playerCopy = {
   playLabelNewTab: "Listen to {title} on {provider} (opens {provider})",
   /** The visible link in the compact list. */
   listenLink: "Listen on {provider}",
-  /** The compact link's accessible name, so each link says which episode it plays. */
-  listenLinkLabel: "Listen to {title} on {provider} (opens {provider})",
+  /** The compact link's accessible name, so each link says which episode it plays. It starts with the visible words (WCAG 2.5.3). */
+  listenLinkLabel: "Listen on {provider}: {title} (opens {provider})",
   providerNames: { spotify: "Spotify", apple: "Apple Podcasts" },
 } as const;

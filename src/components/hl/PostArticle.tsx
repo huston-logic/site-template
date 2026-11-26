@@ -10,7 +10,7 @@ import { blog } from "@/content/blog";
 import { BLOG_PATH, formatDate, postData, postJsonLd, postPath } from "@/lib/blog";
 import { absoluteUrl } from "@/lib/metadata";
 
-/** One post page: the hero (the date as the eyebrow, the title, the summary as the lede), an optional photo and the body in a reading-width column, then a link back to the blog. */
+/** One post page: the hero (the date as the eyebrow, the title, the summary as the lede, a link back to the blog), an optional photo and the body in a reading-width column. */
 export function PostArticle({ post }: { post: LoadedItem }) {
   const data = postData(post);
   const jsonLd = post.status === "live" ? postJsonLd({ url: absoluteUrl(postPath(post.slug)), title: data.title, date: data.date, updated: data.updated }) : null;
@@ -29,18 +29,19 @@ export function PostArticle({ post }: { post: LoadedItem }) {
     <article className="relative overflow-x-clip pb-16 md:pb-24">
       {jsonLd ? <JsonLd data={jsonLd} /> : null}
       <PageHero eyebrow={eyebrow} title={data.title} intro={data.description}>
-        {post.status === "draft" ? <DraftTag /> : null}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          {/* At the top, not after the body: scrolled to the end of a short post, a link there sat under the sticky header. */}
+          <HlLink href={BLOG_PATH} className="inline-flex min-h-11 items-center font-ui font-medium text-green">
+            <span className="hl-u">{blog.backToBlog}</span>
+          </HlLink>
+          {post.status === "draft" ? <DraftTag /> : null}
+        </div>
       </PageHero>
       <Container>
         <div className="max-w-measure">
           {data.image ? <Photo image={data.image} shape="3:2" sizes="(min-width: 1024px) 700px, 100vw" /> : null}
           <div className={data.image ? "mt-10" : ""}>
             <PostBody parts={data.body} />
-          </div>
-          <div className="mt-14 border-t border-hairline pt-6">
-            <HlLink href={BLOG_PATH} className="inline-flex min-h-11 items-center font-ui font-medium text-green">
-              <span className="hl-u">{blog.backToBlog}</span>
-            </HlLink>
           </div>
         </div>
       </Container>
