@@ -4,6 +4,11 @@ import { cleanWebp } from "./webp-clean.ts";
 export const MAX_WEB_BYTES = 450 * 1024;
 const LONG_SIDE = 1600;
 const PREVIEW_SIDE = 480;
+/** The catalog grid's card file (spec R8): a 4:5 cover crop of at most 150 KB, WebP quality tried in this order. */
+export const CARD_WIDTH = 720;
+export const CARD_HEIGHT = 900;
+export const MAX_CARD_BYTES = 150 * 1024;
+const CARD_QUALITIES: readonly number[] = [78, 70, 62];
 /** Long side and WebP quality, in the order tried; the first result within MAX_WEB_BYTES wins. */
 const LADDER: readonly (readonly [number, number])[] = [
   [1600, 82],
@@ -13,7 +18,7 @@ const LADDER: readonly (readonly [number, number])[] = [
 ];
 
 export type ConvertResult =
-  | { ok: true; web: Uint8Array; preview: Uint8Array; width: number; height: number }
+  | { ok: true; web: Uint8Array; preview: Uint8Array; card: Uint8Array; width: number; height: number }
   | { ok: false; reason: "not_image" | "too_detailed" | "quota" | "damaged" };
 
 /** A one-chunk stream over the same bytes (no copy), for each Images call. */
@@ -35,7 +40,7 @@ async function readAll(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> 
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-/** Turns a phone photo (JPEG, PNG, WebP, HEIC) into a web-ready WebP of at most 450 KB, plus a small JPEG preview. */
+/** Turns a phone photo (JPEG, PNG, WebP, HEIC) into a web-ready WebP of at most 450 KB, a small JPEG preview and a 720 by 900 WebP card of at most 150 KB. */
 export async function convertPhoto(images: ImagesBinding, bytes: Uint8Array): Promise<ConvertResult> {
   try {
     const info = await images.info(streamOf(bytes));
@@ -63,8 +68,24 @@ export async function convertPhoto(images: ImagesBinding, bytes: Uint8Array): Pr
       .transform({ width: PREVIEW_SIDE, height: PREVIEW_SIDE, fit: "scale-down" })
       .output({ format: "image/jpeg", quality: 70 });
     const preview = await readAll(previewResult.image());
+    // The card is cut from the original, centred: the owner's photo has no focus point yet.
+    let card: Uint8Array | null = null;
+    for (const quality of CARD_QUALITIES) {
+      const result = await images
+        .input(streamOf(bytes))
+        .transform({ width: CARD_WIDTH, height: CARD_HEIGHT, fit: "cover", gravity: "center" })
+        .output({ format: "image/webp", quality });
+      const out = await readAll(result.image());
+      if (out.length <= MAX_CARD_BYTES) {
+        card = out;
+        break;
+      }
+    }
+    if (!card) return { ok: false, reason: "too_detailed" };
+    const cleanedCard = cleanWebp(card);
+    if (!cleanedCard) return { ok: false, reason: "damaged" };
     const scale = Math.min(1, longSide / info.width, longSide / info.height);
-    return { ok: true, web: cleaned, preview, width: Math.max(1, Math.round(info.width * scale)), height: Math.max(1, Math.round(info.height * scale)) };
+    return { ok: true, web: cleaned, preview, card: cleanedCard, width: Math.max(1, Math.round(info.width * scale)), height: Math.max(1, Math.round(info.height * scale)) };
   } catch (error) {
     if (isQuota(error)) {
       log("uploads_quota");

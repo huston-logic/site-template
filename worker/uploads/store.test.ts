@@ -6,7 +6,7 @@ import { createFakeImages, imagesError, type FakeImagesOptions } from "./fake-im
 import { createFakeR2 } from "./fake-r2.ts";
 import { cleanLabel, cleanName } from "./names.ts";
 import { pageValueFor, pdfSlug, uploadRepoPath } from "./paths.ts";
-import { createUploadStore } from "./store.ts";
+import { cardKey, createUploadStore } from "./store.ts";
 import type { UploadRecord, UploadsConfig } from "./types.ts";
 
 const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
@@ -48,10 +48,29 @@ test("a photo is converted, stored with metadata and previewed", async () => {
   assert.equal(upload.uploadedAt, "2026-01-01T12:00:00.000Z");
   assert.equal(upload.expiresAt, "2026-01-31T12:00:00.000Z");
   assert.match(upload.sha256, /^[0-9a-f]{64}$/);
-  assert.deepEqual([...r2.objects.keys()].sort(), ["inbox/id000001/file", "inbox/id000001/preview"]);
+  assert.deepEqual([...r2.objects.keys()].sort(), [cardKey("id000001"), "inbox/id000001/file", "inbox/id000001/preview"].sort());
+  assert.equal(cardKey("id000001"), "inbox/id000001/card");
+  assert.equal((await store.card("id000001"))?.length, 50_000);
   assert.deepEqual(await store.get("id000001"), upload);
   assert.equal((await store.file("id000001"))?.length, 100 * KB);
   assert.equal((await store.preview("id000001"))?.[0], 0xff);
+});
+
+test("a photo whose card cannot be made small enough is refused as too detailed, and nothing is stored", async () => {
+  const { store, r2 } = setup({ images: { cardSizes: [400 * KB] } });
+  assert.equal(refused(await store.add(JPEG, "a.jpg")), "This photo is too detailed to make small enough for a fast page. Try a different photo.");
+  assert.equal(r2.objects.size, 0);
+});
+
+test("removing a photo deletes its card too, and a PDF has no card", async () => {
+  const { store, r2 } = setup();
+  const photo = await store.add(JPEG, "a.jpg");
+  assert.ok(photo.ok);
+  assert.ok(await store.remove(photo.upload.id));
+  assert.equal(r2.objects.size, 0);
+  const pdf = await store.add(pdfBytes(), "a.pdf");
+  assert.ok(pdf.ok);
+  assert.equal(await store.card(pdf.upload.id), null);
 });
 
 test("a photo's stored WebP never carries EXIF", async () => {

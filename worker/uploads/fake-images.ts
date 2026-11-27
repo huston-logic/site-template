@@ -25,13 +25,15 @@ export function makeWebp(options: { size?: number; exif?: boolean; xmp?: boolean
   return Uint8Array.from([...text("RIFF"), ...u32(body.length), ...body]);
 }
 
-export type ImagesCall = { width?: number; height?: number; fit?: string; format: string; quality?: number };
+export type ImagesCall = { width?: number; height?: number; fit?: string; gravity?: string; format: string; quality?: number };
 
 export interface FakeImagesOptions {
   /** What `info()` reports. Default: a 4000 x 3000 JPEG. */
   info?: { format: string; width: number; height: number; fileSize?: number };
   /** The size of each web WebP attempt, in order; the last one repeats. Default: one attempt of 100 KB. */
   webpSizes?: number[];
+  /** The size of each card WebP attempt (the 720 by 900 cover crop), in order; the last one repeats. Default: one attempt of 50 KB. */
+  cardSizes?: number[];
   /** Put EXIF and XMP chunks in the WebP output, as a misbehaving binding might. */
   exif?: boolean;
   /** Throw this from `info()` or from the transform. */
@@ -52,17 +54,19 @@ export function imagesError(code: number, message = `images error ${code}`): Err
 export function createFakeImages(options: FakeImagesOptions = {}): FakeImages {
   const calls: ImagesCall[] = [];
   let webpAttempts = 0;
+  let cardAttempts = 0;
   const info = options.info ?? { format: "image/jpeg", width: 4000, height: 3000 };
   const sizes = options.webpSizes ?? [100_000];
+  const cardSizes = options.cardSizes ?? [50_000];
   const images = {
     async info(): Promise<unknown> {
       if (options.infoError) throw options.infoError;
       return info.format === "image/svg+xml" ? { format: info.format } : { fileSize: 1, ...info };
     },
     input() {
-      let transform: { width?: number; height?: number; fit?: string } = {};
+      let transform: { width?: number; height?: number; fit?: string; gravity?: string } = {};
       const handle = {
-        transform(next: { width?: number; height?: number; fit?: string }) {
+        transform(next: { width?: number; height?: number; fit?: string; gravity?: string }) {
           transform = next;
           return handle;
         },
@@ -71,8 +75,10 @@ export function createFakeImages(options: FakeImagesOptions = {}): FakeImages {
           calls.push({ ...transform, format: output.format, quality: output.quality });
           let bytes: Uint8Array;
           if (output.format === "image/webp") {
-            const size = sizes[Math.min(webpAttempts, sizes.length - 1)];
-            webpAttempts += 1;
+            const isCard = transform.fit === "cover";
+            const size = isCard ? cardSizes[Math.min(cardAttempts, cardSizes.length - 1)] : sizes[Math.min(webpAttempts, sizes.length - 1)];
+            if (isCard) cardAttempts += 1;
+            else webpAttempts += 1;
             bytes = makeWebp({ size, exif: options.exif, xmp: options.exif });
           } else bytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, ...new Array<number>(500).fill(1), 0xff, 0xd9]);
           return {
