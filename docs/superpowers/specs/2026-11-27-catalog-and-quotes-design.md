@@ -167,16 +167,19 @@ visitor's estimate email. The selection travels beside the answers as one key, `
 choice }, people? }`, added in code; it is not an owner field and no owner field may be named `selection`. Cost if
 wrong: an owner wanting two quote forms gets one.
 
-**R15. The Worker recomputes.** `POST /api/forms/quote` runs the forms handler with quote extras: it reads
-`/catalog.json` from the site's own static assets (`env.ASSETS`, the same deploy as the Worker), refuses a missing or
-non-live item, an unknown or inapplicable option, people out of range or a missing required people value with 400
-`malformed` (no person can do that through the page), refuses any key besides the answers, `selection`, the honeypot
-and the token (so a posted `range` or `price` is refused, never read), then computes the range with `price.ts` and uses
-only its own number everywhere. If the asset read fails the post is refused with 502 and a fixed log event (fail
-closed). Same layers as every form: same origin, size, rate limit (`quote:<ip>`), honeypot, Turnstile (action `form`).
+**R15. The Worker recomputes.** `POST /api/forms/quote` runs the forms handler with quote extras. The cheap layers
+come first, as for every form: same origin, content type, size, the key allow-list (the answers, `selection`, the
+honeypot and the token, so a posted `range` or `price` is refused with 400, never read), rate limit (`quote:<ip>`) and
+honeypot. Only then does it read `/catalog.json` from the site's own static assets (`env.ASSETS`, the same deploy as
+the Worker); if that read fails the post is refused with 502 and the fixed event `catalog_data_unavailable` (fail
+closed). A `selection` of the wrong shape (extra keys, wrong types, missing) is 400 `malformed`. A well-formed selection
+that no longer prices (the piece is gone, an option was removed or no longer applies, people out of range) is 409
+`changed`: the page was loaded before the owner changed the catalog, and the visitor is asked to reload. Then
+Turnstile (action `form`), and the range is computed with `price.ts`; only the Worker's own figure is used anywhere.
 A preview's `/catalog.json` holds draft pieces, so a preview accepts quotes for drafts because the preview shows them
-(its emails go only to the site's own address); production data never holds a draft. Cost if wrong: a quote during a deploy's first seconds could read the previous version's prices (the assets and the
-Worker switch together, so this is a theory, not an observed case).
+(its emails go only to the site's own address); production data never holds a draft, and `/catalog.json` carries
+exact prices only for the pieces it lists. Cost if wrong: a quote during a deploy's first seconds could read the
+previous version's prices (the assets and the Worker switch together, so this is a theory, not an observed case).
 
 **R16. Delivery** through the site's existing destination, the same Worker-computed text in every place:
 - Sheet: the Forms tab row (`Received | Form | Name | Email | Answers | Mode` plus last run's five source cells); the
