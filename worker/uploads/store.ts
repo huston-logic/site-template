@@ -28,6 +28,8 @@ export interface UploadStore {
   get(id: string): Promise<UploadRecord | null>;
   file(id: string): Promise<Uint8Array | null>;
   preview(id: string): Promise<Uint8Array | null>;
+  /** The 720 by 900 WebP card the catalog grid loads (photos only). */
+  card(id: string): Promise<Uint8Array | null>;
   rename(id: string, name: string): Promise<UploadResult>;
   remove(id: string): Promise<boolean>;
   /** Deletes expired uploads' objects, at most 20 a call. Returns how many were deleted. */
@@ -36,6 +38,8 @@ export interface UploadStore {
 
 const fileKey = (id: string) => `inbox/${id}/file`;
 const previewKey = (id: string) => `inbox/${id}/preview`;
+/** The R2 key of a photo's card file (the 720 by 900 catalog card). */
+export const cardKey = (id: string) => `inbox/${id}/card`;
 
 function newId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -129,7 +133,7 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
   /** Deletes up to 20 expired uploads and returns them. */
   async function deleteExpired(records: UploadRecord[]): Promise<UploadRecord[]> {
     const doomed = records.filter(expired).slice(0, SWEEP_LIMIT);
-    for (const record of doomed) await bucket.delete([fileKey(record.id), previewKey(record.id)]);
+    for (const record of doomed) await bucket.delete([fileKey(record.id), previewKey(record.id), cardKey(record.id)]);
     if (doomed.length > 0) log("uploads_swept", { count: doomed.length });
     return doomed;
   }
@@ -169,6 +173,7 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
 
       let stored: Uint8Array;
       let preview: Uint8Array | null = null;
+      let card: Uint8Array | null = null;
       let width: number | undefined;
       let height: number | undefined;
       let pages: number | undefined;
@@ -183,6 +188,7 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
         }
         stored = converted.web;
         preview = converted.preview;
+        card = converted.card;
         width = converted.width;
         height = converted.height;
       } else {
@@ -199,7 +205,7 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
       // Expired uploads are swept first so their space is not held against the owner (their bytes are subtracted, not re-scanned).
       const swept = await deleteExpired(inbox.records);
       const held = inbox.totalBytes - swept.reduce((sum, record) => sum + (inbox.sizes.get(record.id) ?? 0), 0);
-      if (held + stored.length + (preview?.length ?? 0) > config.maxTotalBytes) return { ok: false, message: messages.inboxFull(config.maxTotalBytes) };
+      if (held + stored.length + (preview?.length ?? 0) + (card?.length ?? 0) > config.maxTotalBytes) return { ok: false, message: messages.inboxFull(config.maxTotalBytes) };
 
       let id = deps.randomId ? deps.randomId() : newId();
       if (!deps.randomId) {
@@ -220,13 +226,14 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
 
       try {
         if (preview) await bucket.put(previewKey(id), preview, { httpMetadata: { contentType: "image/jpeg" } });
+        if (card) await bucket.put(cardKey(id), card, { httpMetadata: { contentType: "image/webp" } });
         await bucket.put(fileKey(id), stored, {
           customMetadata: metadataFor(upload),
           httpMetadata: { contentType: kind === "photo" ? "image/webp" : "application/pdf" },
         });
       } catch {
         log("uploads_save_failed");
-        await bucket.delete([fileKey(id), previewKey(id)]).catch(() => undefined);
+        await bucket.delete([fileKey(id), previewKey(id), cardKey(id)]).catch(() => undefined);
         return { ok: false, message: messages.SAVE_FAILED };
       }
       log("uploads_added", { kind, bytes: stored.length });
@@ -250,6 +257,11 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
       return record && record.kind === "photo" ? bytesOf(previewKey(id)) : null;
     },
 
+    async card(id) {
+      const record = await load(id);
+      return record && record.kind === "photo" ? bytesOf(cardKey(id)) : null;
+    },
+
     async rename(id, name) {
       const record = await load(id);
       const body = record ? await bytesOf(fileKey(id)) : null;
@@ -266,7 +278,7 @@ export function createUploadStore(deps: UploadStoreDeps): UploadStore {
 
     async remove(id) {
       if (!ID_RE.test(id) || !(await bucket.head(fileKey(id)))) return false;
-      await bucket.delete([fileKey(id), previewKey(id)]);
+      await bucket.delete([fileKey(id), previewKey(id), cardKey(id)]);
       return true;
     },
 

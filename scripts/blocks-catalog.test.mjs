@@ -192,7 +192,7 @@ test("the new field kinds are described in plain words with their limits", () =>
 
 test("the catalog has a Collections section: every kind with fields, limits, sort and an example", () => {
   const catalog = buildCatalog([hero]);
-  assert.deepEqual(catalog.collections.map((c) => c.kind), ["posts", "videos", "episodes", "testimonials", "team"]);
+  assert.deepEqual(catalog.collections.map((c) => c.kind), ["posts", "videos", "episodes", "testimonials", "team", "catalog"]);
   const posts = catalog.collections[0];
   assert.match(posts.sort, /Newest date first/);
   assert.equal(posts.fields.find((f) => f.name === "body").kind, "body");
@@ -223,6 +223,11 @@ test("the catalog has a Settings section: business, brand (roles, contrast, font
   assert.match(md, /\*\*Contrast rule\.\*\*/);
   assert.match(md, /^- `display`: outfit \(Outfit\)|^- `display`: outfit, /m);
   assert.match(md, /^### Notice \(`src\/content\/notice\.json`\)$/m);
+  assert.deepEqual(catalog.settings.catalog.fields.map((f) => f.name), ["itemWord", "filters"]);
+  assert.deepEqual(catalog.settings.pricing.fields.map((f) => f.name), ["currency", "rounding", "spread", "note", "groups", "perPerson", "exact"]);
+  assert.match(md, /^### Catalog \(`src\/content\/catalog\.json`\)$/m);
+  assert.match(md, /^### Pricing \(`src\/content\/pricing\.json`\)$/m);
+  assert.match(md, /0 to 7 filters/);
 });
 
 test("the page rules name the audio providers next to the video ones", () => {

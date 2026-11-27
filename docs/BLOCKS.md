@@ -217,9 +217,73 @@ The people on the team, in the order you choose.
 }
 ```
 
+### Catalog (`catalog`)
+
+The pieces in the catalog, in the order you choose. Each is a page under the catalog page, with a price estimate and a quote request.
+
+- **File.** `src/content/collections/catalog/<slug>.json`. Lowercase words and digits joined by hyphens, 1 to 60 characters. It is the file name and, for a post, the address (/blog/<slug>).
+- **Status.** Every item has a status: draft (built only outside production), live, or archived (never shown, never deleted).
+- **Sort.** By the item's order number (lower first), then by its name.
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `name` | Name | yes | up to 80 characters |
+| `photos` | Photos. The first photo is the cover. Each needs a few words of alt text that say what it shows. | yes | 1 to 6 items, each a picture under /images/ with real alt text, shape 4:5 |
+| `description` | Description | yes | up to 600 characters |
+| `filters` | Filters. For each filter, the values that fit this piece. Leave a filter out when it does not apply. | no | filter ids from src/content/catalog.json, each with 1 to 6 of that filter's value ids |
+| `price` | Price. A low and a high in whole currency units, or "ask" to show "Price on request". | yes | a low and a high in whole currency units (0 to 10,000,000, low not above high), or "ask" for price on request |
+| `options` | Options. Up to 4 option groups from the pricing table that change this piece's estimate. | no | up to 4 option group ids from src/content/pricing.json |
+| `perPerson` | Per-person fee. The pricing table's per-person fee applies to this piece. | no | yes or no |
+| `order` | Order. Lower numbers come first. | yes | a whole number from 0 to 9999 |
+
+**Example:**
+
+```json
+{
+  "status": "live",
+  "name": "Tall jug, ash glaze",
+  "photos": [
+    {
+      "src": "/images/examples/vase-and-pears.jpg",
+      "alt": "A pale blue vase beside a blue pear and a rust-red pear on a table"
+    }
+  ],
+  "description": "A thrown jug with a comfortable handle. Finished in ash glaze.",
+  "filters": {
+    "type": [
+      "jug"
+    ],
+    "glaze": [
+      "ash"
+    ],
+    "size": [
+      "small"
+    ],
+    "finish": [
+      "glossy"
+    ],
+    "collection": [
+      "everyday"
+    ],
+    "made": [
+      "to-order"
+    ]
+  },
+  "price": {
+    "low": 60,
+    "high": 75
+  },
+  "options": [
+    "glaze-colour",
+    "size"
+  ],
+  "order": 1
+}
+```
+
 ## Settings
 
-Three files hold the site-wide settings. Each is one JSON object and is checked by `npm run check:content`.
+Five files hold the site-wide settings. Each is one JSON object and is checked by `npm run check:content`.
 
 ### Business (`src/content/business.json`)
 
@@ -264,6 +328,29 @@ A one-line notice above the header, with an optional link and last day.
 | `text` | yes | The notice, up to 120 characters. "" for no notice. |
 | `link` | no | { label, href }: the link words (up to 40 characters) and a link (see Page rules). It needs notice text. |
 | `endsOn` | yes | The last day it shows, YYYY-MM-DD, or null for no end date. |
+
+### Catalog (`src/content/catalog.json`)
+
+The word for a catalog item and the filters visitors narrow the catalog by. Renaming a label never changes its id, so links from ads keep working.
+
+| Field | Required | Rule |
+| --- | --- | --- |
+| `itemWord` | yes | { "singular", "plural" }: what one item and many items are called, for example "piece" and "pieces". Each 1 to 24 characters. |
+| `filters` | yes | 0 to 7 filters, each { "id", "name", "values" }: the id is a slug (lowercase words and digits joined by hyphens, 1 to 40 characters, unique), the name is 1 to 30 characters, and "values" is 1 to 24 of { "id", "label" } (a slug id, a label of 1 to 40 characters). A value or filter a live item uses cannot be removed. [] for none. |
+
+### Pricing (`src/content/pricing.json`)
+
+The pricing table every catalog estimate comes from: currency, rounding, option groups, an optional per-person fee and exact prices. Owners enter numbers only, never formulas.
+
+| Field | Required | Rule |
+| --- | --- | --- |
+| `currency` | yes | One of USD, CAD, GBP, EUR, AUD, NZD. |
+| `rounding` | yes | The step shown prices round to: 1, 5, 10, 25, 50, 100, 500, 1000. |
+| `spread` | yes | A whole percent from 0 to 50 that widens every range. |
+| `note` | yes | The sentence shown beside every estimate, 1 to 160 characters. |
+| `groups` | yes | 0 to 6 option groups, each { "id", "name" (1 to 30 characters), "choices" }. A group has 2 to 12 choices, each { "id", "label" (1 to 40 characters) } and exactly one of "add" (a whole number from -100000 to 1000000) or "multiply" (0.1 to 10, at most 4 decimals). The first choice is the default. |
+| `perPerson` | yes | null, or { "label" (1 to 24 characters), "amount" (a whole number from 0 to 10000), "min", "max" (1 to 1000, min not above max) }. |
+| `exact` | yes | Item slug, then option group id, then choice id, then a whole amount from 0 to 10000000: an exact price that replaces the item's base price when that choice is picked. Only one group per item may have exact prices, and the item must use that group. |
 
 ## Hero (`hero`)
 
@@ -499,7 +586,7 @@ One of the site's forms (a quote request, a download sign-up) in a panel, with a
 
 | Field | What it is | Required | Limits |
 | --- | --- | --- | --- |
-| `form` | Form. The id of a live form, other than the contact form. | yes | the id of a live form (never the contact form) |
+| `form` | Form. The id of a live form, other than the contact form. | yes | the id of a live form (never the contact form or the quote form) |
 | `heading` | Heading | no | up to 60 characters |
 | `intro` | Intro | no | up to 300 characters |
 
@@ -1006,5 +1093,69 @@ The people from your Team collection, in the order you set there, with a photo, 
 {
   "heading": "A short heading that introduces the people",
   "intro": "A sentence about who you work with."
+}
+```
+
+## Catalog (`catalog`)
+
+Every piece in your catalog as a card with its photo, name and price estimate, with filters, a count and a Show more button. Each card opens the piece's own page, where the visitor chooses options and asks for a quote. Without JavaScript every piece is listed. It is left out of the page while no piece is visible.
+
+**Where it can go:** anywhere, once.
+
+**Needs JavaScript:** The filter bar, the count, the empty state and Show more need JavaScript; they show and hide the cards the server already drew, so the whole catalog still lists without it.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `grid` (default): Four cards across on wide screens and two on phones: a tall photo, the name and a price estimate.
+- `showcase`: Three larger cards across on wide screens and one on phones, with the name set larger and a quiet line of facts under it.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `intro` | Introduction | no | up to 280 characters |
+
+**Motion:** No entrance motion. The filter bar reveals and hides cards itself, so the grid stays still and never moves under the visitor's pointer.
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading for the catalog",
+  "intro": "A sentence that says what the pieces are and how to narrow them down."
+}
+```
+
+## Quote builder (`quote-builder`)
+
+A panel where the visitor picks a piece, chooses its options, sees the price estimate change and asks for a quote. Name a piece to preselect it; otherwise the visitor chooses from every visible piece. It is left out of the page while no piece is visible.
+
+**Where it can go:** anywhere, once.
+
+**Needs JavaScript:** The options, the changing estimate and the quote form need JavaScript. Without it the panel shows the contact route.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `panel` (default): One centred panel with the heading and introduction above the builder.
+- `beside`: The heading and introduction on the left, the builder panel on the right (stacked on phones).
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `intro` | Introduction | no | up to 280 characters |
+| `item` | Piece. The piece to preselect. Leave empty to let the visitor choose. | no | the slug of a live catalog piece |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that invites a quote request",
+  "intro": "A sentence that says what the visitor can choose and what happens after they ask.",
+  "item": "everyday-dinner-set-ash-glaze"
 }
 ```

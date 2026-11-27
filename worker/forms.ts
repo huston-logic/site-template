@@ -18,7 +18,18 @@ import { downloadEmail, formNotificationEmail, formPipelineLead, formSheetRow } 
 
 export const TOKEN_KEY = "turnstileToken";
 
-export type Validation<T> = { ok: true; value: T } | { ok: false; malformed: boolean; fields: string[] };
+export type Validation<T> = { ok: true; value: T } | { ok: false; malformed: boolean; fields: string[]; changed?: boolean };
+
+/**
+ * A spec whose last piece needs data that costs a read (the quote form's catalog file). `head` carries only what the
+ * cheap checks need (same-origin, size, rate limit, honeypot); `resolve` runs after them and returns the full spec, or
+ * null when the data is not there (the handler answers 502 and logs `unavailableEvent`).
+ */
+export interface LazySpec<T> {
+  head: Pick<SubmissionSpec<T>, "maxBytes" | "keys" | "rateKey">;
+  unavailableEvent: string;
+  resolve(): Promise<SubmissionSpec<T> | null>;
+}
 
 /** Where one submission goes: the Sheet tabs and row, and the Pipeline lead. `saveSubmission` is the only reader. */
 export interface Delivery {

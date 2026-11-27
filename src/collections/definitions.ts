@@ -1,6 +1,8 @@
-// The five collection kinds: their fields, limits, sort and example items. Import-free apart from its siblings. Fields use
+// The six collection kinds: their fields, limits, sort and example items. Import-free apart from its siblings. Fields use
 // the block field schema, so one validator judges blocks and items. Labels and help are template UI copy.
 import type { Fields } from "../blocks/schema.ts";
+import { MAX_ITEM_OPTIONS, MAX_PHOTOS } from "../catalog/schema.ts";
+import { exampleCatalog } from "../catalog/example.ts";
 import type { CollectionDefinition, LoadedItem } from "./schema.ts";
 
 const example = (kind: LoadedItem["kind"], slug: string, data: Record<string, unknown>): LoadedItem => ({ kind, slug, status: "live", data });
@@ -42,6 +44,24 @@ const teamFields = {
   bio: { kind: "text", label: "Bio", max: 400, required: false },
   photo: { kind: "image", shape: "4:5", label: "Photo", required: false },
   order: { kind: "number", label: "Order", min: 0, max: 999, help: "Lower numbers come first." },
+} as const satisfies Fields;
+
+const catalogFields = {
+  name: { kind: "text", label: "Name", max: 80 },
+  photos: {
+    kind: "list",
+    label: "Photos",
+    of: { kind: "image", shape: "4:5", label: "Photo" },
+    min: 1,
+    max: MAX_PHOTOS,
+    help: "The first photo is the cover. Each needs a few words of alt text that say what it shows.",
+  },
+  description: { kind: "text", label: "Description", max: 600 },
+  filters: { kind: "filter-values", label: "Filters", required: false, help: "For each filter, the values that fit this piece. Leave a filter out when it does not apply." },
+  price: { kind: "price", label: "Price", help: 'A low and a high in whole currency units, or "ask" to show "Price on request".' },
+  options: { kind: "option-groups", label: "Options", required: false, help: `Up to ${MAX_ITEM_OPTIONS} option groups from the pricing table that change this piece's estimate.` },
+  perPerson: { kind: "boolean", label: "Per-person fee", required: false, help: "The pricing table's per-person fee applies to this piece." },
+  order: { kind: "number", label: "Order", min: 0, max: 9999, help: "Lower numbers come first." },
 } as const satisfies Fields;
 
 const postBody = [
@@ -142,6 +162,16 @@ export const collections: CollectionDefinition[] = [
       }),
       example("team", "example-three", { name: "[[Third team member name]]", role: "[[Third team member role]]", order: 3 }),
     ],
+  },
+  {
+    kind: "catalog",
+    title: "Catalog",
+    singular: "piece",
+    description: "The pieces in the catalog, in the order you choose. Each is a page under the catalog page, with a price estimate and a quote request.",
+    fields: catalogFields,
+    sort: "order",
+    labelField: "name",
+    example: exampleCatalog.items.slice(0, 3),
   },
 ];
 

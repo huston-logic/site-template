@@ -1,7 +1,15 @@
 // The content check: judges page files against the block registry and returns problems in plain words, each naming the
 // file, the block number and the field. Pure (no file access): the caller passes the pages and a small view of the repo.
 // Import-free apart from its siblings, so Node scripts and Next both load it.
-import { COLLECTION_KINDS } from "../collections/schema.ts";
+import {
+  ID_RE,
+  MAX_ITEM_FILTER_VALUES,
+  MAX_ITEM_OPTIONS,
+  PRICE_MAX,
+  QUOTE_FORM_ID,
+} from "../catalog/schema.ts";
+import type { CatalogSettings, PricingTable } from "../catalog/schema.ts";
+import { COLLECTION_KINDS, SLUG_RE } from "../collections/schema.ts";
 import { CONTACT_FORM_ID, SHOWCASE_FORM_ID } from "../forms/schema.ts";
 import type { FormStatus } from "../forms/schema.ts";
 import { audioProviders, parseAudioUrl, parseVideoUrl, videoProviders } from "./embeds.ts";
@@ -33,6 +41,11 @@ export type Context = {
   uploadNames?: ReadonlyMap<string, string>;
   /** Form id to status: what a `form` field may name. Missing or null means the site has no forms. */
   forms?: ReadonlyMap<string, FormStatus> | null;
+  /**
+   * The catalog the site has, for the catalog field kinds. Missing means only the shape of those values is checked (registry
+   * examples). `items` is the slugs of the live catalog items a `catalog-item` field may name.
+   */
+  catalog?: { settings: CatalogSettings | null; pricing: PricingTable | null; items?: ReadonlySet<string> };
 };
 export type PageFile = { file: string; data: unknown; error?: string };
 
@@ -234,6 +247,7 @@ function checkField(field: Field, value: unknown, label: string, where: string, 
     case "form": {
       if (typeof value !== "string") return say("must be the id of a form, written as text.");
       if (value === CONTACT_FORM_ID) return say(`"${value}" is the contact form, which only the contact-form block shows; pick another form.`);
+      if (value === QUOTE_FORM_ID) return say(`"${value}" is the quote form, which only the quote builder shows; pick another form.`);
       const status = ctx.forms?.get(value);
       if (status === undefined) say(`"${value}" is not a form on this site.`);
       else if (status !== "live") say(`"${value}" is archived; pick a live form or restore it.`);
@@ -253,6 +267,61 @@ function checkField(field: Field, value: unknown, label: string, where: string, 
     case "body":
       checkBody(field, value, label, where, ctx, out);
       return;
+    case "price": {
+      if (value === "ask") return;
+      if (!isRecord(value)) return say('must be { "low": n, "high": n } in whole currency units, or "ask".');
+      for (const key of Object.keys(value)) if (key !== "low" && key !== "high") return say(`has "${key}", which is not part of a price. A price has "low" and "high".`);
+      const { low, high } = value;
+      const whole = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= PRICE_MAX;
+      if (!whole(low) || !whole(high)) return say(`needs a whole "low" and "high" from 0 to ${bigNumber(PRICE_MAX)}.`);
+      if (low > high) say(`has a low of ${bigNumber(low)} above its high of ${bigNumber(high)}.`);
+      return;
+    }
+    case "filter-values": {
+      if (!isRecord(value)) return say("must be an object of filter ids, each with a list of value ids.");
+      const settings = ctx.catalog?.settings ?? null;
+      for (const [filterId, valueIds] of Object.entries(value)) {
+        if (!ID_RE.test(filterId)) return say(`has "${filterId.slice(0, 40)}", which is not a filter id (lowercase words and digits joined by hyphens).`);
+        const filter = settings?.filters.find((f) => f.id === filterId);
+        if (settings !== null && filter === undefined) {
+          say(`names the filter "${filterId}", which is not in src/content/catalog.json. Add it there first.`);
+          continue;
+        }
+        if (!Array.isArray(valueIds) || valueIds.length < 1 || valueIds.length > MAX_ITEM_FILTER_VALUES) {
+          say(`"${filterId}" needs a list of 1 to ${MAX_ITEM_FILTER_VALUES} value ids.`);
+          continue;
+        }
+        const seen = new Set<unknown>();
+        for (const valueId of valueIds) {
+          if (typeof valueId !== "string" || !ID_RE.test(valueId)) say(`"${filterId}" has a value that is not a value id (lowercase words and digits joined by hyphens).`);
+          else if (seen.has(valueId)) say(`"${filterId}" lists "${valueId}" twice.`);
+          else if (filter !== undefined && !filter.values.some((v) => v.id === valueId)) {
+            say(`"${filterId}" names the value "${valueId}", which is not in src/content/catalog.json. Add it there first; a value a piece uses cannot be removed.`);
+          }
+          seen.add(valueId);
+        }
+      }
+      return;
+    }
+    case "option-groups": {
+      if (!Array.isArray(value)) return say("must be a list of option group ids.");
+      if (value.length > MAX_ITEM_OPTIONS) say(`has ${count(value.length, "option group", "option groups")}; a piece takes at most ${MAX_ITEM_OPTIONS}.`);
+      const pricing = ctx.catalog?.pricing ?? null;
+      const seen = new Set<unknown>();
+      for (const groupId of value) {
+        if (typeof groupId !== "string" || !ID_RE.test(groupId)) say("has an entry that is not an option group id (lowercase words and digits joined by hyphens).");
+        else if (seen.has(groupId)) say(`lists "${groupId}" twice.`);
+        else if (pricing !== null && !pricing.groups.some((g) => g.id === groupId)) say(`names the option group "${groupId}", which is not in src/content/pricing.json. Add it there first.`);
+        seen.add(groupId);
+      }
+      return;
+    }
+    case "catalog-item": {
+      if (typeof value !== "string" || !SLUG_RE.test(value)) return say("must be the slug of a catalog piece, written as text.");
+      const items = ctx.catalog?.items;
+      if (items !== undefined && !items.has(value)) say(`"${value}" is not a live piece in the catalog.`);
+      return;
+    }
     case "boolean":
       if (typeof value !== "boolean") say("must be true or false.");
       return;
@@ -619,7 +688,7 @@ export function validatePages(
   files: readonly PageFile[],
   registry: readonly AnyBlockDefinition[],
   repo: Repo,
-  extra: { links?: readonly { where: string; href: string }[]; uploadNames?: ReadonlyMap<string, string>; forms?: ReadonlyMap<string, FormStatus> } = {},
+  extra: { links?: readonly { where: string; href: string }[]; uploadNames?: ReadonlyMap<string, string>; forms?: ReadonlyMap<string, FormStatus>; catalog?: Context["catalog"] } = {},
 ): string[] {
   const out: string[] = [];
   const defs = new Map<string, AnyBlockDefinition>();
@@ -646,6 +715,7 @@ export function validatePages(
     pages: index,
     ...(extra.uploadNames !== undefined ? { uploadNames: extra.uploadNames } : {}),
     ...(extra.forms !== undefined ? { forms: extra.forms } : {}),
+    ...(extra.catalog !== undefined ? { catalog: extra.catalog } : {}),
   };
 
   const fileByPath = new Map<string, string>();

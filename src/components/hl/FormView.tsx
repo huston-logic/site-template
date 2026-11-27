@@ -11,6 +11,9 @@ import { track } from "@/tracking/track";
 import { errorFor, FieldView, Honeypot, labelFor, NoScriptNote, SubmitButton, type FieldIds } from "./form/controls";
 import { turnstileSiteKey, useTurnstile } from "./useTurnstile";
 
+/** A quote request's choices: the piece's slug, a choice per option group, and the number of people when the piece takes them. */
+export type FormSelection = { item: string; options: Record<string, string>; people?: number };
+
 type SendError = keyof typeof formWords.sendErrors;
 type Errors = Record<string, string>;
 
@@ -21,7 +24,24 @@ type Errors = Record<string, string>;
  * posts JSON to `/api/forms/<id>`. A real success replaces the panel with the thank-you message, in the panel's own
  * height, and moves focus to it. No `action`, and `method="post"`, so without JavaScript nothing is sent.
  */
-export function FormView({ id, form, noScriptEmail }: { id: string; form: PublicForm; noScriptEmail: string | null }) {
+export function FormView({
+  id,
+  form,
+  noScriptEmail,
+  selection,
+  onSuccess,
+  panelClass = "rounded-panel bg-white p-6 shadow-card md:p-9",
+}: {
+  id: string;
+  form: PublicForm;
+  noScriptEmail: string | null;
+  /** The quote form only: what the visitor chose, sent beside the answers as `selection`. The Worker works out the price itself. */
+  selection?: FormSelection;
+  /** Called once when the Worker confirms the note reached the owner. */
+  onSuccess?: () => void;
+  /** The panel's look; the quote builder draws the form inside its own panel and passes a plain one. */
+  panelClass?: string;
+}) {
   const prefix = useId();
   const [errors, setErrors] = useState<Errors>({});
   const [chips, setChips] = useState<Record<string, string>>({});
@@ -111,7 +131,7 @@ export function FormView({ id, form, noScriptEmail }: { id: string; form: Public
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ ...answers, [honeypot.name]: typeof trap === "string" ? trap : "", turnstileToken: token }),
+        body: JSON.stringify({ ...answers, ...(selection === undefined ? {} : { selection }), [honeypot.name]: typeof trap === "string" ? trap : "", turnstileToken: token }),
       });
     } catch {
       return fail("failed");
@@ -123,6 +143,7 @@ export function FormView({ id, form, noScriptEmail }: { id: string; form: Public
       const panel = panelRef.current;
       if (panel) panel.style.minHeight = `${panel.offsetHeight}px`;
       track("lead", { form_id: id });
+      onSuccess?.();
       setDone({ delivered: body.delivered !== false });
       return;
     }
@@ -132,13 +153,14 @@ export function FormView({ id, form, noScriptEmail }: { id: string; form: Public
       showFieldErrors(body.fields.filter((f): f is string => typeof f === "string"));
       return;
     }
+    if (response.status === 409 && body?.error === "changed") return fail("changed");
     if (response.status === 429) return fail("rateLimited");
     if (body?.error === "rejected") return fail("notVerified");
     return fail("failed");
   }
 
   return (
-    <div ref={panelRef} className="rounded-panel bg-white p-6 shadow-card md:p-9">
+    <div ref={panelRef} className={panelClass}>
       {done ? (
         <div ref={thanksRef} tabIndex={-1} className="font-text text-body text-ink">
           <p>

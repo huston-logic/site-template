@@ -52,6 +52,9 @@ export const rules = {
   settingsFiles: SETTINGS_NAMES.map(settingsPath),
   /** Files generated from brand.json. Tier 1 only when byte-equal to what brand.json generates at the head commit. */
   generatedFiles: [...GENERATED_BRAND_FILES],
+  /** The catalog's filters and the pricing table: settings files that show on the catalog page and its pieces, not on every page. */
+  catalogSettingsFile: "src/content/catalog.json",
+  pricingFile: "src/content/pricing.json",
   /** The settings file whose change reaches every page, and so needs a preview before the yes. */
   brandFile: "src/content/brand.json",
   /** The folder of form files: src/content/forms/<id>.json. */

@@ -119,7 +119,7 @@ describe("definitions", () => {
     assert.equal((f("testimonials", "order") as { max: number }).max, 999);
     assert.equal((f("team", "bio") as { max: number }).max, 400);
     assert.equal((f("team", "photo") as { shape: string }).shape, "4:5");
-    assert.deepEqual(collections.map((c) => c.sort), ["date", "date", "date", "order", "order"]);
+    assert.deepEqual(collections.map((c) => c.sort), ["date", "date", "date", "order", "order", "order"]);
   });
 
   it("carries three live example items per kind that pass the item check", () => {
@@ -134,6 +134,8 @@ describe("definitions", () => {
   it("ships example.json for each kind, equal to the first example and using real files", () => {
     const real: Context = { repo: { imageExists: (src) => existsSync(`public${src}`), fileExists: (href) => existsSync(`public${href}`) }, pages: null };
     for (const def of collections) {
+      // The catalog ships no pieces (its examples are for the showcase only), so its folder has no example file.
+      if (def.kind === "catalog") continue;
       const path = itemFilePath(def.kind, "example");
       const data: unknown = JSON.parse(readFileSync(path, "utf8"));
       const first = def.example[0] as LoadedItem;

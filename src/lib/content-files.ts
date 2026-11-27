@@ -53,13 +53,13 @@ export function readItemFiles(root: string = process.cwd()): ItemFile[] {
   return out;
 }
 
-/** The three settings files. A missing file has `data: undefined` and no error; the site check reports it as missing. */
+/** The settings files. A missing file has `data: undefined` and no error; the site check reports it as missing. */
 export function readSettingsFiles(root: string = process.cwd()): Record<SettingsFileName, SettingsFileResult> {
   const read = (name: SettingsFileName): SettingsFileResult => {
     const path = join(root, "src", "content", `${name}.json`);
     return existsSync(path) ? readJson(path) : { data: undefined };
   };
-  return { business: read("business"), brand: read("brand"), notice: read("notice") };
+  return { business: read("business"), brand: read("brand"), notice: read("notice"), catalog: read("catalog"), pricing: read("pricing") };
 }
 
 /** Every form file (src/content/forms/<id>.json), sorted by id. A missing folder gives []. A bad file carries an `error`. */

@@ -24,8 +24,8 @@ export function formFilePath(id: string): string {
 export const FORM_ID_RE = SLUG_RE;
 /** A field id is a slug of 1 to 40 characters. */
 export const FIELD_ID_RE = /^(?=.{1,40}$)[a-z0-9]+(?:-[a-z0-9]+)*$/;
-/** Keys a field id may never take. The token and honeypot keys (`turnstileToken`, `company_fax`) cannot be slugs, so only `topic` can collide. */
-export const RESERVED_FIELD_IDS = ["topic", "constructor"] as const;
+/** Keys a field id may never take. The token and honeypot keys (`turnstileToken`, `company_fax`) cannot be slugs, so only `topic` can collide. `selection` is the key a quote request carries beside the answers. */
+export const RESERVED_FIELD_IDS = ["topic", "constructor", "selection"] as const;
 
 /** The contact form is Huston Logic's: it is never placed through the `form` block and owners cannot change it by chat. */
 export const CONTACT_FORM_ID = "contact";
@@ -40,6 +40,8 @@ export const LIMITS = {
   nameMax: 60,
   buttonMax: 40,
   thanksMax: 400,
+  replySubjectMax: 120,
+  replyNextMax: 600,
   downloadTitleMax: 80,
   labelMax: 80,
   longLabelMax: 300,
@@ -70,6 +72,9 @@ export type FormField = {
 
 export type FormDownload = { href: string; title: string };
 
+/** The owner's words in the visitor's estimate email. Only the quote form (id `quote`) may have it. */
+export type FormReply = { subject: string; next: string };
+
 export type FormDefinition = {
   name: string;
   status: FormStatus;
@@ -77,10 +82,11 @@ export type FormDefinition = {
   button: string;
   thanks: string;
   download?: FormDownload;
+  reply?: FormReply;
 };
 
-/** What the browser may see of a form: never the download link (the link is mailed after a submission). */
-export type PublicForm = Omit<FormDefinition, "download"> & { delivers: boolean };
+/** What the browser may see of a form: never the download link (the link is mailed after a submission) and never the reply words. */
+export type PublicForm = Omit<FormDefinition, "download" | "reply"> & { delivers: boolean };
 
 /** A form file as read from disk: `data` is the parsed JSON, `error` says why it could not be read. */
 export type FormFile = { id: string; data: unknown; error?: string };

@@ -1,3 +1,4 @@
+import { QUOTE_FORM_ID } from "../src/catalog/schema.ts";
 import { honeypot } from "../src/content/contact-fields.ts";
 import { CONTACT_BODY_BYTES } from "../src/forms/contact.ts";
 import { contactKeys, validateContact, type ContactInput, type ContactSubmission } from "../src/lib/contact-validation.ts";
@@ -6,8 +7,9 @@ import { leadSource, readAttribution } from "./attribution.ts";
 import { workerConfig, type WorkerConfig } from "./config.ts";
 import { sendEmail } from "./email.ts";
 import { log, resolveMode, type ContactEnv, type Mode, type SaveStatus } from "./env.ts";
-import { findForm, formFiles, formSpec, TOKEN_KEY, type Delivery, type FormSource, type SubmissionSpec } from "./forms.ts";
+import { findForm, formFiles, formSpec, TOKEN_KEY, type Delivery, type FormSource, type LazySpec, type SubmissionSpec } from "./forms.ts";
 import { jsonResponse } from "./http.ts";
+import { loadCatalogData, quoteLazySpec } from "./quote.ts";
 import { autoReplyEmail, notificationEmail, pipelineMessage, sheetRow } from "./messages.ts";
 import { sendToPipeline } from "./pipeline.ts";
 import { readBody } from "./read-body.ts";
@@ -33,7 +35,7 @@ const CONTACT_KEYS = new Set<string>([...contactKeys, honeypot.name, TOKEN_KEY])
 const REPLY_HEADERS = { "Auto-Submitted": "auto-replied", "X-Auto-Response-Suppress": "All" };
 
 /** What the form reads. `error` picks the message; `fields` lists the Rev 7.1 field errors. */
-type ApiBody = { ok: true; autoReply?: boolean; delivered?: boolean } | { ok: false; error: "invalid" | "rejected" | "rate_limited" | "failed"; fields?: string[] };
+type ApiBody = { ok: true; autoReply?: boolean; delivered?: boolean } | { ok: false; error: "invalid" | "rejected" | "rate_limited" | "failed" | "changed"; fields?: string[] };
 
 const CSP = { "content-security-policy": "default-src 'none'; frame-ancestors 'none'" };
 
@@ -98,7 +100,8 @@ function contactSpec(config: WorkerConfig): SubmissionSpec<ContactSubmission> {
   };
 }
 
-async function handleSubmission<T>(config: WorkerConfig, spec: SubmissionSpec<T>, request: Request, env: ContactEnv, url: URL): Promise<Response> {
+async function handleSubmission<T>(config: WorkerConfig, given: SubmissionSpec<T> | LazySpec<T>, request: Request, env: ContactEnv, url: URL): Promise<Response> {
+  const head = "head" in given ? given.head : given;
   const mode = resolveMode(env.SITE_ENV, url.hostname, config.workerName, config.previewHostSuffix);
   if (!mode) {
     log("config_invalid_mode");
@@ -115,8 +118,8 @@ async function handleSubmission<T>(config: WorkerConfig, spec: SubmissionSpec<T>
   if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) {
     return json(415, { ok: false, error: "rejected" });
   }
-  if (Number(request.headers.get("content-length") ?? "0") > spec.maxBytes) return json(413, { ok: false, error: "rejected" });
-  const text = await readBody(request, spec.maxBytes);
+  if (Number(request.headers.get("content-length") ?? "0") > head.maxBytes) return json(413, { ok: false, error: "rejected" });
+  const text = await readBody(request, head.maxBytes);
   if (text === null) return json(413, { ok: false, error: "rejected" });
 
   let data: unknown;
@@ -125,14 +128,14 @@ async function handleSubmission<T>(config: WorkerConfig, spec: SubmissionSpec<T>
   } catch {
     return json(400, { ok: false, error: "rejected" });
   }
-  if (typeof data !== "object" || data === null || Array.isArray(data) || Object.keys(data).some((key) => !spec.keys.has(key))) {
+  if (typeof data !== "object" || data === null || Array.isArray(data) || Object.keys(data).some((key) => !head.keys.has(key))) {
     return json(400, { ok: false, error: "rejected" });
   }
   const fields = data as Record<string, unknown>;
 
   const ip = request.headers.get("cf-connecting-ip");
   if (env.CONTACT_RATE_LIMIT) {
-    const { success } = await env.CONTACT_RATE_LIMIT.limit({ key: spec.rateKey(ip ?? "unknown") });
+    const { success } = await env.CONTACT_RATE_LIMIT.limit({ key: head.rateKey(ip ?? "unknown") });
     if (!success) {
       log("rate_limited");
       return json(429, { ok: false, error: "rate_limited" });
@@ -148,8 +151,22 @@ async function handleSubmission<T>(config: WorkerConfig, spec: SubmissionSpec<T>
     return json(400, { ok: false, error: "rejected" });
   }
 
+  // The price source is read only now, after the cheap checks above, so a cross-origin or rate-limited post never costs a read.
+  let spec: SubmissionSpec<T>;
+  if ("head" in given) {
+    const full = await given.resolve();
+    if (!full) {
+      log(given.unavailableEvent);
+      return json(502, { ok: false, error: "failed" });
+    }
+    spec = full;
+  } else {
+    spec = given;
+  }
+
   const result = spec.validate(fields);
   if (!result.ok) {
+    if (result.changed) return json(409, { ok: false, error: "changed" });
     if (result.malformed || result.fields.length === 0) return json(400, { ok: false, error: "rejected" });
     return json(400, { ok: false, error: "invalid", fields: result.fields });
   }
@@ -216,9 +233,11 @@ async function handleSubmission<T>(config: WorkerConfig, spec: SubmissionSpec<T>
 
 /**
  * Builds the Worker from a config. The default export below uses the real site.config.ts and the generated form
- * registry; the tests pass a fixture config and, for the forms, their own definitions.
+ * registry; the tests pass a fixture config and, for the forms, their own definitions. The form with id `quote` gets the
+ * catalog extras (worker/quote.ts) when `quoteExtras` is true, which is the default for the real registry only: a test
+ * that uses its own "quote" fixture opts in with a third argument.
  */
-export function createWorker(config: WorkerConfig, forms: FormSource = formFiles) {
+export function createWorker(config: WorkerConfig, forms: FormSource = formFiles, quoteExtras: boolean = forms === formFiles) {
   return {
     async fetch(request: Request, env: ContactEnv): Promise<Response> {
       const url = new URL(request.url);
@@ -236,8 +255,15 @@ export function createWorker(config: WorkerConfig, forms: FormSource = formFiles
           log("form_definition_invalid");
           return json(500, { ok: false, error: "failed" });
         }
-        const spec = formSpec(config, found.def, formId);
-        formResponse = (req) => handleSubmission(config, spec, req, env, url);
+        const { def } = found;
+        if (quoteExtras && formId === QUOTE_FORM_ID) {
+          // Fail closed: without the site's catalog data the Worker has no prices to compute from. It is read after the cheap checks.
+          const lazy = quoteLazySpec(config, def, () => loadCatalogData(env, url.href));
+          formResponse = (req) => handleSubmission(config, lazy, req, env, url);
+        } else {
+          const spec = formSpec(config, def, formId);
+          formResponse = (req) => handleSubmission(config, spec, req, env, url);
+        }
       }
       if (request.method !== "POST") return json(405, { error: "method_not_allowed" }, { allow: "POST" });
       return formResponse ? formResponse(request) : handleSubmission(config, contactSpec(config), request, env, url);

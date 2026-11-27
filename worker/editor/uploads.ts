@@ -1,6 +1,7 @@
 import type { UploadStore } from "../uploads/store.ts";
 import { pageValueFor, uploadRepoPath } from "../uploads/paths.ts";
 import type { UploadKind, UploadRecord } from "../uploads/types.ts";
+import { cardPathFor } from "../../src/catalog/schema.ts";
 import { isObject } from "./json.ts";
 
 /**
@@ -24,6 +25,29 @@ export interface ProposalUpload {
   bytes: number;
   width?: number;
   height?: number;
+  /** True when a catalog photo uses this upload: the commit also adds its card file (public/images/uploads/<id>-card.webp). */
+  card?: boolean;
+}
+
+/** Where an upload's card goes in the repo: the photo's path with "-card" before the extension. */
+export const cardRepoPath = (upload: { path: string }): string => cardPathFor(upload.path);
+
+export const MISSING_CARD = "This photo was uploaded before catalog photos had cards; upload it again.";
+
+/**
+ * Marks the uploads that catalog items use as photos (photos[n].src) so their cards travel with them. Returns the uploads
+ * with `card` set where a touched catalog item uses them, and the page values of those cards (/images/uploads/<id>-card.webp).
+ */
+export function markCardUploads(items: ReadonlyMap<string, unknown>, touchedItems: readonly string[], uploads: readonly ProposalUpload[]): { uploads: ProposalUpload[]; cards: Set<string> } {
+  const used = new Set<string>();
+  for (const key of touchedItems) {
+    if (!key.startsWith("catalog/")) continue;
+    const item = items.get(key);
+    const photos = isObject(item) && Array.isArray(item.photos) ? item.photos : [];
+    for (const photo of photos) if (isObject(photo) && typeof photo.src === "string") used.add(photo.src);
+  }
+  const marked = uploads.map((upload) => (upload.kind === "photo" && used.has(pageValueFor(upload.path)) ? { ...upload, card: true } : upload));
+  return { uploads: marked, cards: new Set(marked.filter((upload) => upload.card === true).map((upload) => pageValueFor(cardRepoPath(upload)))) };
 }
 
 export type ResolvedUploads =

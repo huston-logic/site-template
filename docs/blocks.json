@@ -1605,6 +1605,116 @@
         "heading": "A short heading that introduces the people",
         "intro": "A sentence about who you work with."
       }
+    },
+    {
+      "type": "catalog",
+      "title": "Catalog",
+      "description": "Every piece in your catalog as a card with its photo, name and price estimate, with filters, a count and a Show more button. Each card opens the piece's own page, where the visitor chooses options and asks for a quote. Without JavaScript every piece is listed. It is left out of the page while no piece is visible.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "grid",
+          "description": "Four cards across on wide screens and two on phones: a tall photo, the name and a price estimate.",
+          "default": true
+        },
+        {
+          "name": "showcase",
+          "description": "Three larger cards across on wide screens and one on phones, with the name set larger and a quiet line of facts under it.",
+          "default": false
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 1,
+        "rhythm": "section",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "none",
+        "reason": "The filter bar reveals and hides cards itself, so the grid stays still and never moves under the visitor's pointer.",
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": "The filter bar, the count, the empty state and Show more need JavaScript; they show and hide the cards the server already drew, so the whole catalog still lists without it.",
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": true,
+          "max": 90
+        },
+        {
+          "name": "intro",
+          "kind": "text",
+          "label": "Introduction",
+          "required": false,
+          "max": 280
+        }
+      ],
+      "example": {
+        "heading": "A short heading for the catalog",
+        "intro": "A sentence that says what the pieces are and how to narrow them down."
+      }
+    },
+    {
+      "type": "quote-builder",
+      "title": "Quote builder",
+      "description": "A panel where the visitor picks a piece, chooses its options, sees the price estimate change and asks for a quote. Name a piece to preselect it; otherwise the visitor chooses from every visible piece. It is left out of the page while no piece is visible.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "panel",
+          "description": "One centred panel with the heading and introduction above the builder.",
+          "default": true
+        },
+        {
+          "name": "beside",
+          "description": "The heading and introduction on the left, the builder panel on the right (stacked on phones).",
+          "default": false
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 1,
+        "rhythm": "section",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": "The options, the changing estimate and the quote form need JavaScript. Without it the panel shows the contact route.",
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": true,
+          "max": 90
+        },
+        {
+          "name": "intro",
+          "kind": "text",
+          "label": "Introduction",
+          "required": false,
+          "max": 280
+        },
+        {
+          "name": "item",
+          "kind": "catalog-item",
+          "label": "Piece",
+          "help": "The piece to preselect. Leave empty to let the visitor choose.",
+          "required": false
+        }
+      ],
+      "example": {
+        "heading": "A short heading that invites a quote request",
+        "intro": "A sentence that says what the visitor can choose and what happens after they ask.",
+        "item": "everyday-dinner-set-ash-glaze"
+      }
     }
   ],
   "collections": [
@@ -1928,6 +2038,127 @@
         },
         "order": 1
       }
+    },
+    {
+      "kind": "catalog",
+      "title": "Catalog",
+      "singular": "piece",
+      "description": "The pieces in the catalog, in the order you choose. Each is a page under the catalog page, with a price estimate and a quote request.",
+      "file": "src/content/collections/catalog/<slug>.json",
+      "slug": "Lowercase words and digits joined by hyphens, 1 to 60 characters. It is the file name and, for a post, the address (/blog/<slug>).",
+      "status": "Every item has a status: draft (built only outside production), live, or archived (never shown, never deleted).",
+      "fields": [
+        {
+          "name": "name",
+          "kind": "text",
+          "label": "Name",
+          "required": true,
+          "max": 80
+        },
+        {
+          "name": "photos",
+          "kind": "list",
+          "label": "Photos",
+          "help": "The first photo is the cover. Each needs a few words of alt text that say what it shows.",
+          "required": true,
+          "items": {
+            "min": 1,
+            "max": 6
+          },
+          "of": {
+            "kind": "image",
+            "label": "Photo",
+            "required": true,
+            "shape": "4:5"
+          }
+        },
+        {
+          "name": "description",
+          "kind": "text",
+          "label": "Description",
+          "required": true,
+          "max": 600
+        },
+        {
+          "name": "filters",
+          "kind": "filter-values",
+          "label": "Filters",
+          "help": "For each filter, the values that fit this piece. Leave a filter out when it does not apply.",
+          "required": false
+        },
+        {
+          "name": "price",
+          "kind": "price",
+          "label": "Price",
+          "help": "A low and a high in whole currency units, or \"ask\" to show \"Price on request\".",
+          "required": true
+        },
+        {
+          "name": "options",
+          "kind": "option-groups",
+          "label": "Options",
+          "help": "Up to 4 option groups from the pricing table that change this piece's estimate.",
+          "required": false
+        },
+        {
+          "name": "perPerson",
+          "kind": "boolean",
+          "label": "Per-person fee",
+          "help": "The pricing table's per-person fee applies to this piece.",
+          "required": false
+        },
+        {
+          "name": "order",
+          "kind": "number",
+          "label": "Order",
+          "help": "Lower numbers come first.",
+          "required": true,
+          "min": 0,
+          "max": 9999
+        }
+      ],
+      "sort": "By the item's order number (lower first), then by its name.",
+      "labelField": "name",
+      "example": {
+        "status": "live",
+        "name": "Tall jug, ash glaze",
+        "photos": [
+          {
+            "src": "/images/examples/vase-and-pears.jpg",
+            "alt": "A pale blue vase beside a blue pear and a rust-red pear on a table"
+          }
+        ],
+        "description": "A thrown jug with a comfortable handle. Finished in ash glaze.",
+        "filters": {
+          "type": [
+            "jug"
+          ],
+          "glaze": [
+            "ash"
+          ],
+          "size": [
+            "small"
+          ],
+          "finish": [
+            "glossy"
+          ],
+          "collection": [
+            "everyday"
+          ],
+          "made": [
+            "to-order"
+          ]
+        },
+        "price": {
+          "low": 60,
+          "high": 75
+        },
+        "options": [
+          "glaze-colour",
+          "size"
+        ],
+        "order": 1
+      }
     }
   ],
   "settings": {
@@ -2105,6 +2336,63 @@
           "name": "endsOn",
           "required": true,
           "rule": "The last day it shows, YYYY-MM-DD, or null for no end date."
+        }
+      ]
+    },
+    "catalog": {
+      "file": "src/content/catalog.json",
+      "description": "The word for a catalog item and the filters visitors narrow the catalog by. Renaming a label never changes its id, so links from ads keep working.",
+      "fields": [
+        {
+          "name": "itemWord",
+          "required": true,
+          "rule": "{ \"singular\", \"plural\" }: what one item and many items are called, for example \"piece\" and \"pieces\". Each 1 to 24 characters."
+        },
+        {
+          "name": "filters",
+          "required": true,
+          "rule": "0 to 7 filters, each { \"id\", \"name\", \"values\" }: the id is a slug (lowercase words and digits joined by hyphens, 1 to 40 characters, unique), the name is 1 to 30 characters, and \"values\" is 1 to 24 of { \"id\", \"label\" } (a slug id, a label of 1 to 40 characters). A value or filter a live item uses cannot be removed. [] for none."
+        }
+      ]
+    },
+    "pricing": {
+      "file": "src/content/pricing.json",
+      "description": "The pricing table every catalog estimate comes from: currency, rounding, option groups, an optional per-person fee and exact prices. Owners enter numbers only, never formulas.",
+      "fields": [
+        {
+          "name": "currency",
+          "required": true,
+          "rule": "One of USD, CAD, GBP, EUR, AUD, NZD."
+        },
+        {
+          "name": "rounding",
+          "required": true,
+          "rule": "The step shown prices round to: 1, 5, 10, 25, 50, 100, 500, 1000."
+        },
+        {
+          "name": "spread",
+          "required": true,
+          "rule": "A whole percent from 0 to 50 that widens every range."
+        },
+        {
+          "name": "note",
+          "required": true,
+          "rule": "The sentence shown beside every estimate, 1 to 160 characters."
+        },
+        {
+          "name": "groups",
+          "required": true,
+          "rule": "0 to 6 option groups, each { \"id\", \"name\" (1 to 30 characters), \"choices\" }. A group has 2 to 12 choices, each { \"id\", \"label\" (1 to 40 characters) } and exactly one of \"add\" (a whole number from -100000 to 1000000) or \"multiply\" (0.1 to 10, at most 4 decimals). The first choice is the default."
+        },
+        {
+          "name": "perPerson",
+          "required": true,
+          "rule": "null, or { \"label\" (1 to 24 characters), \"amount\" (a whole number from 0 to 10000), \"min\", \"max\" (1 to 1000, min not above max) }."
+        },
+        {
+          "name": "exact",
+          "required": true,
+          "rule": "Item slug, then option group id, then choice id, then a whole amount from 0 to 10000000: an exact price that replaces the item's base price when that choice is picked. Only one group per item may have exact prices, and the item must use that group."
         }
       ]
     }

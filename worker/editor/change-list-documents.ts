@@ -5,6 +5,10 @@ import type { AnyBlockDefinition, Field } from "../../src/blocks/schema.ts";
 import { CONTRAST_PAIRS, type ColorToken } from "../../src/brand/contrast-pairs.ts";
 import { CURATED_FONTS, FONT_ROLES, type FontRole } from "../../src/brand/fonts.ts";
 import { SETTINGS_NAMES } from "../../src/settings/names.ts";
+import { defaultRange, formatRange } from "../../src/catalog/price.ts";
+import type { CatalogSettings, PricingTable } from "../../src/catalog/schema.ts";
+import { validateCatalogSettings, validatePricing } from "../../src/catalog/validate.ts";
+import { catalogWords } from "../../src/content/catalog.ts";
 import { BUSINESS_LABELS } from "../../src/settings/business.ts";
 import { NOTICE_LABELS } from "../../src/settings/notice.ts";
 import { collectionFor } from "../../src/collections/definitions.ts";
@@ -16,6 +20,7 @@ import { parseForm } from "../../src/forms/validate.ts";
 import { type Ctx, type Entry, diffValue, formatSize, leaves, photoText, quote, render, text } from "./change-list.ts";
 import { isObject } from "./json.ts";
 import { deepEqual } from "./operations.ts";
+import { impactLines, priceImpact, type ImpactItem } from "./price-impact.ts";
 
 export interface DocumentChange {
   before: { items: ReadonlyMap<string, unknown>; settings: ReadonlyMap<string, unknown>; forms?: ReadonlyMap<string, unknown> };
@@ -101,6 +106,7 @@ function withoutStatusAndBody(item: unknown): Record<string, unknown> {
 }
 
 function whereItAppears(kind: string, slug: string): string {
+  if (kind === "catalog") return "in the catalog gallery and on its own page";
   return kind === "posts" ? `at /blog/${slug} and in the list on /blog` : `in the ${kind} sections of your pages`;
 }
 
@@ -113,7 +119,37 @@ function statusChange(kind: string, slug: string, from: string, to: string): str
   return `Status: archive. It leaves the site (it was ${where}). Nothing is deleted; it can be brought back.`;
 }
 
-function itemSection(key: string, old: unknown, now: unknown, ctx: Ctx): string | null {
+const RANGE_WORDS = { about: catalogWords.about, to: catalogWords.to, onRequest: catalogWords.onRequest };
+type ItemPrice = { low: number; high: number } | "ask";
+
+/** The range an item's card shows (first choices, smallest party), as the owner reads it. */
+function estimateText(item: Record<string, unknown>, pricing: PricingTable, slug: string): string {
+  const options = Array.isArray(item.options) ? (item.options as string[]) : [];
+  return formatRange(defaultRange({ price: item.price as ItemPrice, options, perPerson: item.perPerson === true }, pricing, slug), pricing.currency, RANGE_WORDS);
+}
+
+/** The pricing table or catalog settings when they pass their own check, else null (the section then shows without ranges). */
+const pricingOf = (value: unknown): PricingTable | null => (isObject(value) && validatePricing(value).length === 0 ? (value as unknown as PricingTable) : null);
+const catalogSettingsOf = (value: unknown): CatalogSettings | null => (isObject(value) && validateCatalogSettings(value).length === 0 ? (value as unknown as CatalogSettings) : null);
+
+/** The pieces a pricing change can move: every catalog item that is not archived, as the price function reads it. */
+function impactItems(items: ReadonlyMap<string, unknown>): ImpactItem[] {
+  const out: ImpactItem[] = [];
+  for (const [key, item] of items) {
+    if (!key.startsWith("catalog/") || !isObject(item) || item.status === "archived") continue;
+    const price = item.price;
+    if (price !== "ask" && !(isObject(price) && typeof price.low === "number" && typeof price.high === "number")) continue;
+    out.push({
+      slug: key.slice("catalog/".length),
+      name: typeof item.name === "string" ? item.name : key,
+      order: typeof item.order === "number" ? item.order : 0,
+      item: { price: price as ItemPrice, options: Array.isArray(item.options) ? (item.options as string[]) : [], perPerson: item.perPerson === true },
+    });
+  }
+  return out;
+}
+
+function itemSection(key: string, old: unknown, now: unknown, ctx: Ctx, pricing: PricingTable | null): string | null {
   const at = key.indexOf("/");
   const kind = key.slice(0, at);
   const slug = key.slice(at + 1);
@@ -146,6 +182,10 @@ function itemSection(key: string, old: unknown, now: unknown, ctx: Ctx): string 
       lines.push("  Post, was:", ...bodyLines(old.body, ctx).map((line) => `    ${line}`));
       lines.push("  Post, now:", ...bodyLines(now.body, ctx).map((line) => `    ${line}`));
     }
+  }
+  if (kind === "catalog" && pricing !== null && (!isObject(old) || !deepEqual(old.price, now.price))) {
+    const range = estimateText(now, pricing, slug);
+    lines.push(isObject(old) ? `  Estimate for the usual choices: ${estimateText(old, pricing, slug)} → ${range}` : `  Estimate for the usual choices: ${range}`);
   }
   const bodyChanged = !isObject(old) || !deepEqual(old.body, now.body);
   if (kind === "posts" && bodyChanged && bodyLength(now.body) > LONG_POST) lines.push(LONG_POST_LINE);
@@ -302,6 +342,84 @@ const BUSINESS_FIELDS: Field = {
   },
 };
 
+const CATALOG_FIELDS: Field = {
+  kind: "object",
+  label: "",
+  fields: {
+    itemWord: { kind: "object", label: "Word for a piece", fields: { singular: text("Singular"), plural: text("Plural") } },
+    filters: {
+      kind: "list",
+      label: "Filters",
+      min: 0,
+      max: 7,
+      of: {
+        kind: "object",
+        label: "Filter",
+        fields: {
+          id: text("Id"),
+          name: text("Name"),
+          values: { kind: "list", label: "Values", min: 1, max: 24, of: { kind: "object", label: "Value", fields: { id: text("Id"), label: text("Label") } } },
+        },
+      },
+    },
+  },
+};
+
+const PRICING_FIELDS: Field = {
+  kind: "object",
+  label: "",
+  fields: {
+    currency: text("Currency"),
+    rounding: text("Rounds to"),
+    spread: text("Spread (percent)"),
+    note: text("Note shown with every estimate"),
+    groups: {
+      kind: "list",
+      label: "Option groups",
+      min: 0,
+      max: 6,
+      of: {
+        kind: "object",
+        label: "Option group",
+        fields: {
+          id: text("Id"),
+          name: text("Name"),
+          choices: {
+            kind: "list",
+            label: "Choices",
+            min: 2,
+            max: 12,
+            of: { kind: "object", label: "Choice", fields: { id: text("Id"), label: text("Label"), add: text("Adds"), multiply: text("Multiplies by") } },
+          },
+        },
+      },
+    },
+    perPerson: { kind: "object", label: "Per-person fee", fields: { label: text("Label"), amount: text("Amount per person"), min: text("Fewest people"), max: text("Most people") } },
+    exact: text("Exact prices"),
+  },
+};
+
+const catalogSection = (old: Record<string, unknown>, now: Record<string, unknown>, ctx: Ctx): string => {
+  const entries: Entry[] = [];
+  diffValue(old, now, CATALOG_FIELDS, [], entries, ctx);
+  return ["Catalog settings (filters and the word for a piece):", ...render(entries)].join("\n");
+};
+
+const pricingSection = (old: Record<string, unknown>, now: Record<string, unknown>, ctx: Ctx): string => {
+  const entries: Entry[] = [];
+  diffValue(old, now, PRICING_FIELDS, [], entries, ctx);
+  return ["Pricing table:", ...render(entries)].join("\n");
+};
+
+/** The closing lines of any change to the pricing table: how many pieces change price, and the first changed range of each. */
+function pricingImpactLines(change: DocumentChange): string[] {
+  const before = pricingOf(change.before.settings.get("pricing"));
+  const after = pricingOf(change.after.settings.get("pricing"));
+  if (before === null || after === null) return [];
+  const word = catalogSettingsOf(change.after.settings.get("catalog"))?.itemWord ?? { singular: "piece", plural: "pieces" };
+  return impactLines(priceImpact(before, after, impactItems(change.after.items)), word);
+}
+
 const N = NOTICE_LABELS;
 const NOTICE_FIELDS: Field = {
   kind: "object",
@@ -378,8 +496,9 @@ function businessSection(old: Record<string, unknown>, now: Record<string, unkno
 /** The change list's sections for the items and settings a change touches (items first, then business, brand, notice). */
 export function documentSections(change: DocumentChange, ctx: Ctx, registry: readonly AnyBlockDefinition[]): string[] {
   const sections: string[] = [];
+  const pricing = pricingOf(change.after.settings.get("pricing"));
   for (const key of change.touchedItems) {
-    const section = itemSection(key, change.before.items.get(key), change.after.items.get(key), ctx);
+    const section = itemSection(key, change.before.items.get(key), change.after.items.get(key), ctx, pricing);
     if (section !== null) sections.push(section);
   }
   for (const id of change.touchedForms ?? []) {
@@ -393,9 +512,15 @@ export function documentSections(change: DocumentChange, ctx: Ctx, registry: rea
     if (!isObject(old) || !isObject(now)) continue;
     if (name === "business") sections.push(businessSection(old, now, ctx));
     else if (name === "brand") sections.push(brandSection(old, now, ctx));
+    else if (name === "catalog") sections.push(catalogSection(old, now, ctx));
+    else if (name === "pricing") sections.push(pricingSection(old, now, ctx));
     else sections.push(noticeSection(old, now, change.today, ctx));
   }
   const notes = [...emptyListNotes(change, registry), ...formNotes(change)];
   if (notes.length > 0) sections.push(notes.join("\n"));
+  if (change.touchedSettings.includes("pricing")) {
+    const impact = pricingImpactLines(change);
+    if (impact.length > 0) sections.push(impact.join("\n"));
+  }
   return sections;
 }

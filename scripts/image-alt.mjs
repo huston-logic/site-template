@@ -127,5 +127,26 @@ export function imageAltCheck(url, sources, rules = defaultRules) {
     }
   }
   if (uses === 0) problems.push(`${url} is not used by any page or content file, so it has no alt text. Use it with alt text, or leave the image out`);
-  return { problems, alts };
+  return { problems, alts, uses };
+}
+
+const CARD_SUFFIX = /-card\.webp$/;
+const SOURCE_EXTENSIONS = [".webp", ".jpg", ".jpeg", ".png"];
+
+/** The addresses a card file's photo may have: "/images/a/b-card.webp" is the card of "/images/a/b.webp", ".jpg", ".jpeg" or ".png". Empty when it is not a card name. */
+export function cardSourceUrls(url) {
+  return CARD_SUFFIX.test(url) ? SOURCE_EXTENSIONS.map((extension) => url.replace(CARD_SUFFIX, extension)) : [];
+}
+
+/**
+ * The alt check for a catalog card file (a 720 by 900 thumbnail beside a photo). A card is shown with its photo's alt text and is
+ * never written into a page file itself, so it counts as used when its photo (or, for an ordinary image that happens to end in
+ * -card.webp, the card itself) is used with real alt text. Same return shape as imageAltCheck.
+ */
+export function cardAltCheck(url, sources, rules = defaultRules) {
+  const results = [url, ...cardSourceUrls(url)].map((candidate) => imageAltCheck(candidate, sources, rules)).filter((result) => result.uses > 0);
+  if (results.length === 0) {
+    return { problems: [`${url} is not used by any page or content file, and neither is the photo it is the card of (${cardSourceUrls(url).join(", ")}). Use the photo with alt text, or leave the card out`], alts: [], uses: 0 };
+  }
+  return { problems: results.flatMap((result) => result.problems), alts: results.flatMap((result) => result.alts), uses: results.reduce((sum, result) => sum + result.uses, 0) };
 }

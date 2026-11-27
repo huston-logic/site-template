@@ -160,6 +160,76 @@ The contact form is set up by Huston Logic, and the owner cannot change it by ch
 
 When a form is added, the editor also rewrites one generated file, `src/forms/registry.generated.ts`, in the same change. The Worker reads its list of forms from that file, so a submission is judged against the form the site was built from.
 
+## Catalog
+
+A catalog is a set of pieces, such as jewelry, furniture or cakes. Each piece has photos, a description, filters and a price estimate. Visitors browse the pieces, narrow them with the filters and ask for a quote from a piece. Huston Logic sets up the catalog on your site. After that you change it by chat, like the rest of the site.
+
+A site sells from its catalog through three things: the `catalog` section (the gallery, with filters), a page per piece with its photos and the quote builder, and the `quote-builder` section. The chat tools below change what they show.
+
+### What you can change by chat
+
+- **Add a piece.** Give its name, description, price, filters and options, and ask for its photos. Ask for the photo you uploaded, for example "Add this piece with the photo I just uploaded". A piece has up to six photos. The first is the cover. Every photo needs alt text, a short description of what it shows. A new piece is a draft unless you say to publish it.
+- **Change a piece.** Its name, description, price, filters, options and order. Ask in plain words.
+- **Hide the price.** Ask for it, for example "Hide the price on this piece". The piece then shows "Price on request" and no estimate.
+- **Archive and restore a piece.** For example, "Archive this piece". An archived piece leaves the gallery and the sitemap. Nothing is deleted, and you can ask for it back.
+- **Change the filters.** Add a filter, for example "Add a filter called Style with Vintage and Modern". Rename a filter or a value, or add a value. Renaming a label does not change its id, so links from ads keep working. A filter or value that a live piece uses cannot be removed. The change says which pieces use it.
+- **Change the pricing table.** The option groups (such as metal) and their choices, the per-person fee, the note under the prices and the rounding.
+- **Raise or lower one choice by a percent.** For example, "Raise 18k gold by 5 percent". This is one change. It also changes the exact prices for that choice, on every piece that has one.
+
+The chat tools use the word "estimate", not "price", for what a visitor sees. Prices come only from your words. The AI never invents a price, a filter value or a fact about a piece. Each price on the site is a range, or "About" a figure, beside the word "Estimate" and the pricing note.
+
+### What a price change shows
+
+A change to the pricing table lists every piece it changes before you say yes. The list starts with "This changes the price of N pieces". Then it shows up to 12 pieces. Each line gives the old and new estimate, for example `Oval halo ring, with 18k gold: $2,000 to $2,500 → $2,100 to $2,625`. The last line says "and M more" when there are more. Read the list. Say yes only if the figures are right.
+
+### Limits
+
+- A proposal touches at most 10 pieces. The site publishes at most 10 changes a day and takes at most 50 uploads a day. So by chat that is at most 100 pieces and 50 photos a day.
+- The first load of a catalog is not done by chat. A first load of 300 pieces with three photos each would take 18 days by chat. Huston Logic loads the first set with the import script, below. Chat is for the changes that follow.
+
+### Setting up a catalog on one site (Huston Logic)
+
+The template ships an empty catalog: no filters, no option groups and the default note. These are the steps for one site.
+
+1. Fill in `src/content/catalog.json` (the item word and the filters) and `src/content/pricing.json` (the pricing table).
+2. Prepare the pieces. Export them from a spreadsheet as a CSV file. Put the photos in one folder as JPEG, PNG or WebP. Convert HEIC photos first. The report names any photo it cannot use.
+3. Write a mapping file. It is JSON. It names the CSV column for each field:
+
+   ```json
+   {
+     "name": "Name",
+     "description": "Description",
+     "price": { "low": "Price from", "high": "Price to" },
+     "filters": { "type": "Type" },
+     "options": "Options",
+     "exact": { "metal/18k-gold": "Price 18k" },
+     "photos": { "column": "Photos", "alt": "Alt text", "focus": "Focus" }
+   }
+   ```
+
+   `name` and `description` are required. The other keys are optional: `slug`, `order`, `status`, `defaultStatus` (`draft` or `live`), `askWord`, `perPerson`. A blank low price, or the word "ask", means "price on request". Filter values are split on `;`. Photo names are split on `;`, and the first is the cover. `scripts/fixtures/catalog-mapping.example.json` is a full example.
+4. Dry run. Nothing is written:
+
+   ```bash
+   npm run import:catalog -- <csv> <photos folder> <mapping.json>
+   ```
+
+   The report lists each skipped row with its line number and the reason, then the counts. Fix the CSV or the mapping and run it again until the report is right.
+5. Write the files:
+
+   ```bash
+   npm run import:catalog -- <csv> <photos folder> <mapping.json> --write
+   ```
+
+   It writes one file per piece, the photos and their card files, and the exact prices. Pieces are drafts unless the mapping says `live`. It does not overwrite a piece that already has a file, unless you add `--update`. Add `--add-values` to add filter values that are missing from `catalog.json`.
+6. Add the page that holds the `catalog` block, with its path (for example `/shop`) and a menu entry if wanted. A live catalog page needs a live quote form.
+7. Check the quote form in `src/content/forms/quote.json`: its questions, its button, its thank-you and its `reply` text (the subject and the closing lines of the visitor's estimate email).
+8. Run `npm run check`, then open a pull request. Merge it after the checks pass.
+
+### Quote requests
+
+A visitor builds an estimate from the piece's options and guest count, then asks for a quote through the quote form. The Worker works out the estimate again from the site's own prices, so a browser cannot post a different figure. A quote request goes to the same place as the other forms: the Sheet's Forms tab or the Pipeline app, and the owner's notification email. The visitor gets the estimate by email only after you have the request.
+
 ## What is protected
 
 - **Owners only.** Only the emails in `editor.ownerEmails` in `site.config.ts` can sign in or connect an AI app. Cloudflare Access (a sign-in gate that emails a one-time code) and the Worker both check this on every visit to `/owner`.

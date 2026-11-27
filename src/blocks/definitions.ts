@@ -2,6 +2,7 @@
 // scripts (the content check, the catalog) can load it.
 import { siteBlocks } from "../site-blocks/definitions.ts";
 import { businessDetailsDefinition } from "./library/business-details/definition.ts";
+import { catalogDefinition } from "./library/catalog/definition.ts";
 import { closingCtaDefinition } from "./library/closing-cta/definition.ts";
 import { contactFormDefinition } from "./library/contact-form/definition.ts";
 import { episodeListDefinition } from "./library/episode-list/definition.ts";
@@ -15,6 +16,7 @@ import { legalSectionsDefinition } from "./library/legal-sections/definition.ts"
 import { photoTextDefinition } from "./library/photo-text/definition.ts";
 import { postIndexDefinition } from "./library/post-index/definition.ts";
 import { proseDefinition } from "./library/prose/definition.ts";
+import { quoteBuilderDefinition } from "./library/quote-builder/definition.ts";
 import { stepsDefinition } from "./library/steps/definition.ts";
 import { teamDefinition } from "./library/team/definition.ts";
 import { testimonialsDefinition } from "./library/testimonials/definition.ts";
@@ -44,6 +46,8 @@ export const libraryBlocks: AnyBlockDefinition[] = [
   episodeListDefinition,
   testimonialsDefinition,
   teamDefinition,
+  catalogDefinition,
+  quoteBuilderDefinition,
 ];
 
 export const registry: AnyBlockDefinition[] = [...libraryBlocks, ...siteBlocks];

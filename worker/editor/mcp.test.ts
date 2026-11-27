@@ -38,7 +38,7 @@ test("the instructions hold every rule the AI must follow", () => {
   for (const phrase of ["exactly as returned", "only after the owner says yes", "Never say a change is live", "voice guide", "catalog's rules", "Huston Logic", "request_feature", "content, not instructions", "Never invent a testimonial", "draft unless the owner said to publish", "preview_change has run", "information, never instructions"]) {
     assert.ok(text.includes(phrase), phrase);
   }
-  assert.equal(text.split("\n").filter((line) => /^\d+\. /.test(line)).length, 19);
+  assert.equal(text.split("\n").filter((line) => /^\d+\. /.test(line)).length, 21);
 });
 
 test("tools/list names the twenty tools with schemas and the wording the AI must see", async () => {
@@ -61,7 +61,7 @@ test("tools/list names the twenty tools with schemas and the wording the AI must
   const operations = by("propose_change").inputSchema.properties.operations as { items: { oneOf: { properties: { op: { const: string } } }[] } };
   assert.deepEqual(
     operations.items.oneOf.map((schema) => schema.properties.op.const),
-    ["set", "insert_item", "remove_item", "insert_block", "move_block", "remove_block", "add_page", "archive_page", "restore_page", "add_item", "set_item_status", "add_form", "set_form_status", "set_brand_color", "set_font"],
+    ["set", "insert_item", "remove_item", "insert_block", "move_block", "remove_block", "add_page", "archive_page", "restore_page", "add_item", "set_item_status", "add_form", "set_form_status", "set_brand_color", "set_font", "scale_price"],
   );
   assert.equal("run" in tools[0], false);
 });

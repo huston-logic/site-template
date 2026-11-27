@@ -20,7 +20,7 @@ const FILE_BLOB = /^public\/files\/[^/]+\.pdf$/;
 const PAGE_FILE = /^src\/content\/pages\/[a-z0-9]+(?:-[a-z0-9]+)*\.json$/;
 const ITEM_FILE = new RegExp(`^${ITEM_DIR}/(${COLLECTION_KINDS.join("|")})/([a-z0-9]+(?:-[a-z0-9]+)*)\\.json$`);
 const FORM_FILE = new RegExp(`^${FORM_DIR}/([a-z0-9]+(?:-[a-z0-9]+)*)\\.json$`);
-const UPLOAD_PHOTO = /^public\/images\/uploads\/[a-z0-9]{8}\.webp$/;
+const UPLOAD_PHOTO = /^public\/images\/uploads\/[a-z0-9]{8}(?:-card)?\.webp$/;
 const UPLOAD_PDF = /^public\/files\/[a-z0-9]+(?:-[a-z0-9]+)*\.pdf$/;
 /** The files a brand change regenerates from brand.json. */
 export { FONTS_PATH, PALETTE_PATH };
@@ -105,7 +105,7 @@ export async function readSite(github: GitHub): Promise<Snapshot> {
     imagesTree: entries.find((e) => e.type === "tree" && e.path === IMAGES_DIR)?.sha ?? "none",
     filesTree: entries.find((e) => e.type === "tree" && e.path === FILES_DIR)?.sha ?? "none",
     collectionsTree: entries.find((e) => e.type === "tree" && e.path === ITEM_DIR)?.sha ?? "none",
-    settingsShas: { business: "none", brand: "none", notice: "none" },
+    settingsShas: { business: "none", brand: "none", notice: "none", catalog: "none", pricing: "none" },
   };
   for (const entry of entries) {
     if (entry.type === "blob" && entry.path.startsWith(`${IMAGES_DIR}/`)) snapshot.images.add(entry.path.slice("public".length));
@@ -193,6 +193,8 @@ export function validateSet(
       business: documents.settings.get("business"),
       brand: documents.settings.get("brand"),
       notice: documents.settings.get("notice"),
+      catalog: documents.settings.get("catalog"),
+      pricing: documents.settings.get("pricing"),
       settingsErrors: snapshot.settingsErrors,
     },
     registry,

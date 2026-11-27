@@ -31,7 +31,7 @@ export function makeUploadsEditor(options: { github?: FakeGitHub; images?: FakeI
     now: () => (held.test as TestEditor).now.value,
     randomId: () => `up${String(++counter).padStart(6, "0")}`,
   });
-  const test = (held.test = makeTestEditor({ ...(options.github ? { github: options.github } : {}), ...(options.config ? { config: options.config } : {}), deps: { uploads: store } }));
+  const test = (held.test = makeTestEditor({ ...(options.github ? { github: options.github } : {}), ...(options.config ? { config: options.config } : {}), deps: { uploads: store, cardReader: (id: string) => store.card(id) } }));
   return { ...test, store, r2 };
 }
 

@@ -44,7 +44,7 @@ export function buildEditor(config: WorkerConfig, env: EditorEnv, deps: { fetch?
     thanksLinks: thanksPageLinks(thanks),
     formSettings: config.forms,
     now,
-    ...(store ? { uploads: store } : {}),
+    ...(store && env.UPLOADS ? { uploads: store, cardReader: (id: string) => store.card(id) } : {}),
     ...(deps.fetch ? { fetch: deps.fetch } : {}),
   });
 }

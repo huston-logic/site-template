@@ -361,3 +361,49 @@ Lighthouse compression, PROCESS.md rule 17, merged) and #35.
 | Commits | 19 (2 in #34, 17 in #35) plus 5 merge commits |
 | Time in checks | about 25 minutes (`check:fast` per commit and in each worktree, 3 full checks, 2 change reports, 1 local a11y run, 1 local Lighthouse run) |
 | Time waiting on CI | about 9 minutes for #34 (queued before the main work, merged while it ran); 0 for #35 (auto-merge queued) |
+
+## Record: For the master lines from the ad tracking and lead source run (moved from STATUS.md unchanged, 2026-11-27)
+
+Earlier lines were copied to the master and moved to `docs/history/STATUS-history.md`.
+
+- Sites can carry Google Analytics, Google Ads and Meta Pixel tags; Huston Logic sets the IDs, owners cannot by chat.
+- The tags load only on the live site, and never for a visitor whose browser sends Global Privacy Control; no banner.
+- Every lead in the Sheet, the owner's email and the Pipeline app now shows which ad or site it came from.
+- A visitor who clicks an ad and comes back within 90 days is still credited to that ad.
+- Google Ads gets conversions only, with no remarketing lists, so no third-party cookies land on every page.
+- No personal data goes to Google or Meta; their automatic matching settings must stay off in each ad account.
+- A site with tracking on must say so on its privacy page; suggested wording is in the tracking guide.
+- In the weekly ad report the Sheet is the lead count; spend comes from the ad accounts and the funnel from GA4.
+
+## Record: Ad tracking and lead source (2026-11-27) run, moved from STATUS.md unchanged (2026-11-27)
+
+Process run, unattended. Design (18 rulings with costs): `docs/superpowers/specs/2026-11-27-ad-tracking-design.md`; plan:
+`docs/superpowers/plans/2026-11-27-ad-tracking.md`. Opus designed, integrated, tested and fixed; three Sonnet
+implementers in parallel worktrees; Haiku drafted the docs; the three reviewers ran once. One PR: #36.
+
+- **Checks:** full `npm run check` passes (832 Worker and shared-module tests, 543 script tests, content and design
+  checks, build). With no IDs, `public/_headers` is byte-identical to `main`, all 9 pages are pixel-identical at
+  desktop and phone (`npm run report:changes`, `npm run compare:screens`), no page asks a new host or `/api/visit`;
+  each page makes one more same-origin request (a JS chunk Turbopack split in two after it grew about 460 bytes;
+  ruling 4). With the fixture IDs: `npm run test:tracking` (new, 6 browser tests, outside hosts stubbed) passes,
+  including a page and form made by the editor's own operations, and GPC loading nothing; Lighthouse with the tags on
+  scores 100/100/100/100 on every page (the showcase SEO 69 as a noindex page, as on `main`).
+- **Fixture Lighthouse found and fixed:** a missing Ads script host; Ads page views setting third-party cookies (73).
+- **Reviews:** review-code (a throwing ad script could stop a form's success step; a stale page title; a bare visit could
+  create an empty first touch; a utm tag without utm_source read "Direct"), review-security (no high; medium: the Meta
+  Pixel's automatic configuration and advanced matching could read forms; low: the fixture on a preview build, the
+  page address sent to GA4 kept every parameter, the GA4 wildcard origins undocumented), review-a11y (none; the same
+  success-step point), a final pre-merge review (full URL on other GA4 events; the cookie missing from the privacy
+  checklist; owner-added Sheet columns; mount-effect events); CodeQL (5 alerts in test regexes). All fixed. No design
+  critique: nothing visible changed.
+- **Judgment calls (all in the design):** the cookie comes from `POST /api/visit`, not a Worker before every page; capture
+  only tagged or referred visits; a build-time alias keeps tag code out of builds without IDs; the capture script stays
+  under 400 characters (Next's 2 KB prefetch-inlining limit); GA4 gets `generate_lead`; page views to GA4 only.
+- **New dependencies:** none.
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | about 1 hour (12:22 to about 13:20, PR open, reviewed and fixed) |
+| Commits | 14 plus 3 merge commits |
+| Time in checks | about 25 minutes (`check:fast` per commit in four places, 4 full checks, 10 builds, 2 local Lighthouse runs, 5 browser test runs, 2 change reports) |
+| Time waiting on CI | 0 (auto-merge queued; the next run does not depend on it) |

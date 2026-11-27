@@ -23,8 +23,8 @@ export const noArguments: InputSchema = { type: "object", properties: {}, requir
 
 const pagePath = { type: "string", description: 'A page path such as "/hours".' };
 const itemKey = { type: "string", description: 'An item as "<collection>/<slug>", such as "posts/new-inspection-service".' };
-const settingsName = { enum: ["business", "brand", "notice"], description: "One of the settings files." };
-const collectionName = { enum: ["posts", "videos", "episodes", "testimonials", "team"], description: "One of the collections." };
+const settingsName = { enum: ["business", "brand", "notice", "catalog", "pricing"], description: "One of the settings files." };
+const collectionName = { enum: ["posts", "videos", "episodes", "testimonials", "team", "catalog"], description: "One of the collections." };
 const formId = { type: "string", description: 'A form as its id, such as "quote-request". The contact form ("contact") is Huston Logic\'s and cannot be changed.' };
 const slug = { type: "string", description: "Lowercase words and digits joined by hyphens, 1 to 60 characters." };
 /** What a set, insert_item or remove_item changes: exactly one of page, item or settings. */
@@ -98,6 +98,12 @@ const operationSchemas: Record<string, unknown>[] = [
   strict({ op: { const: "set_form_status" }, form: formId, status: { enum: ["live", "archived"], description: "archived: the form leaves the site and every section that shows it is removed from its pages in the same change; live: restore it." } }),
   strict({ op: { const: "set_brand_color" }, role: { enum: ["brand", "accent"] }, value: { type: "string", pattern: "^#[0-9a-fA-F]{6}$", description: "A #rrggbb color. It is refused if any text or button would stop being readable." } }),
   strict({ op: { const: "set_font" }, role: { enum: ["display", "body", "accent"] }, font: { type: "string", description: "A font id from get_settings (brand)." } }),
+  strict({
+    op: { const: "scale_price" },
+    group: { type: "string", description: "An option group id from get_settings (pricing), such as metal." },
+    choice: { type: "string", description: "A choice id in that group, such as 18k-gold." },
+    percent: { type: "number", minimum: -50, maximum: 100, multipleOf: 0.01, description: "Percent to raise (positive) or lower (negative) that choice and every exact price for it, such as 5. Only the owner's own figure; never a guess." },
+  }),
 ];
 
 const uploadId: Prop = { type: "string", pattern: "^[a-z0-9]{8}$", description: "An upload id from list_uploads." };
@@ -122,18 +128,18 @@ export const schemas = {
     required: ["summary", "operations"],
     additionalProperties: false,
   },
-  getCollection: { type: "object", properties: { collection: { type: "string", pattern: "^(posts|videos|episodes|testimonials|team)$", description: "One of posts, videos, episodes, testimonials, team." } }, required: ["collection"], additionalProperties: false },
+  getCollection: { type: "object", properties: { collection: { type: "string", pattern: "^(posts|videos|episodes|testimonials|team|catalog)$", description: "One of posts, videos, episodes, testimonials, team, catalog." } }, required: ["collection"], additionalProperties: false },
   getItem: {
     type: "object",
     properties: {
-      collection: { type: "string", pattern: "^(posts|videos|episodes|testimonials|team)$", description: "One of posts, videos, episodes, testimonials, team." },
+      collection: { type: "string", pattern: "^(posts|videos|episodes|testimonials|team|catalog)$", description: "One of posts, videos, episodes, testimonials, team, catalog." },
       slug: { type: "string", minLength: 1, maxLength: 60, description: "The item's slug." },
     },
     required: ["collection", "slug"],
     additionalProperties: false,
   },
   getForm: { type: "object", properties: { form: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 60, description: "A form's id from list_forms." } }, required: ["form"], additionalProperties: false },
-  getSettings: { type: "object", properties: { name: { type: "string", pattern: "^(business|brand|notice)$", description: "business, brand or notice." } }, required: ["name"], additionalProperties: false },
+  getSettings: { type: "object", properties: { name: { type: "string", pattern: "^(business|brand|notice|catalog|pricing)$", description: "business, brand, notice, catalog or pricing." } }, required: ["name"], additionalProperties: false },
   upload: { type: "object", properties: { upload_id: uploadId }, required: ["upload_id"], additionalProperties: false },
   preview: { type: "object", properties: { proposal_id: proposalId }, required: ["proposal_id"], additionalProperties: false },
   publish: {

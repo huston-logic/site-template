@@ -238,6 +238,40 @@
     box-shadow: 0 20px 32px -22px color-mix(in srgb, var(--hl-ink) 50%, transparent);
   }
 
+  /* The catalog gallery (src/blocks/library/catalog). Without JavaScript the filter bar is not drawn and every card lists. With
+     it, cards after the 24th are hidden before first paint, so the island (which takes over and sets data-ready) shifts nothing. */
+  .hl-catalog-bar,
+  .hl-js-only {
+    display: none;
+  }
+
+  .js .hl-catalog-bar,
+  .js .hl-js-only {
+    display: block;
+  }
+
+  .js [data-catalog-grid]:not([data-ready]) > [data-card]:nth-child(n + 25) {
+    display: none;
+  }
+
+  /* A card's photo lifts 2px on hover and when its link has keyboard focus, and takes the focus ring: the link's own box is
+     only its name, but the link stretches over the whole card. */
+  .hl-card-frame {
+    transition:
+      transform var(--duration-lift) var(--ease-hover),
+      box-shadow var(--duration-lift) var(--ease-hover);
+  }
+
+  .hl-card:is(:hover, :has(a:focus-visible)) .hl-card-frame {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+
+  .hl-card:has(a:focus-visible) .hl-card-frame {
+    outline: 2px solid var(--hl-rust);
+    outline-offset: 3px;
+  }
+
   /* §2 glows: radial gradients on a positioned, non-interactive element. No images, no blur filter. Place one
      per seam by giving it absolute offsets; scale is 55% on phones. */
   .hl-glow {
@@ -359,7 +393,8 @@
     scroll-behavior: auto !important;
   }
 
-  .hl-lift:is(:hover, :focus-visible) {
+  .hl-lift:is(:hover, :focus-visible),
+  .hl-card:is(:hover, :has(a:focus-visible)) .hl-card-frame {
     transform: none;
   }
 }

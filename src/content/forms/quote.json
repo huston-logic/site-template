@@ -1,0 +1,16 @@
+{
+  "name": "Quote request",
+  "status": "live",
+  "fields": [
+    { "id": "name", "type": "short-text", "label": "Your name", "purpose": "name", "max": 100, "required": true, "error": "Please add your name." },
+    { "id": "email", "type": "email", "label": "Email", "required": true, "error": "That email doesn't look quite right." },
+    { "id": "phone", "type": "phone", "label": "Phone", "required": false },
+    { "id": "message", "type": "long-text", "label": "Anything else I should know?", "max": 2000, "required": false }
+  ],
+  "button": "Send my quote request",
+  "thanks": "Thanks. I have your request and will reply with a firm quote.",
+  "reply": {
+    "subject": "Your estimate",
+    "next": "I'll look at your request and reply with a firm quote. Nothing is booked until we talk."
+  }
+}

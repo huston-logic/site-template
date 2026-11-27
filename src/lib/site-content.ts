@@ -9,6 +9,7 @@ import type { PageData } from "../blocks/schema.ts";
 import { toLoadedItems, validateSite } from "../collections/site-validate.ts";
 import type { LoadedItem } from "../collections/schema.ts";
 import { thanks } from "../content/contact.ts";
+import type { CatalogSettings, PricingTable } from "../catalog/schema.ts";
 import type { BrandData } from "../settings/brand.ts";
 import type { BusinessData } from "../settings/business.ts";
 import type { NoticeData } from "../settings/notice.ts";
@@ -16,7 +17,7 @@ import { readFormFiles, readItemFiles, readSettingsFiles } from "./content-files
 import { readPageFiles } from "./page-files.ts";
 import { thanksPageLinks } from "./thanks-links.ts";
 
-export type SiteContent = { pages: PageData[]; items: LoadedItem[]; business: BusinessData; brand: BrandData; notice: NoticeData };
+export type SiteContent = { pages: PageData[]; items: LoadedItem[]; business: BusinessData; brand: BrandData; notice: NoticeData; catalog: CatalogSettings; pricing: PricingTable };
 
 let cached: SiteContent | null = null;
 
@@ -31,7 +32,7 @@ function load(): SiteContent {
   const repo = { imageExists: (src: string) => existsSync(join(root, "public", src)), fileExists: (href: string) => pdfs.has(href.replace(/^\/files\//, "")) };
   const settingsErrors = Object.fromEntries(Object.entries(settings).flatMap(([name, { error }]) => (error === undefined ? [] : [[name, error]])));
   const problems = validateSite(
-    { pages, items, forms, business: settings.business.data, brand: settings.brand.data, notice: settings.notice.data, settingsErrors },
+    { pages, items, forms, business: settings.business.data, brand: settings.brand.data, notice: settings.notice.data, catalog: settings.catalog.data, pricing: settings.pricing.data, settingsErrors },
     registry,
     repo,
     { links: thanksPageLinks(thanks), formSettings: siteConfig.forms },
@@ -45,6 +46,8 @@ function load(): SiteContent {
     business: settings.business.data as BusinessData,
     brand: settings.brand.data as BrandData,
     notice: settings.notice.data as NoticeData,
+    catalog: settings.catalog.data as CatalogSettings,
+    pricing: settings.pricing.data as PricingTable,
   };
 }
 

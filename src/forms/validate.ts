@@ -2,6 +2,7 @@
 // `validateSubmission` judges a visitor's answers against a form definition (the browser and the Worker). Problems come
 // back as plain sentences naming the file. Import-free apart from sibling shared modules.
 import { FILE_LINK_RE } from "../blocks/schema.ts";
+import { QUOTE_FORM_ID } from "../catalog/schema.ts";
 import { textProblem } from "../blocks/validate.ts";
 import { cleanLine } from "./clean.ts";
 import {
@@ -27,7 +28,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 const quoted = (names: readonly string[]) => names.map((n) => `"${n}"`).join(", ");
 const article = (word: string) => (/^[aeiou]/i.test(word) ? "an" : "a");
 
-const FORM_KEYS = ["name", "status", "fields", "button", "thanks", "download"];
+const FORM_KEYS = ["name", "status", "fields", "button", "thanks", "download", "reply"];
 const BASE_FIELD_KEYS = ["id", "type", "label", "required", "help", "error"];
 const EXTRA_FIELD_KEYS: Record<FieldType, readonly string[]> = {
   "short-text": ["max", "purpose"],
@@ -156,6 +157,17 @@ function downloadProblems(download: unknown, file: string, ctx: FormContext, out
   checkTitle(download["title"], say);
 }
 
+function replyProblems(id: string, reply: unknown, file: string, out: string[]): void {
+  if (id !== QUOTE_FORM_ID) return void out.push(`${file}: "reply" is only for the quote form (${QUOTE_FORM_ID}), whose visitors get an estimate email.`);
+  if (!isRecord(reply)) return void out.push(`${file}: "reply" must be an object with "subject" and "next".`);
+  const say = (message: string) => out.push(`${file}: reply ${message}`);
+  for (const key of Object.keys(reply)) if (key !== "subject" && key !== "next") say(`"${key}" is not a reply setting. It accepts: subject, next.`);
+  if (reply["subject"] === undefined) say('"subject" is missing.');
+  else checkText(reply["subject"], 1, LIMITS.replySubjectMax, say, '"subject"');
+  if (reply["next"] === undefined) say('"next" is missing.');
+  else checkText(reply["next"], 1, LIMITS.replyNextMax, say, '"next"');
+}
+
 function checkTitle(title: unknown, say: (message: string) => void): void {
   if (title === undefined) say('"title" is missing.');
   else checkText(title, 1, LIMITS.downloadTitleMax, (message) => say(message), '"title"');
@@ -206,6 +218,7 @@ export function formProblems(id: string, data: unknown, ctx: FormContext, settin
   if (data["thanks"] === undefined) say('"thanks" is missing.');
   else checkText(data["thanks"], 1, LIMITS.thanksMax, say, '"thanks"');
   if (data["download"] !== undefined) downloadProblems(data["download"], file, ctx, out);
+  if (data["reply"] !== undefined) replyProblems(id, data["reply"], file, out);
 
   const fields = data["fields"];
   if (!Array.isArray(fields)) say('"fields" must be a list of fields.');

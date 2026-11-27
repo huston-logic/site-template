@@ -14,5 +14,5 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true
   },
-  "include": ["./**/*.ts", "../site.config.ts", "../src/content/contact-fields.ts", "../src/content/auto-reply.ts", "../src/content/providers.ts", "../src/lib/contact-validation.ts", "../src/lib/first-name.ts", "../src/forms/*.ts", "../src/content/forms.ts", "../src/content/forms/*.json"]
+  "include": ["./**/*.ts", "../site.config.ts", "../src/content/contact-fields.ts", "../src/content/auto-reply.ts", "../src/content/providers.ts", "../src/lib/contact-validation.ts", "../src/lib/first-name.ts", "../src/forms/*.ts", "../src/catalog/*.ts", "../src/content/catalog.ts", "../src/content/forms.ts", "../src/content/forms/*.json"]
 }

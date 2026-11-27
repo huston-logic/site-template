@@ -16,6 +16,7 @@ import { pathToFileURL } from "node:url";
 import { decide, evaluateChange, fence, formatReport, gatherChange, parseArgs, realGit, safe } from "./check-change-scope.mjs";
 import { rules } from "./change-scope-rules.mjs";
 import { pathForFile } from "../src/blocks/schema.ts";
+import { CATALOG_BLOCK, QUOTE_FORM_ID, itemPathFor } from "../src/catalog/schema.ts";
 import { startPreviewServer } from "./preview.mjs";
 
 export const VIEWPORTS = [
@@ -145,6 +146,25 @@ export function collectionBlockTypes(registry) {
   return byKind;
 }
 
+/** The live catalog pieces in the order the gallery shows them (order, then name): [slug]. `entries` is [{ path, text }] of item files. */
+export function catalogOrderFromTexts(entries) {
+  const live = [];
+  for (const { path, text } of entries) {
+    const item = itemForFile(path);
+    if (!item || item.kind !== "catalog") continue;
+    try {
+      const data = JSON.parse(text);
+      if (data?.status === "live") live.push({ slug: item.slug, order: Number.isInteger(data.order) ? data.order : 0, name: String(data.name ?? "") });
+    } catch {
+      continue;
+    }
+  }
+  return live.sort((a, b) => a.order - b.order || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0) || (a.slug < b.slug ? -1 : 1)).map((piece) => piece.slug);
+}
+
+/** How many piece pages a change to the catalog settings photographs. */
+export const CATALOG_SAMPLE = 3;
+
 /**
  * What the report needs to know about each page file: { [route]: { status, types } }, where `types` lists the block types the
  * page uses. `entries` is [{ file, text }] (the text of every file in src/content/pages/). A file that is not valid JSON is skipped.
@@ -173,7 +193,7 @@ export function pageInfoFromTexts(entries) {
  * `pagesBase` are pageInfoFromTexts results for the two sides. A route that is a page file on neither side (the thanks
  * page, the showcase) is taken to be there on both. Returns [{ route, slug, before, after, reason }].
  */
-export function affectedPages({ files, sources, pageRoutes = {}, allRoutes, pagesHead = {}, pagesBase = {}, itemsHead = {}, itemsBase = {}, collectionTypes = {} }) {
+export function affectedPages({ files, sources, pageRoutes = {}, allRoutes, pagesHead = {}, pagesBase = {}, itemsHead = {}, itemsBase = {}, collectionTypes = {}, catalogOrderHead = [], catalogOrderBase = [] }) {
   const entries = new Map();
   // A route with no page file on that side may still be a page there: a code page, or (when converting a site to blocks)
   // a page that only became a file on this branch. The screenshot step asks that side's build and skips a 404.
@@ -186,16 +206,43 @@ export function affectedPages({ files, sources, pageRoutes = {}, allRoutes, page
     }
     mark(SHOWCASE_ROUTE, `${path} changed (the block showcase shows every block)`);
   };
+  // The catalog page: every page, now or before, that holds a catalog block. Its pieces are pages at <catalog page>/<slug>.
+  const holders = (pages) => Object.keys(pages).filter((route) => pages[route].types.includes(CATALOG_BLOCK));
+  const catalogRoutes = [...new Set([...holders(pagesHead), ...holders(pagesBase)])];
+  const markCatalog = (path, why, slugs) => {
+    for (const route of catalogRoutes) {
+      mark(route, `${path} changed (${why})`);
+      for (const slug of slugs) {
+        mark(itemPathFor(route, slug), `${path} changed (${why})`, { before: catalogOrderBase.includes(slug), after: catalogOrderHead.includes(slug) });
+      }
+    }
+  };
+  const firstPieces = (list) => (list.length > 0 ? list : catalogOrderBase);
   for (const { status, path } of files) {
     const own = routeForPageFile(path);
     const inBlock = BLOCK_FOLDER.test(path);
     const item = itemForFile(path);
     const form = formForFile(path);
     if (form) {
+      // The quote form shows in the quote builder, on the catalog page and its first piece.
+      if (form === QUOTE_FORM_ID) markCatalog(path, "the quote form is shown on the pieces", firstPieces(catalogOrderHead).slice(0, 1));
       // A form shows on every page whose "form" block names it, now or before the change. The contact form has its own block.
       const uses = (pages) =>
         Object.keys(pages).filter((route) => (path === rules.contactFormFile ? pages[route].types.includes("contact-form") : pages[route].forms?.includes(form)));
       for (const route of new Set([...uses(pagesHead), ...uses(pagesBase)])) mark(route, `${path} changed (this page shows the "${form}" form)`);
+    } else if (item?.kind === "catalog") {
+      // A piece has its own page under the catalog page, and shows on the gallery.
+      const key = `catalog/${item.slug}`;
+      const before = status !== "A" && itemsBase[key] === "live";
+      const after = status !== "D" && itemsHead[key] === "live";
+      const why = status === "A" ? "new piece" : status === "D" ? "piece deleted" : before && !after ? "piece archived or unpublished" : !before && after ? "piece published or restored" : `${path} changed`;
+      for (const route of catalogRoutes) {
+        mark(itemPathFor(route, item.slug), why, { before, after });
+        mark(route, `${path} changed (the catalog lists this piece)`);
+      }
+    } else if (path === rules.catalogSettingsFile || path === rules.pricingFile) {
+      // The filters and prices show on the gallery and on every piece; photograph the first few.
+      markCatalog(path, "the catalog's filters and prices", firstPieces(catalogOrderHead).slice(0, CATALOG_SAMPLE));
     } else if (item) {
       // A post has its own page and the blog index; any item shows on every page that lists its collection.
       if (item.kind === "posts") {
@@ -300,6 +347,12 @@ async function readRoutes() {
 function pageInfoAt(ref) {
   const names = String(realGit(["ls-tree", "--name-only", "-z", ref, "--", rules.pagesDir])).split("\0").filter((name) => name.endsWith(".json"));
   return pageInfoFromTexts(names.map((name) => ({ file: name.slice(rules.pagesDir.length), text: String(realGit(["show", `${ref}:${name}`])) })));
+}
+
+/** catalogOrderFromTexts for the item files at a git ref. */
+function catalogOrderAt(ref) {
+  const names = String(realGit(["ls-tree", "-r", "--name-only", "-z", ref, "--", `${rules.itemDir}catalog/`])).split("\0").filter((name) => itemForFile(name));
+  return catalogOrderFromTexts(names.map((path) => ({ path, text: String(realGit(["show", `${ref}:${path}`])) })));
 }
 
 /** itemInfoFromTexts for the item files at a git ref. */
@@ -418,18 +471,22 @@ export async function main({ argv, env = process.env, log = console.log }) {
   let pagesHead;
   let itemsBase;
   let itemsHead;
+  let catalogOrderBase;
+  let catalogOrderHead;
   try {
     const mergeBase = String(realGit(["merge-base", args.base, args.head])).trim();
     pagesBase = pageInfoAt(mergeBase);
     pagesHead = pageInfoAt(args.head);
     itemsBase = itemInfoAt(mergeBase);
     itemsHead = itemInfoAt(args.head);
+    catalogOrderBase = catalogOrderAt(mergeBase);
+    catalogOrderHead = catalogOrderAt(args.head);
   } catch (error) {
     log(`Change report could not read the page files from git: ${safe(error.stderr?.toString().trim() || error.message)}`);
     return 2;
   }
   const { registry } = await import(pathToFileURL(join(root, "src/blocks/definitions.ts")).href);
-  const pages = affectedPages({ files: change.files, sources, allRoutes: await readRoutes(), pagesHead, pagesBase, itemsHead, itemsBase, collectionTypes: collectionBlockTypes(registry) });
+  const pages = affectedPages({ files: change.files, sources, allRoutes: await readRoutes(), pagesHead, pagesBase, itemsHead, itemsBase, collectionTypes: collectionBlockTypes(registry), catalogOrderHead, catalogOrderBase });
   log(scopeText, "");
   log(`${pages.length} page(s) to photograph: ${pages.map((p) => p.route).join(", ") || "none"}`);
 

@@ -17,8 +17,31 @@ test("the first attempt is used when it fits, with a 480 px JPEG preview", async
   assert.deepEqual(fake.calls, [
     { width: 1600, height: 1600, fit: "scale-down", format: "image/webp", quality: 82 },
     { width: 480, height: 480, fit: "scale-down", format: "image/jpeg", quality: 70 },
+    { width: 720, height: 900, fit: "cover", gravity: "center", format: "image/webp", quality: 78 },
   ]);
   assert.equal(result.preview[0], 0xff);
+});
+
+test("a 720 by 900 cover card is made beside the web file, clean, within 150 KB", async () => {
+  const fake = createFakeImages({ webpSizes: [100 * KB], cardSizes: [60 * KB], exif: true });
+  const result = await convertPhoto(fake.images, input);
+  assert.ok(result.ok);
+  assert.equal(result.card.length <= 150 * KB, true);
+  assert.ok(isCleanWebp(result.card));
+  assert.deepEqual(fake.calls.filter((call) => call.fit === "cover"), [{ width: 720, height: 900, fit: "cover", gravity: "center", format: "image/webp", quality: 78 }]);
+});
+
+test("the card quality ladder goes 78, 70, 62 until it fits 150 KB", async () => {
+  const fake = createFakeImages({ cardSizes: [200 * KB, 160 * KB, 90 * KB] });
+  const result = await convertPhoto(fake.images, input);
+  assert.ok(result.ok);
+  assert.equal(result.card.length, 90 * KB);
+  assert.deepEqual(fake.calls.filter((call) => call.fit === "cover").map((call) => call.quality), [78, 70, 62]);
+});
+
+test("a card that never fits makes the photo too_detailed", async () => {
+  const result = await convertPhoto(createFakeImages({ cardSizes: [300 * KB] }).images, input);
+  assert.deepEqual(result, { ok: false, reason: "too_detailed" });
 });
 
 test("the ladder picks the second attempt when the first is too big", async () => {
