@@ -36,7 +36,7 @@ describe("headersText", () => {
   test("Google Ads alone adds its origins including the Tag Manager frame", () => {
     const base = headersText(withTracking(NONE));
     const text = headersText(withTracking({ ...NONE, googleAds: { id: "AW-000000000", leadLabel: null, purchaseLabel: null } }));
-    assert.equal(directive(text, "script-src"), `${directive(base, "script-src")} ${GTM} https://www.googleadservices.com https://www.google.com`);
+    assert.equal(directive(text, "script-src"), `${directive(base, "script-src")} ${GTM} https://www.googleadservices.com https://www.google.com https://googleads.g.doubleclick.net`);
     assert.equal(
       directive(text, "img-src"),
       `img-src 'self' data: ${GTM} https://www.googleadservices.com https://googleads.g.doubleclick.net https://pagead2.googlesyndication.com https://www.google.com`,
@@ -61,7 +61,7 @@ describe("headersText", () => {
     const text = headersText(withTracking(FIXTURE_TRACKING));
     assert.equal(
       directive(text, "script-src"),
-      `${directive(base, "script-src")} ${GTM} https://www.googleadservices.com https://www.google.com https://connect.facebook.net`,
+      `${directive(base, "script-src")} ${GTM} https://www.googleadservices.com https://www.google.com https://googleads.g.doubleclick.net https://connect.facebook.net`,
     );
     assert.equal(
       directive(text, "img-src"),
