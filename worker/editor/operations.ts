@@ -6,6 +6,7 @@ import { parseHex } from "../../src/brand/color.ts";
 import { type Palette } from "../../src/brand/contrast-pairs.ts";
 import { deriveFromBrand, nearestPassing, roleFailures, type Role } from "../../src/brand/derive.ts";
 import { CURATED_FONTS, FONT_ROLES } from "../../src/brand/fonts.ts";
+import { ADD_MAX, ADD_MIN, MULTIPLY_DECIMALS, MULTIPLY_MAX, MULTIPLY_MIN, PRICE_MAX } from "../../src/catalog/schema.ts";
 import { COLLECTION_KINDS, ITEM_STATUSES, RESERVED_POST_SLUGS, SLUG_RE, type CollectionKind, type ItemStatus } from "../../src/collections/schema.ts";
 import { SETTINGS_NAMES, type SettingsName } from "../../src/collections/site-validate.ts";
 import { CONTACT_FORM_ID, FORM_ID_RE, FORM_STATUSES, type FormStatus } from "../../src/forms/schema.ts";
@@ -559,12 +560,28 @@ function applyScalePrice(raw: Json, settings: Map<string, Json>): void {
   const choice = typeof raw.choice === "string" ? choices.find((candidate) => candidate.id === raw.choice) : undefined;
   if (!choice) return refuse(`there is no choice ${JSON.stringify(raw.choice)} in the group ${String(group.id)}; its choices are: ${known(choices)}.`);
   const factor = 1 + percent / 100;
-  if (typeof choice.add === "number") choice.add = Math.round(choice.add * factor);
-  else if (typeof choice.multiply === "number") choice.multiply = Math.round(choice.multiply * factor * 10_000) / 10_000;
-  else return refuse(`the choice ${String(choice.id)} has no price effect to scale.`);
-  if (!isObject(pricing.exact)) return;
-  for (const groupsOf of Object.values(pricing.exact)) {
-    const amounts = isObject(groupsOf) ? groupsOf[String(group.id)] : undefined;
-    if (isObject(amounts) && typeof amounts[String(choice.id)] === "number") amounts[String(choice.id)] = Math.round((amounts[String(choice.id)] as number) * factor);
+  const id = String(choice.id);
+  let changed = false;
+  if (typeof choice.add === "number") {
+    const next = Math.round(choice.add * factor);
+    if (next < ADD_MIN || next > ADD_MAX) return refuse(`${percent} percent would make the add for ${id} ${next}, and an add must be a whole number from ${ADD_MIN} to ${ADD_MAX}.`);
+    changed = next !== choice.add;
+    choice.add = next;
+  } else if (typeof choice.multiply === "number") {
+    const next = Math.round(choice.multiply * factor * 10 ** MULTIPLY_DECIMALS) / 10 ** MULTIPLY_DECIMALS;
+    if (next < MULTIPLY_MIN || next > MULTIPLY_MAX) return refuse(`${percent} percent would make the multiplier for ${id} ${next}, and a multiplier must be from ${MULTIPLY_MIN} to ${MULTIPLY_MAX}.`);
+    changed = next !== choice.multiply;
+    choice.multiply = next;
+  } else return refuse(`the choice ${id} has no price effect to scale.`);
+  if (isObject(pricing.exact)) {
+    for (const [slug, groupsOf] of Object.entries(pricing.exact)) {
+      const amounts = isObject(groupsOf) ? groupsOf[String(group.id)] : undefined;
+      if (!isObject(amounts) || typeof amounts[id] !== "number") continue;
+      const next = Math.round(amounts[id] * factor);
+      if (next < 0 || next > PRICE_MAX) return refuse(`${percent} percent would make the exact price for ${slug} with ${id} ${next}, and an exact price must be from 0 to ${PRICE_MAX}.`);
+      changed = changed || next !== amounts[id];
+      amounts[id] = next;
+    }
   }
+  if (!changed) return refuse(`${percent} percent changes nothing for ${id}: its price effect and exact prices come out the same.`);
 }

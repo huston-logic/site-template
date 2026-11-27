@@ -174,7 +174,8 @@ non-live item, an unknown or inapplicable option, people out of range or a missi
 and the token (so a posted `range` or `price` is refused, never read), then computes the range with `price.ts` and uses
 only its own number everywhere. If the asset read fails the post is refused with 502 and a fixed log event (fail
 closed). Same layers as every form: same origin, size, rate limit (`quote:<ip>`), honeypot, Turnstile (action `form`).
-Cost if wrong: a quote during a deploy's first seconds could read the previous version's prices (the assets and the
+A preview's `/catalog.json` holds draft pieces, so a preview accepts quotes for drafts because the preview shows them
+(its emails go only to the site's own address); production data never holds a draft. Cost if wrong: a quote during a deploy's first seconds could read the previous version's prices (the assets and the
 Worker switch together, so this is a theory, not an observed case).
 
 **R16. Delivery** through the site's existing destination, the same Worker-computed text in every place:

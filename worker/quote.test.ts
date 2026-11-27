@@ -301,17 +301,9 @@ describe("what the browser may not say", () => {
     ["a selection that is not an object", "oval-ring"],
     ["a selection that is a list", ["oval-ring"]],
     ["no item", { options: {} }],
-    ["an unknown item", { item: "nope" }],
-    ["an inherited key as the item", { item: "constructor" }],
     ["an item that is not text", { item: 4 }],
-    ["an unknown option group", { item: "oval-ring", options: { stone: "ruby" } }],
-    ["an unknown choice", { item: "oval-ring", options: { metal: "diamond" } }],
     ["a choice that is not text", { item: "oval-ring", options: { metal: 1 } }],
-    ["a group the item does not use", { item: "dinner-set", options: { size: "large" } }],
-    ["people for an item with no per-person fee", { item: "oval-ring", people: 20 }],
-    ["people below the minimum", { item: "dinner-set", people: 2 }],
-    ["people above the maximum", { item: "dinner-set", people: 301 }],
-    ["people that are not whole", { item: "dinner-set", people: 20.5 }],
+    ["options that are a list", { item: "oval-ring", options: ["metal"] }],
     ["people as text", { item: "dinner-set", people: "20" }],
     ["an extra key inside the selection", { item: "oval-ring", extra: 1 }],
   ];
@@ -320,6 +312,27 @@ describe("what the browser may not say", () => {
       const response = await sheetWorker.fetch(submit(selection === undefined ? answers : withSelection(selection)), env());
       assert.equal(response.status, 400);
       assert.equal(calls.length, 0);
+    });
+  }
+
+  // Well formed, but no longer prices against today's data: the page the visitor used is out of date.
+  const changed: [string, unknown][] = [
+    ["a piece that is not in the data", { item: "nope" }],
+    ["an inherited key as the piece", { item: "constructor" }],
+    ["an option group that no longer exists", { item: "oval-ring", options: { stone: "ruby" } }],
+    ["a choice that no longer exists", { item: "oval-ring", options: { metal: "diamond" } }],
+    ["a group the piece does not use", { item: "dinner-set", options: { size: "large" } }],
+    ["people for a piece with no per-person fee", { item: "oval-ring", people: 20 }],
+    ["people below the minimum", { item: "dinner-set", people: 2 }],
+    ["people above the maximum", { item: "dinner-set", people: 301 }],
+    ["people that are not whole", { item: "dinner-set", people: 20.5 }],
+  ];
+  for (const [label, selection] of changed) {
+    test(`${label} is a 409 "changed" and nothing is saved or sent`, async () => {
+      const response = await sheetWorker.fetch(submit(withSelection(selection)), env());
+      assert.equal(response.status, 409);
+      assert.deepEqual(await response.json(), { ok: false, error: "changed" });
+      assert.equal(called("webhook").length + called("notify").length + called("estimate").length + called("intake").length, 0);
     });
   }
 
@@ -353,6 +366,29 @@ describe("fail closed when the price source is not there", () => {
     const response = await sheetWorker.fetch(submit(withSelection({ item: "oval-ring" })), env({ ASSETS: { fetch: async () => Promise.reject(new Error("down")) } as unknown as Fetcher }));
     assert.equal(response.status, 502);
     assert.equal(calls.length, 0);
+  });
+
+  test("a cross-origin post never reads the assets", async () => {
+    const request = new Request(`${ORIGIN}/api/forms/quote`, { method: "POST", headers: { origin: "https://evil.test", "content-type": "application/json" }, body: JSON.stringify(withSelection({ item: "oval-ring" })) });
+    const response = await sheetWorker.fetch(request, env());
+    assert.equal(response.status, 403);
+    assert.equal(assetRequests.length, 0);
+  });
+
+  test("a wrong content type, an oversized body and a honeypot never read the assets", async () => {
+    const wrongType = new Request(`${ORIGIN}/api/forms/quote`, { method: "POST", headers: { origin: ORIGIN, "content-type": "text/plain" }, body: "x" });
+    assert.equal((await sheetWorker.fetch(wrongType, env())).status, 415);
+    const big = new Request(`${ORIGIN}/api/forms/quote`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json" }, body: JSON.stringify(withSelection({ item: "oval-ring" }, { message: "x".repeat(40_000) })) });
+    assert.equal((await sheetWorker.fetch(big, env())).status, 413);
+    const trapped = await sheetWorker.fetch(submit(withSelection({ item: "oval-ring" }, { company_fax: "x" })), env());
+    assert.equal(trapped.status, 400);
+    assert.equal(assetRequests.length, 0);
+  });
+
+  test("a rate-limited post never reads the assets", async () => {
+    const response = await sheetWorker.fetch(submit(withSelection({ item: "oval-ring" })), env({ CONTACT_RATE_LIMIT: { limit: async () => ({ success: false }) } }));
+    assert.equal(response.status, 429);
+    assert.equal(assetRequests.length, 0);
   });
 
   test("a wrong method is a 405 before the assets are read", async () => {
@@ -408,5 +444,39 @@ describe("one estimate, everywhere, with the lead source", () => {
     assetResponse = () => jsonResponse({ ...catalog, pagePath: null });
     await sheetWorker.fetch(submit(withSelection({ item: "oval-ring" })), env());
     assert.ok(!(rowOf()[4] ?? "").includes("Link:"));
+  });
+});
+
+describe("drafts on a preview", () => {
+  const withDraft = buildCatalogData({
+    items: [
+      item("oval-ring", { name: "Oval ring", price: { low: 1200, high: 1800 }, options: ["metal"], perPerson: false }),
+      { ...item("secret-draft", { name: "Secret draft", price: { low: 500, high: 700 }, options: ["metal"], perPerson: false }), status: "draft" as const },
+    ],
+    settings: { itemWord: { singular: "piece", plural: "pieces" }, filters: [] },
+    pricing: { ...pricing, exact: { "secret-draft": { metal: { gilded: 999 } } } },
+    pagePath: "/shop",
+  });
+
+  test("a preview's catalog data can hold a draft piece, and a quote for it is accepted (emails go only to the site's own address)", async () => {
+    assetResponse = () => jsonResponse(withDraft);
+    const response = await sheetWorker.fetch(submit(withSelection({ item: "secret-draft", options: { metal: "gilded" } })), env({ SITE_ENV: "preview" }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(estimateOf().to, ["hello@example.test"]);
+    assert.ok((rowOf()[4] ?? "").includes("Piece: Secret draft"));
+  });
+
+  test("production data is built from visible items only, so it never holds a draft and its quote is a 409", async () => {
+    const productionData = buildCatalogData({
+      items: [item("oval-ring", { name: "Oval ring", price: { low: 1200, high: 1800 }, options: ["metal"], perPerson: false })],
+      settings: { itemWord: { singular: "piece", plural: "pieces" }, filters: [] },
+      pricing: { ...pricing, exact: { "secret-draft": { metal: { gilded: 999 } } } },
+      pagePath: "/shop",
+    });
+    assert.ok(!JSON.stringify(productionData).includes("secret-draft"));
+    assetResponse = () => jsonResponse(productionData);
+    const response = await sheetWorker.fetch(submit(withSelection({ item: "secret-draft" })), env());
+    assert.equal(response.status, 409);
+    assert.equal(calls.length, 0);
   });
 });

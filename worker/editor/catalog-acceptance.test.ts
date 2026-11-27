@@ -366,3 +366,36 @@ test("the tools' schemas accept the catalog and scale_price", async () => {
   const refusedKind = await ai("get_collection", { collection: "pieces" });
   assert.equal(refusedKind.isError, true);
 });
+
+// ---- scale_price limits ----
+
+const siteWithPricing = (table: unknown): UploadsEditor => makeUploadsEditor({ github: seedSite({ ...files(), "src/content/pricing.json": json(table) }) });
+const withChoices = (choices: unknown[], exact: unknown = {}) => ({ ...pricing, groups: [{ id: "metal", name: "Metal", choices }], exact });
+
+test("scale_price refuses a scale that leaves a multiplier below its limit, in a plain sentence", async () => {
+  const t = siteWithPricing(withChoices([{ id: "14k-gold", label: "14k gold", add: 0 }, { id: "bronze", label: "Bronze", multiply: 0.12 }]));
+  const text = await refused(aiApp(t), [{ op: "scale_price", group: "metal", choice: "bronze", percent: -50 }]);
+  assert.match(text, /0\.06/);
+  assert.match(text, /from 0\.1 to 10/);
+  assert.equal(t.github.pulls.length, 0);
+});
+
+test("scale_price refuses an add past its limit and an exact price past its limit", async () => {
+  const addTable = withChoices([{ id: "14k-gold", label: "14k gold", add: 0 }, { id: "platinum", label: "Platinum", add: 900_000 }]);
+  const addText = await refused(aiApp(siteWithPricing(addTable)), [{ op: "scale_price", group: "metal", choice: "platinum", percent: 100 }]);
+  assert.match(addText, /1800000/);
+  assert.match(addText, /1000000/);
+
+  const exactTable = withChoices([{ id: "14k-gold", label: "14k gold", add: 0 }, { id: "18k-gold", label: "18k gold", multiply: 1.25 }], { "oval-halo-ring": { metal: { "18k-gold": 6_000_000 } } });
+  const exactText = await refused(aiApp(siteWithPricing(exactTable)), [{ op: "scale_price", group: "metal", choice: "18k-gold", percent: 100 }]);
+  assert.match(exactText, /oval-halo-ring/);
+  assert.match(exactText, /12000000/);
+});
+
+test("scale_price on a choice that has an add of 0 and no exact prices changes nothing, and says so", async () => {
+  const t = site();
+  const text = await refused(aiApp(t), [{ op: "scale_price", group: "metal", choice: "14k-gold", percent: 10 }]);
+  assert.match(text, /changes nothing/);
+  assert.match(text, /14k-gold/);
+  assert.equal(t.github.pulls.length, 0);
+});
