@@ -30,7 +30,7 @@
 //                                                  alt texts split on ";" in the same order; "focus" is optional (center, top, bottom, left, right) for the cover
 //   }
 // A sample is scripts/fixtures/catalog-mapping.example.json.
-import { existsSync, mkdirSync, openSync, readFileSync, readSync, closeSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, closeSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { registry } from "../src/blocks/definitions.ts";
@@ -251,7 +251,7 @@ export function readRow({ row, mapping, state, photosDir, addValues, slugTaken, 
 
   return {
     ok: true,
-    entry: { line: row.line, slug, name, status, description: described, price: price.value, order, perPerson, filters, options, exact, photos, focus, added: addedHere },
+    entry: { line: row.line, slug, name, status, description: described, price: price.value, order, perPerson, filters, options, exact, managesExact: Object.keys(mapping.exact ?? {}).length > 0, photos, focus, added: addedHere },
   };
 }
 
@@ -305,6 +305,8 @@ export function assemble(entries, settings, pricing) {
       for (const value of values) if (!filter.values.some((existing) => existing.id === value.id)) filter.values.push(value);
     }
     if (Object.keys(entry.exact).length > 0) exact[entry.slug] = entry.exact;
+    // A row whose exact-price cells are now all blank clears that piece's old exact prices (only when the mapping manages them).
+    else if (entry.managesExact) delete exact[entry.slug];
   }
   return { settings: nextSettings, pricing: { ...pricing, exact } };
 }
@@ -417,6 +419,22 @@ function headOf(path) {
   }
 }
 
+/** Photo files of a piece beyond its new photo count (a re-import with fewer photos). They are reported, never deleted. */
+export function leftoverPhotoFiles(root, entries) {
+  const dir = join(root, "public", "images", "catalog");
+  if (!existsSync(dir)) return [];
+  const names = readdirSync(dir);
+  const out = [];
+  for (const entry of entries) {
+    const pattern = new RegExp(`^${entry.slug.replace(/[^a-z0-9-]/g, "")}-(\\d+)(-card)?\\.webp$`);
+    for (const name of names) {
+      const match = pattern.exec(name);
+      if (match && Number(match[1]) > entry.photos.length) out.push(`public/images/catalog/${name}`);
+    }
+  }
+  return out.sort();
+}
+
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const writeJson = (path, data) => {
   mkdirSync(dirname(path), { recursive: true });
@@ -506,7 +524,7 @@ export async function main({ argv, makePhotos, out = console.log }) {
         writeFileSync(join(root, "public", cardPathFor(`/images/catalog/${entry.slug}-${index + 1}.webp`)), card);
       });
     }
-    if (kept.some((entry) => Object.keys(entry.exact).length > 0)) writeJson(join(root, PRICING_PATH), pricing);
+    if (JSON.stringify(pricing.exact) !== JSON.stringify(site.pricing.exact)) writeJson(join(root, PRICING_PATH), pricing);
     if (kept.some((entry) => Object.keys(entry.added).length > 0)) writeJson(join(root, CATALOG_SETTINGS_PATH), settings);
   }
 
@@ -524,6 +542,11 @@ export async function main({ argv, makePhotos, out = console.log }) {
   out(`${args.write ? "Written" : "Would write"}: ${plural(kept.length, "piece")} (${plural(kept.filter((entry) => existing.has(entry.slug)).length, "update")})`);
   out(`Skipped: ${skipped.length}`);
   out(`Photos: ${photoCount} (each with a 720 by 900 card)`);
+  const leftovers = leftoverPhotoFiles(root, kept.filter((entry) => existing.has(entry.slug)));
+  if (leftovers.length > 0) {
+    out("Leftover photo files (not deleted):");
+    for (const path of leftovers) out(`  ${path}`);
+  }
   if (addedValues > 0) out(`Filter values added to ${CATALOG_SETTINGS_PATH}: ${addedValues}`);
   if (!args.write) out("Nothing was written. Run again with --write to write the files.");
   else out("Next: npm run strip:images -- --check, then npm run check:content, then commit.");

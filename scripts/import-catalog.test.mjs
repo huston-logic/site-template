@@ -177,6 +177,48 @@ test("--write writes the items, exact prices, added values and photos, and the r
   }
 });
 
+test("--update with blank exact-price cells deletes the old exact prices, and reports leftover photo files without deleting them", async () => {
+  const t = setup(['Oval ring,oval-ring,A ring,1,live,1200,1800,,Rings,Ash,metal,2100,ring-1.jpg;ring-2.jpg,A gold ring on a table;A ring from above,']);
+  try {
+    assert.equal((await run(t.argv("--write"))).code, 0);
+    const pricingPath = join(t.root, "src/content/pricing.json");
+    assert.deepEqual(JSON.parse(readFileSync(pricingPath, "utf8")).exact, { "oval-ring": { metal: { "18k-gold": 2100 } } });
+
+    writeFileSync(join(t.dir, "rows.csv"), `${HEADER}\nOval ring,oval-ring,A ring,1,live,1200,1800,,Rings,Ash,metal,,ring-1.jpg,A gold ring on a table,\n`);
+    const dry = await run(t.argv("--update"));
+    assert.match(dry.text, /Leftover photo files \(not deleted\):\n  public\/images\/catalog\/oval-ring-2-card\.webp\n  public\/images\/catalog\/oval-ring-2\.webp/);
+    assert.deepEqual(JSON.parse(readFileSync(pricingPath, "utf8")).exact, { "oval-ring": { metal: { "18k-gold": 2100 } } }, "a dry run writes nothing");
+
+    const written = await run(t.argv("--update", "--write"));
+    assert.equal(written.code, 0);
+    assert.deepEqual(JSON.parse(readFileSync(pricingPath, "utf8")).exact, {}, "the old exact price is gone");
+    assert.match(written.text, /Leftover photo files \(not deleted\)/);
+    assert.ok(existsSync(join(t.root, "public/images/catalog/oval-ring-2.webp")), "the leftover photo stays");
+    assert.ok(existsSync(join(t.root, "public/images/catalog/oval-ring-2-card.webp")));
+    const item = JSON.parse(readFileSync(join(t.root, "src/content/collections/catalog/oval-ring.json"), "utf8"));
+    assert.equal(item.photos.length, 1);
+
+    // The leftovers are never deleted, so a later update reports them again.
+    const again = await run(t.argv("--update"));
+    assert.match(again.text, /Leftover photo files/, "files from the first import are still there beyond the one photo");
+  } finally {
+    rmSync(t.dir, { recursive: true, force: true });
+  }
+});
+
+test("a mapping with no exact columns leaves existing exact prices alone", async () => {
+  const t = setup(['Oval ring,oval-ring,A ring,1,live,1200,1800,,Rings,Ash,metal,2100,ring-1.jpg,A gold ring on a table,']);
+  try {
+    assert.equal((await run(t.argv("--write"))).code, 0);
+    writeFileSync(join(t.dir, "mapping.json"), JSON.stringify({ ...mapping, exact: undefined }));
+    assert.equal((await run(t.argv("--update", "--write"))).code, 0);
+    const table = JSON.parse(readFileSync(join(t.root, "src/content/pricing.json"), "utf8"));
+    assert.deepEqual(table.exact, { "oval-ring": { metal: { "18k-gold": 2100 } } });
+  } finally {
+    rmSync(t.dir, { recursive: true, force: true });
+  }
+});
+
 test("a photo the browser step cannot make skips only its row and nothing of it is written", async () => {
   const t = setup([
     "Good,good,Text,1,,100,200,,,,,,ring-1.jpg,A ring on a table,",
