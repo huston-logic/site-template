@@ -1,3 +1,4 @@
+import type { PipelineAttribution } from "./attribution.ts";
 import { log, retryable, TIMEOUT_MS } from "./env.ts";
 import { isHttpsOrigin } from "./pipeline-url.ts";
 
@@ -15,6 +16,10 @@ export interface PipelineLead {
   message: string;
   /** Left out of the request when empty. */
   business?: string;
+  /** The lead source summary, at most 60 characters. Left out of the request when absent. */
+  source?: string;
+  /** The cleaned first and last touch. Left out of the request when absent. */
+  attribution?: PipelineAttribution;
 }
 
 /** Same contract as the Sheet writers: true only when the app saved the lead. Retries once on a rate limit, server error or network failure. */
@@ -28,6 +33,8 @@ export async function sendToPipeline(baseUrl: string | null | undefined, secret:
     email: lead.email,
     message: lead.message,
     ...(lead.business ? { business: lead.business } : {}),
+    ...(lead.source ? { source: lead.source } : {}),
+    ...(lead.attribution ? { attribution: lead.attribution } : {}),
   });
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {

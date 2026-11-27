@@ -2,6 +2,7 @@ import { honeypot } from "../src/content/contact-fields.ts";
 import { CONTACT_BODY_BYTES } from "../src/forms/contact.ts";
 import { contactKeys, validateContact, type ContactInput, type ContactSubmission } from "../src/lib/contact-validation.ts";
 import { appendRowViaAppsScript } from "./apps-script.ts";
+import { leadSource, readAttribution } from "./attribution.ts";
 import { workerConfig, type WorkerConfig } from "./config.ts";
 import { sendEmail } from "./email.ts";
 import { log, resolveMode, type ContactEnv, type Mode, type SaveStatus } from "./env.ts";
@@ -12,6 +13,7 @@ import { sendToPipeline } from "./pipeline.ts";
 import { readBody } from "./read-body.ts";
 import { appendRow } from "./sheets.ts";
 import { verifyTurnstile } from "./turnstile.ts";
+import { handleVisit } from "./visit.ts";
 
 /**
  * The form Worker (docs/website-plan.md E6, and the forms design for the other forms). wrangler.jsonc runs it only for
@@ -79,12 +81,12 @@ function contactSpec(config: WorkerConfig): SubmissionSpec<ContactSubmission> {
       log("dry_run", { messageLength: value.message.length, partner: value.topic === "partner" });
       return { ok: true, autoReply: true };
     },
-    delivery: (value, mode, receivedAt) => ({
+    delivery: (value, mode, receivedAt, attribution) => ({
       tabs: { production: config.sheetTabs.production, preview: config.sheetTabs.preview },
-      row: sheetRow(value, mode, receivedAt),
-      lead: { name: value.name, email: value.email, message: pipelineMessage(config, value), business: value.business },
+      row: sheetRow(value, mode, receivedAt, attribution),
+      lead: { name: value.name, email: value.email, message: pipelineMessage(config, value), business: value.business, ...leadSource(attribution, receivedAt) },
     }),
-    notification: (value, mode, receivedAt, status) => ({ ...notificationEmail(config, value, mode, receivedAt, status), replyTo: value.email }),
+    notification: (value, mode, receivedAt, status, attribution) => ({ ...notificationEmail(config, value, mode, receivedAt, status, attribution), replyTo: value.email }),
     async finish({ env, siteEmail, bookingUrl }, value, mode, id) {
       const reply = autoReplyEmail(config, value, mode, bookingUrl ?? "");
       const recipient = mode === "production" ? value.email : siteEmail;
@@ -182,7 +184,10 @@ async function handleSubmission<T>(config: WorkerConfig, spec: SubmissionSpec<T>
     return json(403, { ok: false, error: "rejected" });
   }
 
-  const receivedAt = new Date().toISOString();
+  const received = new Date(Date.now());
+  const receivedAt = received.toISOString();
+  // The lead source is outside text from the visitor's cookie: cleaned field by field, never able to fail a submission.
+  const attribution = readAttribution(request.headers.get("cookie"), Math.floor(received.getTime() / 1000));
   if (mode === "development") return json(200, spec.dryRun(submission));
 
   // Fail closed while the site email (or, for the contact form, the booking link) is still unset (the starter template): no Sheet row, no mail.
@@ -196,8 +201,8 @@ async function handleSubmission<T>(config: WorkerConfig, spec: SubmissionSpec<T>
   // The destination goes first so the email to the owner can say whether the contact was saved. The email always sends.
   // The visitor sees success only if the contact reached the client somewhere: the destination or the email.
   const id = crypto.randomUUID();
-  const status = await saveSubmission(config, env, mode, spec.delivery(submission, mode, receivedAt));
-  const notification = spec.notification(submission, mode, receivedAt, status);
+  const status = await saveSubmission(config, env, mode, spec.delivery(submission, mode, receivedAt, attribution));
+  const notification = spec.notification(submission, mode, receivedAt, status, attribution);
   const notified = await sendEmail(env.RESEND_API_KEY, { from, to: siteEmail, ...notification }, `${id}-notify`, "notify");
 
   if (status !== "saved" && !notified) {
@@ -217,6 +222,7 @@ export function createWorker(config: WorkerConfig, forms: FormSource = formFiles
   return {
     async fetch(request: Request, env: ContactEnv): Promise<Response> {
       const url = new URL(request.url);
+      if (url.pathname === "/api/visit") return handleVisit(request, url);
       const isContact = url.pathname === "/api/contact";
       const formId = url.pathname.startsWith(FORMS_PREFIX) ? url.pathname.slice(FORMS_PREFIX.length) : null;
       if (!isContact && formId === null) return json(404, { error: "not_found" });

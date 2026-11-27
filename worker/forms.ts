@@ -2,6 +2,7 @@ import { honeypot } from "../src/content/contact-fields.ts";
 import { formFiles } from "../src/forms/registry.generated.ts";
 import { FORM_ID_RE, CONTACT_FORM_ID, type FormDefinition } from "../src/forms/schema.ts";
 import { validateSubmission, parseForm, type SubmissionValue } from "../src/forms/validate.ts";
+import { leadSource, type Attribution } from "./attribution.ts";
 import type { PipelineLead } from "./pipeline.ts";
 import type { WorkerConfig } from "./config.ts";
 import { sendEmail } from "./email.ts";
@@ -47,8 +48,8 @@ export interface SubmissionSpec<T> {
   validate(fields: Record<string, unknown>): Validation<T>;
   /** Development mode only: logs and answers without saving or sending. */
   dryRun(value: T): SubmissionOk;
-  delivery(value: T, mode: Mode, receivedAt: string): Delivery;
-  notification(value: T, mode: Mode, receivedAt: string, status: SaveStatus): { subject: string; text: string; replyTo: string };
+  delivery(value: T, mode: Mode, receivedAt: string, attribution: Attribution | null): Delivery;
+  notification(value: T, mode: Mode, receivedAt: string, status: SaveStatus, attribution: Attribution | null): { subject: string; text: string; replyTo: string };
   /** After the owner has the answers: the visitor email, if the form sends one. */
   finish(ctx: FinishContext, value: T, mode: Mode, id: string): Promise<SubmissionOk>;
 }
@@ -86,13 +87,13 @@ export function formSpec(config: WorkerConfig, def: FormDefinition, id: string):
       log("dry_run", { form: true });
       return { ok: true, ...(def.download ? { delivered: true } : {}) };
     },
-    delivery: (value, mode, receivedAt) => ({
+    delivery: (value, mode, receivedAt, attribution) => ({
       tabs: { production: config.sheetTabs.forms, preview: config.sheetTabs.formsPreview },
-      row: formSheetRow(def, value, mode, receivedAt),
-      lead: formPipelineLead(def, value),
+      row: formSheetRow(def, value, mode, receivedAt, attribution),
+      lead: { ...formPipelineLead(def, value), ...leadSource(attribution, receivedAt) },
     }),
-    notification: (value, mode, receivedAt, status) => ({
-      ...formNotificationEmail(config, def, value, mode, receivedAt, status),
+    notification: (value, mode, receivedAt, status, attribution) => ({
+      ...formNotificationEmail(config, def, value, mode, receivedAt, status, attribution),
       replyTo: formPipelineLead(def, value).email,
     }),
     async finish({ env, siteEmail }, value, mode, submissionId) {
