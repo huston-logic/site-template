@@ -281,7 +281,15 @@ function limitsWords(f) {
     case "audio":
       return `a ${audioNames.join(" or ")} episode link`;
     case "form":
-      return "the id of a live form (never the contact form)";
+      return "the id of a live form (never the contact form or the quote form)";
+    case "price":
+      return 'a low and a high in whole currency units (0 to 10,000,000, low not above high), or "ask" for price on request';
+    case "filter-values":
+      return "filter ids from src/content/catalog.json, each with 1 to 6 of that filter's value ids";
+    case "option-groups":
+      return "up to 4 option group ids from src/content/pricing.json";
+    case "catalog-item":
+      return "the slug of a live catalog piece";
     case "body":
       return `up to ${f.maxParts} parts and ${f.maxChars} characters: headings, paragraphs, lists, quotes and photos`;
     case "boolean":

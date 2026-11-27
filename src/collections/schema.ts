@@ -1,8 +1,8 @@
-// Collections: items of one kind (posts, videos, episodes, testimonials, team), one JSON file each. Import-free apart from
+// Collections: items of one kind (posts, videos, episodes, testimonials, team, catalog), one JSON file each. Import-free apart from
 // a type import, so Node scripts, Next and the Worker share it.
 import type { Fields } from "../blocks/schema.ts";
 
-export const COLLECTION_KINDS = ["posts", "videos", "episodes", "testimonials", "team"] as const;
+export const COLLECTION_KINDS = ["posts", "videos", "episodes", "testimonials", "team", "catalog"] as const;
 export type CollectionKind = (typeof COLLECTION_KINDS)[number];
 
 /** `draft` is built only outside production; `archived` is never shown and never deleted. */

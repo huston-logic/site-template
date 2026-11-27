@@ -1928,6 +1928,127 @@
         },
         "order": 1
       }
+    },
+    {
+      "kind": "catalog",
+      "title": "Catalog",
+      "singular": "piece",
+      "description": "The pieces in the catalog, in the order you choose. Each is a page under the catalog page, with a price estimate and a quote request.",
+      "file": "src/content/collections/catalog/<slug>.json",
+      "slug": "Lowercase words and digits joined by hyphens, 1 to 60 characters. It is the file name and, for a post, the address (/blog/<slug>).",
+      "status": "Every item has a status: draft (built only outside production), live, or archived (never shown, never deleted).",
+      "fields": [
+        {
+          "name": "name",
+          "kind": "text",
+          "label": "Name",
+          "required": true,
+          "max": 80
+        },
+        {
+          "name": "photos",
+          "kind": "list",
+          "label": "Photos",
+          "help": "The first photo is the cover. Each needs a few words of alt text that say what it shows.",
+          "required": true,
+          "items": {
+            "min": 1,
+            "max": 6
+          },
+          "of": {
+            "kind": "image",
+            "label": "Photo",
+            "required": true,
+            "shape": "4:5"
+          }
+        },
+        {
+          "name": "description",
+          "kind": "text",
+          "label": "Description",
+          "required": true,
+          "max": 600
+        },
+        {
+          "name": "filters",
+          "kind": "filter-values",
+          "label": "Filters",
+          "help": "For each filter, the values that fit this piece. Leave a filter out when it does not apply.",
+          "required": false
+        },
+        {
+          "name": "price",
+          "kind": "price",
+          "label": "Price",
+          "help": "A low and a high in whole currency units, or \"ask\" to show \"Price on request\".",
+          "required": true
+        },
+        {
+          "name": "options",
+          "kind": "option-groups",
+          "label": "Options",
+          "help": "Up to 4 option groups from the pricing table that change this piece's estimate.",
+          "required": false
+        },
+        {
+          "name": "perPerson",
+          "kind": "boolean",
+          "label": "Per-person fee",
+          "help": "The pricing table's per-person fee applies to this piece.",
+          "required": false
+        },
+        {
+          "name": "order",
+          "kind": "number",
+          "label": "Order",
+          "help": "Lower numbers come first.",
+          "required": true,
+          "min": 0,
+          "max": 9999
+        }
+      ],
+      "sort": "By the item's order number (lower first), then by its name.",
+      "labelField": "name",
+      "example": {
+        "status": "live",
+        "name": "Tall jug, ash glaze",
+        "photos": [
+          {
+            "src": "/images/examples/vase-and-pears.jpg",
+            "alt": "A pale blue vase beside a blue pear and a rust-red pear on a table"
+          }
+        ],
+        "description": "A thrown jug with a comfortable handle. Finished in ash glaze.",
+        "filters": {
+          "type": [
+            "jug"
+          ],
+          "glaze": [
+            "ash"
+          ],
+          "size": [
+            "small"
+          ],
+          "finish": [
+            "glossy"
+          ],
+          "collection": [
+            "everyday"
+          ],
+          "made": [
+            "to-order"
+          ]
+        },
+        "price": {
+          "low": 60,
+          "high": 75
+        },
+        "options": [
+          "glaze-colour",
+          "size"
+        ],
+        "order": 1
+      }
     }
   ],
   "settings": {

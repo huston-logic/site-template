@@ -105,7 +105,7 @@ export async function readSite(github: GitHub): Promise<Snapshot> {
     imagesTree: entries.find((e) => e.type === "tree" && e.path === IMAGES_DIR)?.sha ?? "none",
     filesTree: entries.find((e) => e.type === "tree" && e.path === FILES_DIR)?.sha ?? "none",
     collectionsTree: entries.find((e) => e.type === "tree" && e.path === ITEM_DIR)?.sha ?? "none",
-    settingsShas: { business: "none", brand: "none", notice: "none" },
+    settingsShas: { business: "none", brand: "none", notice: "none", catalog: "none", pricing: "none" },
   };
   for (const entry of entries) {
     if (entry.type === "blob" && entry.path.startsWith(`${IMAGES_DIR}/`)) snapshot.images.add(entry.path.slice("public".length));
@@ -193,6 +193,8 @@ export function validateSet(
       business: documents.settings.get("business"),
       brand: documents.settings.get("brand"),
       notice: documents.settings.get("notice"),
+      catalog: documents.settings.get("catalog"),
+      pricing: documents.settings.get("pricing"),
       settingsErrors: snapshot.settingsErrors,
     },
     registry,

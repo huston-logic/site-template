@@ -192,7 +192,7 @@ test("the new field kinds are described in plain words with their limits", () =>
 
 test("the catalog has a Collections section: every kind with fields, limits, sort and an example", () => {
   const catalog = buildCatalog([hero]);
-  assert.deepEqual(catalog.collections.map((c) => c.kind), ["posts", "videos", "episodes", "testimonials", "team"]);
+  assert.deepEqual(catalog.collections.map((c) => c.kind), ["posts", "videos", "episodes", "testimonials", "team", "catalog"]);
   const posts = catalog.collections[0];
   assert.match(posts.sort, /Newest date first/);
   assert.equal(posts.fields.find((f) => f.name === "body").kind, "body");

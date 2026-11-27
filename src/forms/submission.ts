@@ -50,6 +50,11 @@ export function formFromFile(data: Record<string, unknown>): FormDefinition {
     const record = download as Record<string, unknown>;
     def.download = { href: record["href"] as string, title: record["title"] as string };
   }
+  const reply = data["reply"];
+  if (typeof reply === "object" && reply !== null && !Array.isArray(reply)) {
+    const record = reply as Record<string, unknown>;
+    def.reply = { subject: record["subject"] as string, next: record["next"] as string };
+  }
   return def;
 }
 

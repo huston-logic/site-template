@@ -1,6 +1,9 @@
 // One check for the whole site: pages, collection items, the three settings files and the rules that join them. The build,
 // `check:content` and the site editor Worker all call this, so a change is judged the same way everywhere. Import-free
 // apart from other shared modules.
+import { CATALOG_BLOCK, CATALOG_FORBIDDEN_PATHS, QUOTE_FORM_ID, cardPathFor } from "../catalog/schema.ts";
+import type { CatalogSettings, PricingTable } from "../catalog/schema.ts";
+import { validateCatalogLinks, validateCatalogSettings, validatePricing } from "../catalog/validate.ts";
 import { buildPageIndex, validatePages } from "../blocks/validate.ts";
 import type { Context, PageFile, Repo } from "../blocks/validate.ts";
 import type { AnyBlockDefinition } from "../blocks/schema.ts";
@@ -31,6 +34,8 @@ export type SiteInput = {
   business: unknown;
   brand: unknown;
   notice: unknown;
+  catalog: unknown;
+  pricing: unknown;
   /** Why a settings file could not be read (bad JSON), by name. */
   settingsErrors?: Partial<Record<SettingsName, string>>;
 };
@@ -67,6 +72,43 @@ function formStatuses(files: readonly FormFile[]): Map<string, FormStatus> {
   return out;
 }
 
+const withoutStatus = (data: Record<string, unknown>): Record<string, unknown> => {
+  return Object.fromEntries(Object.entries(data).filter(([key]) => key !== "status"));
+};
+
+/** The pages that hold a gallery: [path, live]. */
+function catalogPages(pages: readonly PageFile[]): { file: string; path: string; live: boolean }[] {
+  return pages.flatMap(({ file, data, error }) => {
+    if (error !== undefined || !isRecord(data) || !Array.isArray(data["blocks"])) return [];
+    if (!data["blocks"].some((block) => isRecord(block) && block["type"] === CATALOG_BLOCK)) return [];
+    return [{ file: `src/content/pages/${file}`, path: String(data["path"]), live: data["status"] === "live" }];
+  });
+}
+
+/** The rules that join the gallery page, the pieces and the quote form (spec R21). */
+function catalogPageProblems(input: SiteInput, items: readonly { slug: string; status: string; data: Record<string, unknown> }[], forms: ReadonlyMap<string, FormStatus>, repo: Repo): string[] {
+  const out: string[] = [];
+  const holders = catalogPages(input.pages);
+  const live = holders.filter((page) => page.live);
+  for (const page of live) {
+    if ((CATALOG_FORBIDDEN_PATHS as readonly string[]).includes(page.path)) out.push(`${page.file}: the catalog block cannot be on ${page.path}; put the catalog on a page of its own, like /catalog.`);
+  }
+  if (live.length > 1) out.push(`${live.map((page) => page.file).join(" and ")} both hold a catalog block; a site has one catalog page, so archive one of them.`);
+  const liveItems = items.filter((item) => item.status === "live");
+  if (liveItems.length > 0 && live.length === 0) out.push(`${liveItems.length === 1 ? "A catalog piece is" : `${liveItems.length} catalog pieces are`} live, so a live page with a "${CATALOG_BLOCK}" block must show them; add one, or set the pieces to draft.`);
+  if (live.length > 0 && forms.get(QUOTE_FORM_ID) !== "live") out.push(`The catalog page needs a live quote form (src/content/forms/${QUOTE_FORM_ID}.json); ${forms.has(QUOTE_FORM_ID) ? "it is archived" : "it is missing"}.`);
+  for (const item of liveItems) {
+    const photos = Array.isArray(item.data["photos"]) ? item.data["photos"] : [];
+    photos.forEach((photo, index) => {
+      const src = isRecord(photo) ? photo["src"] : undefined;
+      if (typeof src !== "string") return;
+      const card = cardPathFor(src);
+      if (!repo.imageExists(card)) out.push(`src/content/collections/catalog/${item.slug}.json: photo ${index + 1} has no card file; a live piece needs ${card} beside it for the gallery.`);
+    });
+  }
+  return out;
+}
+
 /** Warnings that do not stop a change: health words in forms. Printed by the content check and shown in the owner's change list. */
 export function siteWarnings(input: Pick<SiteInput, "forms">): string[] {
   return input.forms.flatMap(({ id, data, error }) => (error === undefined ? formWarnings(id, data) : []));
@@ -79,9 +121,14 @@ export function siteWarnings(input: Pick<SiteInput, "forms">): string[] {
 export function validateSite(input: SiteInput, registry: readonly AnyBlockDefinition[], repo: Repo, extra: SiteExtra = {}): string[] {
   const out: string[] = [];
   const forms = formStatuses(input.forms);
-  out.push(...validatePages(input.pages, registry, repo, { ...extra, forms }));
-
-  const ctx: Context = { repo, pages: buildPageIndex(input.pages, registry), forms, ...(extra.uploadNames !== undefined ? { uploadNames: extra.uploadNames } : {}) };
+  const catalogProblems = input.catalog === undefined ? [] : validateCatalogSettings(input.catalog);
+  const pricingProblems = input.pricing === undefined ? [] : validatePricing(input.pricing);
+  const settingsOk = input.catalog !== undefined && catalogProblems.length === 0 ? (input.catalog as CatalogSettings) : null;
+  const pricingOk = input.pricing !== undefined && pricingProblems.length === 0 ? (input.pricing as PricingTable) : null;
+  const liveSlugs = new Set(input.items.flatMap(({ kind, slug, data, error }) => (kind === "catalog" && error === undefined && isRecord(data) && data["status"] === "live" ? [slug] : [])));
+  const catalog = { settings: settingsOk, pricing: pricingOk, items: liveSlugs };
+  out.push(...validatePages(input.pages, registry, repo, { ...extra, forms, catalog }));
+  const ctx: Context = { repo, pages: buildPageIndex(input.pages, registry), forms, catalog, ...(extra.uploadNames !== undefined ? { uploadNames: extra.uploadNames } : {}) };
   out.push(...validateItems(input.items, ctx));
   const formContext = { fileExists: repo.fileExists, ...(extra.registryIds !== undefined ? { registryIds: extra.registryIds } : {}) };
   out.push(...validateForms(input.forms, formContext, extra.formSettings ?? DEFAULT_FORM_SETTINGS).problems);
@@ -94,8 +141,16 @@ export function validateSite(input: SiteInput, registry: readonly AnyBlockDefini
     else if (data === undefined) out.push(`${where} is missing. Every site has this file.`);
     else if (name === "brand") out.push(...validateBrand(data, repo));
     else if (name === "business") out.push(...validateBusiness(data, ctx));
+    else if (name === "catalog") out.push(...catalogProblems);
+    else if (name === "pricing") out.push(...pricingProblems);
     else out.push(...validateNotice(data, ctx));
   }
+
+  const catalogItems = input.items.flatMap(({ kind, slug, data, error }) =>
+    kind === "catalog" && error === undefined && isRecord(data) ? [{ slug, status: String(data["status"]), data: withoutStatus(data) }] : [],
+  );
+  out.push(...validateCatalogLinks({ settings: settingsOk, pricing: pricingOk, items: catalogItems, itemRefs: false }));
+  out.push(...catalogPageProblems(input, catalogItems, forms, repo));
 
   if (hasLivePost(input.items) && !blogHasPostIndex(input.pages)) {
     out.push(`A post is live, so ${BLOG_PATH} must be a live page with a "${POST_INDEX_BLOCK}" block (src/content/pages/blog.json); without it the posts have no list.`);

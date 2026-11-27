@@ -1,0 +1,9 @@
+{
+  "currency": "USD",
+  "rounding": 10,
+  "spread": 0,
+  "note": "Prices are estimates. I confirm the final price after we talk.",
+  "groups": [],
+  "perPerson": null,
+  "exact": {}
+}

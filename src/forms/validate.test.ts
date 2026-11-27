@@ -378,3 +378,25 @@ describe("an answer is read from the visitor's own keys only", () => {
     assert.ok(own.ok);
   });
 });
+
+describe("the quote form's reply", () => {
+  const reply = { subject: "Your estimate", next: "I'll reply within two working days." };
+  test("is allowed on the quote form only", () => {
+    assert.deepEqual(problems({ ...good(), reply }), []);
+    has(formProblems("enquiry", { ...good(), reply }, ctx, settings), '"reply" is only for the quote form');
+  });
+  test("has limits and plain text", () => {
+    has(problems({ ...good(), reply: { ...reply, subject: "x".repeat(121) } }), '"subject" is 121 characters');
+    has(problems({ ...good(), reply: { ...reply, next: "x".repeat(601) } }), '"next" is 601 characters');
+    has(problems({ ...good(), reply: { ...reply, next: "<b>x</b>" } }), "HTML tag");
+    has(problems({ ...good(), reply: { subject: "Hi" } }), '"next" is missing');
+    has(problems({ ...good(), reply: { ...reply, extra: 1 } }), '"extra" is not a reply setting');
+    has(problems({ ...good(), reply: "hello" }), "must be an object");
+  });
+  test("a field may not be called selection", () => has(problems(withField({ id: "selection", type: "short-text", label: "Selection" }, 0)), "reserved"));
+  test("parseForm keeps the reply and publicForm hides it", () => {
+    const def = parseForm({ ...good(), reply }, settings, "quote") as FormDefinition;
+    assert.deepEqual(def.reply, reply);
+    assert.equal("reply" in publicForm(def), false);
+  });
+});

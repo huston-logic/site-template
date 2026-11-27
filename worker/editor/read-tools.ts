@@ -99,6 +99,10 @@ function fieldInfo(name: string, field: Field): FieldInfo {
   else if (field.kind === "choice") info.options = field.options;
   else if (field.kind === "number") info.note = `a whole number from ${field.min} to ${field.max}`;
   else if (field.kind === "form") info.note = "the id of a live form (never the contact form)";
+  else if (field.kind === "price") info.note = 'a low and a high in whole currency units, or "ask" for price on request';
+  else if (field.kind === "filter-values") info.note = "filter ids from catalog.json, each with 1 to 6 of that filter's value ids";
+  else if (field.kind === "option-groups") info.note = "up to 4 option group ids from pricing.json";
+  else if (field.kind === "catalog-item") info.note = "the slug of a live catalog piece";
   else if (field.kind === "date") info.note = "a date written YYYY-MM-DD";
   else if (field.kind === "body") info.note = `a list of parts, up to ${field.maxParts} parts and ${field.maxChars} characters`;
   else if (field.kind === "list") {

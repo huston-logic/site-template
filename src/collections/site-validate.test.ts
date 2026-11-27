@@ -5,6 +5,9 @@ import type { Repo } from "../blocks/validate.ts";
 import brand from "../content/brand.json" with { type: "json" };
 import business from "../content/business.json" with { type: "json" };
 import notice from "../content/notice.json" with { type: "json" };
+import catalog from "../content/catalog.json" with { type: "json" };
+import pricing from "../content/pricing.json" with { type: "json" };
+import quote from "../content/forms/quote.json" with { type: "json" };
 import type { ItemFile } from "./schema.ts";
 import { toLoadedItems, validateSite } from "./site-validate.ts";
 import type { SiteInput } from "./site-validate.ts";
@@ -35,7 +38,7 @@ const post = (data: Record<string, unknown> = {}): ItemFile => ({
   slug: "hello",
   data: { status: "live", title: "T", description: "D", date: "2026-03-27", body: [{ type: "paragraph", text: "Hi" }], ...data },
 });
-const site = (over: Partial<SiteInput> = {}): SiteInput => ({ pages: [page("/"), page("/contact")], items: [], forms: [], business, brand, notice, ...over });
+const site = (over: Partial<SiteInput> = {}): SiteInput => ({ pages: [page("/"), page("/contact")], items: [], forms: [], business, brand, notice, catalog, pricing, ...over });
 const has = (problems: string[], text: string) => assert.ok(problems.some((p) => p.includes(text)), `${text} in ${JSON.stringify(problems)}`);
 
 describe("validateSite", () => {
@@ -94,4 +97,54 @@ describe("toLoadedItems", () => {
     assert.equal(only?.data["status"], undefined);
     assert.equal(only?.data["title"], "T");
   });
+});
+
+describe("catalog rules", () => {
+  const catalogBlock: AnyBlockDefinition = { ...base, type: "catalog", placement: { position: "any", maxPerPage: 1, rhythm: "section" } };
+  const reg = [base, postIndex, catalogBlock];
+  const gallery = { type: "catalog", content: { heading: "x" } };
+  const quoteForm = (status = "live") => ({ id: "quote", data: { ...quote, status } });
+  const piece = (slug = "tall-jug", data: Record<string, unknown> = {}): ItemFile => ({
+    kind: "catalog",
+    slug,
+    data: { status: "live", name: "Tall jug", photos: [{ src: "/images/a/jug.jpg", alt: "A tall blue jug on a table" }], description: "A jug.", price: { low: 60, high: 80 }, order: 1, ...data },
+  });
+  const cards = new Set(["/images/a/jug-card.webp"]);
+  const withCards: Repo = { imageExists: (src) => src.startsWith("/images/") && (!src.endsWith("-card.webp") || cards.has(src)), fileExists: () => true };
+  const good = () => site({ pages: [page("/"), page("/contact"), page("/catalog", [gallery])], items: [piece()], forms: [quoteForm()] });
+  const run = (input: SiteInput, repoUsed: Repo = withCards) => validateSite(input, reg, repoUsed);
+
+  it("passes a joined catalog", () => assert.deepEqual(run(good()), []));
+  it("refuses the gallery on /, /blog and /contact", () => {
+    has(run(site({ pages: [page("/", [gallery]), page("/contact")], forms: [quoteForm()] })), "cannot be on /");
+    has(run(site({ pages: [page("/"), page("/contact", [gallery])], forms: [quoteForm()] })), "cannot be on /contact");
+  });
+  it("allows one live catalog page", () => {
+    has(run(site({ pages: [page("/"), page("/contact"), page("/catalog", [gallery]), page("/shop", [gallery])], forms: [quoteForm()] })), "both hold a catalog block");
+    assert.deepEqual(run(site({ pages: [page("/"), page("/contact"), page("/catalog", [gallery]), page("/shop", [gallery], "archived")], forms: [quoteForm()] })), []);
+  });
+  it("a live piece needs a live catalog page, a draft does not", () => {
+    has(run(site({ items: [piece()], forms: [quoteForm()] })), "must show them");
+    assert.deepEqual(run(site({ items: [piece("tall-jug", { status: "draft" })] })), []);
+  });
+  it("a live catalog page needs a live quote form", () => {
+    has(run(site({ pages: [page("/"), page("/contact"), page("/catalog", [gallery])] })), "needs a live quote form");
+    has(run(site({ pages: [page("/"), page("/contact"), page("/catalog", [gallery])], forms: [quoteForm("archived")] })), "it is archived");
+  });
+  it("a live piece needs a card file for every photo", () => {
+    const two = piece("tall-jug", { photos: [{ src: "/images/a/jug.jpg", alt: "A tall blue jug on a table" }, { src: "/images/a/jug-two.jpg", alt: "The same jug from above" }] });
+    has(run({ ...good(), items: [two] }), "photo 2 has no card file");
+    assert.deepEqual(run({ ...good(), items: [two] }, { ...withCards, imageExists: () => true }), []);
+    assert.ok(!run({ ...good(), items: [piece("tall-jug", { status: "draft", photos: [{ src: "/images/a/other.jpg", alt: "A jug on a shelf" }] })] }).join().includes("card file"));
+  });
+  it("judges filters and options against the settings", () => {
+    has(run({ ...good(), items: [piece("tall-jug", { filters: { glaze: ["ash"] } })] }), 'the filter "glaze", which is not in src/content/catalog.json');
+    has(run({ ...good(), items: [piece("tall-jug", { options: ["metal"] })] }), 'the option group "metal"');
+  });
+  it("judges the two settings files and the exact prices", () => {
+    has(run({ ...good(), catalog: { itemWord: { singular: "", plural: "x" }, filters: [] } }), "src/content/catalog.json");
+    has(run({ ...good(), pricing: { ...pricing, rounding: 3 } }), "src/content/pricing.json");
+    has(run({ ...good(), pricing: { ...pricing, exact: { ghost: { metal: { a: 1 } } } } }), 'prices for "ghost"');
+  });
+  it("names a missing settings file", () => has(run({ ...good(), catalog: undefined }), "src/content/catalog.json is missing"));
 });

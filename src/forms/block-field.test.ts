@@ -7,12 +7,16 @@ import type { FormStatus } from "./schema.ts";
 
 const def = { fields: { form: { kind: "form", label: "Form" } } } as unknown as AnyBlockDefinition;
 const repo = { imageExists: () => true, fileExists: () => true };
-const forms = new Map<string, FormStatus>([["quote", "live"], ["old", "archived"], ["contact", "live"]]);
+const forms = new Map<string, FormStatus>([["enquiry", "live"], ["old", "archived"], ["quote", "live"], ["contact", "live"]]);
 const ctx: Context = { repo, pages: null, forms };
 const check = (value: unknown, context: Context = ctx) => validateContent(def, { form: value }, "page.json, block 2 (form)", context);
 
 describe('the "form" field kind', () => {
-  test("accepts the id of a live form", () => assert.deepEqual(check("quote"), []));
+  test("accepts the id of a live form", () => assert.deepEqual(check("enquiry"), []));
+  test("refuses the quote form, with the reason", () => {
+    const [problem] = check("quote");
+    assert.match(problem as string, /is the quote form, which only the quote builder shows/);
+  });
   test("refuses the contact form, with the reason", () => {
     const [problem] = check("contact");
     assert.match(problem as string, /is the contact form, which only the contact-form block shows/);
@@ -21,8 +25,8 @@ describe('the "form" field kind', () => {
   test("refuses a form that does not exist", () => assert.match(check("nope")[0] as string, /"nope" is not a form on this site/));
   test("refuses a value that is not text", () => assert.match(check(5)[0] as string, /must be the id of a form/));
   test("with no forms at all, nothing can be named", () => {
-    assert.match(check("quote", { repo, pages: null })[0] as string, /is not a form on this site/);
-    assert.match(check("quote", { repo, pages: null, forms: null })[0] as string, /is not a form on this site/);
+    assert.match(check("enquiry", { repo, pages: null })[0] as string, /is not a form on this site/);
+    assert.match(check("enquiry", { repo, pages: null, forms: null })[0] as string, /is not a form on this site/);
   });
   test("a registry example is judged with the showcase form", () => {
     const registry = [

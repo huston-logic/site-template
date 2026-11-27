@@ -69,6 +69,14 @@ export type FormRefField = FieldBase & Optionality & { kind: "form" };
 export type AudioField = FieldBase & Optionality & { kind: "audio" };
 /** A post body: a list of parts (see BodyPart). */
 export type BodyField = FieldBase & Optionality & { kind: "body"; maxParts: 200; maxChars: 40000 };
+/** A catalog price: `{ low, high }` in whole currency units, or the string "ask". */
+export type PriceField = FieldBase & Optionality & { kind: "price" };
+/** A catalog item's filter values: filter id to a list of value ids, judged against the catalog settings. */
+export type FilterValuesField = FieldBase & Optionality & { kind: "filter-values" };
+/** A catalog item's option groups: a list of group ids from the pricing table. */
+export type OptionGroupsField = FieldBase & Optionality & { kind: "option-groups" };
+/** The slug of a visible catalog item. */
+export type CatalogItemField = FieldBase & Optionality & { kind: "catalog-item" };
 
 export type Field =
   | TextField
@@ -84,6 +92,10 @@ export type Field =
   | NumberField
   | AudioField
   | BodyField
+  | PriceField
+  | FilterValuesField
+  | OptionGroupsField
+  | CatalogItemField
   | FormRefField;
 export type Fields = { readonly [name: string]: Field };
 
@@ -106,9 +118,15 @@ type Simplify<T> = { [K in keyof T]: T[K] } & {};
 type RequiredKeys<F> = { [K in keyof F]: F[K] extends { required: false } ? never : K }[keyof F];
 type OptionalKeys<F> = { [K in keyof F]: F[K] extends { required: false } ? K : never }[keyof F];
 
-type ValueOf<T> = T extends { kind: "text" | "link" | "video" | "date" | "audio" | "form" }
+type ValueOf<T> = T extends { kind: "text" | "link" | "video" | "date" | "audio" | "form" | "catalog-item" }
   ? string
-  : T extends { kind: "number" }
+  : T extends { kind: "price" }
+    ? { low: number; high: number } | "ask"
+    : T extends { kind: "filter-values" }
+      ? Record<string, string[]>
+      : T extends { kind: "option-groups" }
+        ? string[]
+        : T extends { kind: "number" }
     ? number
     : T extends { kind: "body" }
       ? BodyPart[]
