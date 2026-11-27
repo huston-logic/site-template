@@ -76,7 +76,10 @@ export function buildFixture(n) {
     description: "A generated catalog, used to measure the build.",
     status: "live",
     menu: { label: "Catalog", order: 20, places: ["header", "footer"] },
-    blocks: [{ type: "catalog", content: { heading: "The catalog", intro: "Every piece, with an estimate and a way to ask for a quote." } }],
+    blocks: [
+      { type: "hero", content: { title: "The catalog", intro: "Every piece, with an estimate and a way to ask for a quote." } },
+      { type: "catalog", content: { heading: "All pieces" } },
+    ],
   };
   return files;
 }

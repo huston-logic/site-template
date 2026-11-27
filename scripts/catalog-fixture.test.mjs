@@ -17,7 +17,7 @@ test("the fixture is deterministic and has n pieces plus the settings and a cata
   assert.equal(items.length, 30);
   assert.ok(a["src/content/catalog.json"].filters.length === 6);
   assert.ok(a["src/content/pricing.json"].groups.length === 2);
-  assert.equal(a["src/content/pages/catalog.json"].blocks[0].type, "catalog");
+  assert.deepEqual(a["src/content/pages/catalog.json"].blocks.map((block) => block.type), ["hero", "catalog"]);
   assert.throws(() => buildFixture(-1), /whole number/);
 });
 

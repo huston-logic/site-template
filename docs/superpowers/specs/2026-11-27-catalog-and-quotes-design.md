@@ -88,10 +88,12 @@ multipliers to apply to add-ons too gets lower figures for heavily optioned piec
 most): 1,500 web photos (1600 px, typically 150 to 300 KB, capped at 450 KB) plus 500 cover cards (about 50 KB) is
 about 0.3 to 0.5 GB and 2,000 files; at 6 photos everywhere, 3,000 photos and at most 1.4 GB. The build copies photos
 and does not process them, so build time grows with pages, not photos (measured below). Workers static assets
-(wrangler 4.163): 20,000 files per version by default (an account's plan can raise it), 25 MiB per file; today's build
-is 93 files, so a full catalog stays under a tenth of the limit. Git keeps every replaced photo forever; GitHub warns
+(wrangler 4.163): 20,000 files per version by default (an account's plan can raise it), 25 MiB per file. Each static
+page is about 6 files (the HTML and Next's segment files), so a piece costs about 6 page files plus 2 per photo: a
+500-piece catalog at 3 photos is about 3,500 page files and 3,000 photo files, a third of the limit, and the limit is
+reached near 1,600 pieces at 3 photos (1,100 at 6). Git keeps every replaced photo forever; GitHub warns
 at 1 GB of history. Repo photos keep what R2 storage would lose: one commit per change, a preview per branch, the
-scope check's photo rules, and offboarding as a plain clone. Cost if wrong: past about 1,500 items or heavy photo
+scope check's photo rules, and offboarding as a plain clone. Cost if wrong: past about 1,500 items (the asset-file limit) or heavy photo
 churn, clones slow and the repo nears GitHub's soft limit; moving to R2 then needs a photo resolver in the Worker and
 a new upload path (a later run, listed in Needs Grant as a watch item).
 
@@ -124,8 +126,8 @@ an "Estimate" tag) in order, so without JavaScript the whole catalog shows and e
 closing line offers the quote route and the contact page. One small client island (`CatalogFilters`) owns the filter
 bar, the count, the empty state and "Show more"; it shows and hides the server-rendered cards by their `data-` values
 instead of re-rendering them, so a 500-item page hydrates no cards. With JavaScript, cards after the 24th are hidden by
-CSS before first paint (the `js` class), so nothing shifts. HTML for 500 cards is about 400 KB raw and 50 KB gzipped,
-under the 2 MB a Lighthouse page may weigh. Cost if wrong: very large catalogs (thousands) would want a JSON index
+CSS before first paint (the `js` class), so nothing shifts. Measured: a 500-card gallery page is 1.24 MB of HTML raw and
+39 KB gzipped (what the visitor downloads; Cloudflare compresses it). Cost if wrong: very large catalogs (thousands) would want a JSON index
 and paged HTML instead.
 
 **R11. Filters in the address.** `?<filter id>=<value id>,<value id>&<filter id>=...`: values within a filter are OR,
@@ -240,6 +242,18 @@ No business facts: names are generic ("Tall jug, ash glaze").
 **R23. The 500-item fixture.** `scripts/catalog-fixture.mjs <n> <dir>` writes n items, the settings and a catalog page
 into a throwaway checkout; the run builds it and records the time and size here. Not committed as content.
 
-## Measured (filled in by the run)
+## Measured (2026-11-27, Grant's Mac, `scripts/catalog-fixture.mjs 500` in a throwaway checkout)
 
-[[filled in after the fixture build]]
+| Measure | Template (60 example pieces in the showcase) | 500-piece fixture |
+|---|---|---|
+| Pages generated | 77 in 0.36 s | 578 in 0.94 s |
+| `npm run build`, wall clock | 11.0 s with `.next` deleted | 4.8 s with `.next` deleted (Turbopack's compile cache warm) |
+| Files in `out/` | 466 (the showcase's 60 piece pages; production removes `/blocks`) | 3,474 (piece pages: 3,004, about 6 each) |
+| Size of `out/` | 12 MB | 83 MB (piece pages 68 MB raw; the fixture reuses the example photos) |
+| Gallery page HTML | | 1.24 MB raw, 39 KB gzipped |
+| One piece page HTML | | 48 KB raw, 7.5 KB gzipped |
+| `/catalog.json` | | 66 KB raw, 4.8 KB gzipped |
+| Piece files in the repo | | 500 JSON files, about 1 MB |
+
+Page generation grows by about 1 ms a piece; the compile step, not the pieces, sets the build time. Photos are not in
+these numbers: at 3 photos a piece, a real 500-piece catalog adds about 3,000 photo files and 0.3 to 0.5 GB (R7).
