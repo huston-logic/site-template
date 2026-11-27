@@ -3,25 +3,22 @@
 Business priorities live in the Google Doc "00 Huston Logic: Source of Truth"; this file is the repo's status.
 How sites are built: `docs/PROCESS.md`. Rules for keeping this file: CLAUDE.md, "Status and source of truth", and the
 caps in `docs/PROCESS.md` (max 150 lines; current state, Needs Grant, For the master and the last run only). Older
-history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on 2026-11-25.
+history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on 2026-11-27.
 
 ## Current state
 
 - **Repo:** `huston-logic/site-template`, a GitHub template (`is_template` is true). Default branch `main`, ruleset
   "Protect main" active, "Allow auto-merge" on.
 - **Live:** not checked from the repo; client sites deploy from their own repos.
-- **Merged:** PRs #1 to #34, all merged except #3 (Dependabot, closed unmerged). #33 (collections and brand settings)
-  and #34 (the Lighthouse test server compresses like Cloudflare, PROCESS.md rule 17) merged on 2026-11-25.
-- **Open:** #35, forms and downloads (`feat/forms-and-downloads`), queued for auto-merge behind the required checks.
-- **Site editor, uploads, collections and brand (in `main`):** owners change pages, add photos and PDFs, keep a blog,
-  list videos, episodes, testimonials and team, and change business details, brand and a notice by chatting; the editor
-  and uploads are off by default (`editor.enabled`, `editor.uploads.enabled`), built and tested against mocks only.
-  `docs/EDITING.md`.
-- **Forms and downloads (in #35):** a form is one JSON file in `src/content/forms/` built from seven field types;
-  one validator for the browser and the Worker; a `form` section with two designs; every form saves where the contact
-  form saves and emails the owner; file-download forms email the visitor a link to a PDF; personal-data rules in the
-  content check and the AI instructions; 2 new AI tools and 2 new operations. The contact form is the first form, with
-  no visible change (pixel-identical at 390 and 1440). Mocks only.
+- **Merged:** PRs #1 to #35, all merged except #3 (Dependabot, closed unmerged). #35 (forms and downloads) merged on
+  2026-11-26.
+- **Open:** #36, ad tracking and lead source (`feat/ad-tracking`), queued for auto-merge behind the required checks.
+- **Site editor, uploads, collections, brand and forms (in `main`):** owners change pages, add photos and PDFs, keep a
+  blog, list videos, episodes, testimonials and team, change business details, brand and a notice, and add forms by
+  chatting; the editor and uploads are off by default, built and tested against mocks only. `docs/EDITING.md`.
+- **Ad tracking and lead source (in #36):** GA4, Google Ads and Meta Pixel tags behind owner-only IDs (all null),
+  production only, never under GPC; one event list; a Worker-set `hl_src` cookie keeps the first and last tagged touch
+  for 90 days, and every submission carries it to the Sheet, the email and the Pipeline post. `docs/TRACKING.md`.
 - **Still open per `docs/TEMPLATE.md`:** template README polish, and deciding which Huston content rules in AGENTS.md
   stay as template defaults.
 
@@ -29,25 +26,44 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 
 In order:
 
-1. Check that #35 merged. "Needs your eyes": AGENTS.md (forms in Architecture, the Worker-allowed modules, the
-   files the editor writes, `FormView` as a client component), README (Contact form: the two forms tabs), package.json
-   (test glob `src/forms/*.test.ts` only; no dependency change), site.config.ts (new `forms` caps, `contact.sheetTabs`
-   gains `forms` and `formsPreview`), `docs/apps-script/contact-sheet.gs` (accepts the two forms tabs).
-2. For each site that saves to the Google Sheet, before its owner adds a form: open the Sheet, add two tabs named
+1. Check that #36 merged (auto-merge queued). "Needs your eyes": AGENTS.md (the tracking layer in Architecture,
+   the Lead source paragraph, `TrackingTags` as a client component, gtag.js and the Meta Pixel as script exceptions,
+   the GA4 wildcard CSP exception, `TRACKING_FIXTURE`, `npm run test:tracking`), README (ad tracking CSP origins),
+   package.json (new `test:tracking` script, test glob `src/tracking/*.test.ts`; no dependency change), site.config.ts
+   (new `tracking` group, all null), next.config.ts (the tag-slot alias), `docs/apps-script/contact-sheet.gs` (header
+   comments only; no redeploy).
+2. For each site that saves to the Google Sheet: add five header cells to row 1, `Came from | Campaign | Click ID |
+   First seen (UTC) | Days to note`: columns L to P on "Submissions" and "Preview", G to K on "Forms" and "Forms
+   preview". First check those columns are empty and move any column the owner added there to the right. Rows already
+   save with the new cells (the Apps Script takes up to 20 columns); sites on the Pipeline app need nothing. Every
+   site's privacy page should mention the source cookie, tags or not (`docs/TRACKING.md`, wording).
+3. Before ads run on a site (accounts, so yours): `docs/TRACKING.md`, "Set up one site", steps 1 to 11: GA4 property and
+   two enhanced-measurement switches off, Google Ads Lead and Purchase conversion actions and labels, auto-tagging on,
+   enhanced conversions off, link Ads to GA4, key events, the Meta Pixel with Automatic advanced matching off. Put the
+   IDs in `site.config.ts`, `npm run sync:config`, PR. Then test each tag on the live site and update the privacy page
+   (`docs/LAUNCH-CHECKLIST.md` D12 to D15; the privacy wording is a copy decision for you and the client).
+4. On the first live site with tracking, confirm what local tests could not: GA4 DebugView and Meta Test events show the
+   events, the console has no CSP error, and a Safari visitor back after 7+ days still shows the ad (ruling 2).
+5. Pipeline app (separate repo): confirm `/intake` treats the new `source` and `attribution` as outside text (a visitor
+   can forge the cookie), and decide whether to store `attribution`.
+6. Decide whether Google Ads should build remarketing lists. Off now: page views go to GA4 only, because a page view to
+   Ads sets third-party cookies on every page (best practices fell to 73). Ruling 17 in
+   `docs/superpowers/specs/2026-11-27-ad-tracking-design.md`.
+7. For each site that saves to the Google Sheet, before its owner adds a form: open the Sheet, add two tabs named
    "Forms" and "Forms preview", each with the header row `Received (UTC) | Form | Name | Email | Answers | Mode`; for the
    Apps Script writer, paste the new `docs/apps-script/contact-sheet.gs` into the script, set Script Properties
    `TAB_FORMS` and `TAB_FORMS_PREVIEW` only if you named the tabs differently, then Deploy, Manage deployments, edit the
    web app, New version (same URL, so no Worker secret changes). Until then a new form's answers still reach the owner
    by email, which says "Sheet: NOT saved - add this one by hand". Sites on the Pipeline app need nothing.
-3. On the first real site with a download form, send one test submission and look at the email the visitor gets (only
+8. On the first real site with a download form, send one test submission and look at the email the visitor gets (only
    mocked so far), then delete the test row or lead.
-4. For each client site, set the per-client values from the last run: `business.timeZone` in `site.config.ts`, the
+9. For each client site, set the per-client values from the last run: `business.timeZone` in `site.config.ts`, the
    palette, fonts and logo in `src/content/brand.json`, the business details in `src/content/business.json`, then
    `npm run sync:config`. Remove or archive the template's example posts, videos, episodes, testimonials and team member
    the site does not use (the launch gate fails on their placeholders).
-5. Your working copy of `.github/workflows/ci.yml` still holds the uncommitted content and design check steps from an
+10. Your working copy of `.github/workflows/ci.yml` still holds the uncommitted content and design check steps from an
    earlier run. Either commit them on their own branch and PR, or do item 6, whose file already includes them.
-6. Decide the content fast lane: `docs/proposals/content-fast-lane.md` (its rule is now numbered 18). To adopt it: first
+11. Decide the content fast lane: `docs/proposals/content-fast-lane.md` (its rule is now numbered 18). To adopt it: first
    change the "Protect main" ruleset to add `change-scope` as a required check, then on a new branch run
    `cp docs/proposals/content-fast-lane-files/ci.yml.proposed .github/workflows/ci.yml`,
    `cp docs/proposals/content-fast-lane-files/lighthouserc.cjs.proposed lighthouserc.cjs` and
@@ -55,35 +71,35 @@ In order:
    CLAUDE.md a new required check needs 5 clean runs and a deliberate-failure proof PR first. Then add rule 18 to
    PROCESS.md (text in the proposal). Forms add to the reasons: the scope check's form rules block an editor change only
    once `change-scope` is required.
-7. Turn the editor on for the first site (accounts and secrets, so yours): `docs/EDITING.md`, "Set up the editor on one
+12. Turn the editor on for the first site (accounts and secrets, so yours): `docs/EDITING.md`, "Set up the editor on one
    site", steps a to g. Brand changes by chat also need `editor.workersSubdomain` set.
-8. On that first site, confirm what mocks could not: a real AI app connects; `/site-version.json` shows the deployed
+13. On that first site, confirm what mocks could not: a real AI app connects; `/site-version.json` shows the deployed
    commit and `drafts: false`; `/blocks` is the 404 page; a preview link opens; the yes-to-live minutes; a draft post
    shows on its preview and not on the live site; a Spotify and an Apple Podcasts episode play; a form added by chat
    sends, lands in the Sheet's Forms tab (after item 2) and emails the owner.
-9. Turn uploads on for that site: `docs/EDITING.md`, "Set up uploads on one site", steps h to l. Then confirm a portrait
+14. Turn uploads on for that site: `docs/EDITING.md`, "Set up uploads on one site", steps h to l. Then confirm a portrait
    iPhone HEIC photo shows upright, a PDF downloads with the sandbox header, a phone video is refused, and a transparent
    PNG logo stays transparent.
-10. Decide the one-connector option for clients with a site and the Pipeline app: `docs/proposals/one-connector.md`.
-11. Update Playwright's Chromium on your Mac (installing a browser needs your OK): `npx playwright install chromium`.
-12. Convert the client sites to blocks with `docs/CONVERT-TO-BLOCKS.md`, then add the editor, uploads, collections and
+15. Decide the one-connector option for clients with a site and the Pipeline app: `docs/proposals/one-connector.md`.
+16. Update Playwright's Chromium on your Mac (installing a browser needs your OK): `npx playwright install chromium`.
+17. Convert the client sites to blocks with `docs/CONVERT-TO-BLOCKS.md`, then add the editor, uploads, collections and
     brand settings, and forms with the ready-to-paste messages in `docs/EDITING.md`: huston-logic/structural-integrity-engineering
     and ghuston/huston-tech-website. Port the earlier process items (managed hosting, the Pipeline destination) in the
     same runs.
-13. Connect a site to a Pipeline app copy (only mocked tests so far): set `INTAKE_SECRET` in the app copy and the site,
+18. Connect a site to a Pipeline app copy (only mocked tests so far): set `INTAKE_SECRET` in the app copy and the site,
     set `contact.destination` to `"pipeline"`, `contact.pipelineUrl` and `contact.rateLimitIds`, `npm run sync:config`,
     merge, then send one test note and delete the test lead. Optional: teach the intake a form-name field (today the
     form's name is the first line of the message).
-14. Rehearse `docs/OFFBOARDING.md` once on a test site, then change its status line from "Not yet rehearsed".
-15. Grant's site and Dylan's site both use rate-limit ids 1001/1002 (`docs/HOSTING.md`). Once two sites share a
+19. Rehearse `docs/OFFBOARDING.md` once on a test site, then change its status line from "Not yet rehearsed".
+20. Grant's site and Dylan's site both use rate-limit ids 1001/1002 (`docs/HOSTING.md`). Once two sites share a
     Cloudflare account, give one a new pair. A site with the editor takes a third id. Forms add no id.
-16. Copy decision (yours): older client sites may still say "Websites are hosted on Cloudflare, in an account in your
+21. Copy decision (yours): older client sites may still say "Websites are hosted on Cloudflare, in an account in your
     name". That is false under managed hosting.
-17. Decide whether CI's `check` job should also run `npm run check:process` (owner-only CI edit, like item 5).
-18. Decide the AGENTS.md question from `docs/TEMPLATE.md` section E: which Huston content rules stay as template defaults.
-19. Optional, later: an expired site notice comes down only at the next publish; a daily scheduled rebuild would fix it
+22. Decide whether CI's `check` job should also run `npm run check:process` (owner-only CI edit, like item 5).
+23. Decide the AGENTS.md question from `docs/TEMPLATE.md` section E: which Huston content rules stay as template defaults.
+24. Optional, later: an expired site notice comes down only at the next publish; a daily scheduled rebuild would fix it
     (an account step, not built).
-20. For each new client repo made from this template: turn on "Allow auto-merge", apply the ruleset, set the Worker
+25. For each new client repo made from this template: turn on "Allow auto-merge", apply the ruleset, set the Worker
     secrets yourself (`docs/pipeline/client-onboarding-checklist.md`, `docs/SECRETS.md`,
     `docs/ruleset-protect-main.json`, `docs/LAUNCH-CHECKLIST.md`).
 
@@ -91,46 +107,44 @@ In order:
 
 Earlier lines were copied to the master and moved to `docs/history/STATUS-history.md`.
 
-- Site owners can add their own forms by chatting: quote requests, booking requests, sign-ups and "get the free guide".
-- A form is built only from seven kinds of question; owners cannot add code, hidden fields or their own checks.
-- A form can send the visitor a PDF by email; this collects an email address but does not lock the file.
-- A form never asks for card numbers, ID numbers or passwords; health questions get a warning; consent boxes start empty.
-- When a form collects a new kind of personal data, the owner is offered a matching privacy page change.
-- The site's contact form stays Huston Logic's to change; owners add other forms beside it.
-- Where form answers go and who is emailed stay Huston Logic settings; sites on the Sheet need one script update first.
-- Phone screens no longer fail the speed check on pages led by a photo; the bar itself is unchanged.
+- Sites can carry Google Analytics, Google Ads and Meta Pixel tags; Huston Logic sets the IDs, owners cannot by chat.
+- The tags load only on the live site, and never for a visitor whose browser sends Global Privacy Control; no banner.
+- Every lead in the Sheet, the owner's email and the Pipeline app now shows which ad or site it came from.
+- A visitor who clicks an ad and comes back within 90 days is still credited to that ad.
+- Google Ads gets conversions only, with no remarketing lists, so no third-party cookies land on every page.
+- No personal data goes to Google or Meta; their automatic matching settings must stay off in each ad account.
+- A site with tracking on must say so on its privacy page; suggested wording is in the tracking guide.
+- In the weekly ad report the Sheet is the lead count; spend comes from the ad accounts and the funnel from GA4.
 
-## Last run: Forms and downloads (2026-11-25)
+## Last run: Ad tracking and lead source (2026-11-27)
 
-Process run, unattended, from Grant's brief. Design: `docs/superpowers/specs/2026-11-25-forms-and-downloads-design.md`
-(16 rulings with costs, builder-check answers). Plan: `docs/superpowers/plans/2026-11-25-forms-and-downloads.md`. Opus
-designed, coordinated, did the design critique and the final rulings; Sonnet implemented five tasks (four in parallel
-git worktrees) and one fix wave; a Sonnet builder check read the design; Haiku wrote the docs. Two PRs: #34 (the approved
-Lighthouse compression, PROCESS.md rule 17, merged) and #35.
+Process run, unattended. Design (18 rulings with costs): `docs/superpowers/specs/2026-11-27-ad-tracking-design.md`; plan:
+`docs/superpowers/plans/2026-11-27-ad-tracking.md`. Opus designed, integrated, tested and fixed; three Sonnet
+implementers in parallel worktrees; Haiku drafted the docs; the three reviewers ran once. One PR: #36.
 
-- **Checks:** full `npm run check` passes (725 Worker and shared-module tests, 531 script tests, content and design
-  checks, build); `npm run test:a11y` passes locally (118 passed, 4 skipped); `npm run test:lighthouse` passes locally (every page 100 for performance, accessibility, best practices and SEO; the showcase 100 with SEO 69 as a noindex page). The contact page is
-  pixel-identical to `main` at 390 and 1440 (`npm run report:changes`, `npm run compare:screens`); the partner and
-  topic variants were checked by hand. The Worker bundles with the form files (esbuild). All six owner sayings, plus the
-  refused card-number field, are tests in `worker/editor/forms-acceptance.test.ts`.
-- **Reviews:** review-code (client JS carried the authoring checks, a field id that reads inherited properties, the
-  showcase id could shadow a file, the change report missed the contact form, key order, duplicated registry parsing,
-  dead test stubs), review-security (no high or medium; an answers cell that could reach 6001 characters, a contact
-  defence-in-depth gap), review-a11y (the button-style question lacked `aria-invalid`, a weak test), and the design
-  critique ("(optional)" after checkbox sentences; a showcase checkbox that promised an email). All fixed except two
-  parked: a field error can be read twice (the contact form's unchanged pattern), and without JavaScript the send button
-  still shows beside the note.
-- **Judgment calls:** one file per form plus a generated registry the Worker bundles; the contact form's topic, partner
-  variant and delivery stay code; owners cannot change the contact form in this run; every form has one required email
-  field; "works without JavaScript" means it renders and says how else to reach the owner, since nothing can pass the
-  human check without it; per-form rate limits on the existing ids; only download forms email the visitor; two new Sheet
-  tabs with one fixed header; new forms get 32 KB, the contact form keeps 16 KB; TIN, PIN and passport narrowed so "tin
-  roof", "bowling pins" and "terms and conditions" pass; `src/content/contact.ts` is now wiring (tier 3).
+- **Checks:** full `npm run check` passes (832 Worker and shared-module tests, 543 script tests, content and design
+  checks, build). With no IDs, `public/_headers` is byte-identical to `main`, all 9 pages are pixel-identical at
+  desktop and phone (`npm run report:changes`, `npm run compare:screens`), no page asks a new host or `/api/visit`;
+  each page makes one more same-origin request (a JS chunk Turbopack split in two after it grew about 460 bytes;
+  ruling 4). With the fixture IDs: `npm run test:tracking` (new, 6 browser tests, outside hosts stubbed) passes,
+  including a page and form made by the editor's own operations, and GPC loading nothing; Lighthouse with the tags on
+  scores 100/100/100/100 on every page (the showcase SEO 69 as a noindex page, as on `main`).
+- **Fixture Lighthouse found and fixed:** a missing Ads script host; Ads page views setting third-party cookies (73).
+- **Reviews:** review-code (a throwing ad script could stop a form's success step; a stale page title; a bare visit could
+  create an empty first touch; a utm tag without utm_source read "Direct"), review-security (no high; medium: the Meta
+  Pixel's automatic configuration and advanced matching could read forms; low: the fixture on a preview build, the
+  page address sent to GA4 kept every parameter, the GA4 wildcard origins undocumented), review-a11y (none; the same
+  success-step point), a final pre-merge review (full URL on other GA4 events; the cookie missing from the privacy
+  checklist; owner-added Sheet columns; mount-effect events); CodeQL (5 alerts in test regexes). All fixed. No design
+  critique: nothing visible changed.
+- **Judgment calls (all in the design):** the cookie comes from `POST /api/visit`, not a Worker before every page; capture
+  only tagged or referred visits; a build-time alias keeps tag code out of builds without IDs; the capture script stays
+  under 400 characters (Next's 2 KB prefetch-inlining limit); GA4 gets `generate_lead`; page views to GA4 only.
 - **New dependencies:** none.
 
 | Measure | This run |
 |---|---|
-| Wall-clock time | about 1 hour 15 minutes (21:30 to about 22:45, PR open and reviewed) |
-| Commits | 19 (2 in #34, 17 in #35) plus 5 merge commits |
-| Time in checks | about 25 minutes (`check:fast` per commit and in each worktree, 3 full checks, 2 change reports, 1 local a11y run, 1 local Lighthouse run) |
-| Time waiting on CI | about 9 minutes for #34 (queued before the main work, merged while it ran); 0 for #35 (auto-merge queued) |
+| Wall-clock time | about 1 hour (12:22 to about 13:20, PR open, reviewed and fixed) |
+| Commits | 14 plus 3 merge commits |
+| Time in checks | about 25 minutes (`check:fast` per commit in four places, 4 full checks, 10 builds, 2 local Lighthouse runs, 5 browser test runs, 2 change reports) |
+| Time waiting on CI | 0 (auto-merge queued; the next run does not depend on it) |

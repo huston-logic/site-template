@@ -266,9 +266,9 @@ describe("a good submission in production", () => {
     assert.deepEqual(await bodyOf(response), { ok: true, autoReply: true });
 
     const [append] = called("sheets");
-    assert.match(append.url, /\/spreadsheets\/sheet-123\/values\/Submissions!A%3AK:append\?valueInputOption=RAW&insertDataOption=INSERT_ROWS$/);
+    assert.match(append.url, /\/spreadsheets\/sheet-123\/values\/Submissions!A%3AT:append\?valueInputOption=RAW&insertDataOption=INSERT_ROWS$/);
     const row = (append.json?.values as string[][])[0];
-    assert.equal(row.length, 11);
+    assert.equal(row.length, 16);
     assert.deepEqual(row.slice(1, 6), ["A website", "", VISITOR.name, VISITOR.email, "'=HYPERLINK(\"x\")"]);
     assert.equal(row[10], "production");
 
@@ -408,7 +408,7 @@ describe("preview mode", () => {
     calls = [];
     const ok = await worker.fetch(post(valid, { origin: `https://${PREVIEW_HOST}`, url: `https://${PREVIEW_HOST}/api/contact` }), env({ SITE_ENV: "preview" }));
     assert.equal(ok.status, 200);
-    assert.match(called("sheets")[0].url, /values\/Preview!A%3AK:append/);
+    assert.match(called("sheets")[0].url, /values\/Preview!A%3AT:append/);
     assert.ok(String(called("notify")[0].json?.subject).startsWith("[Preview] New note:"));
     const [reply] = called("reply");
     assert.deepEqual(reply.json?.to, [SITE_EMAIL]);
@@ -542,7 +542,7 @@ describe("client values come from the config", () => {
   test("another config gives another sender, sheet tab and reply", async () => {
     const other = makeWorker({ siteEmail: "team@another.test", fromName: "Another Co", replyFromName: "Sam Other", schedulerUrl: "https://another.test/call", sheetTabs: { production: "Live", preview: "Draft" } });
     await other.fetch(post(valid), env());
-    assert.match(called("sheets")[0].url, /values\/Live!A%3AK:append/);
+    assert.match(called("sheets")[0].url, /values\/Live!A%3AT:append/);
     assert.equal(called("notify")[0].json?.from, "Another Co <team@another.test>");
     assert.deepEqual(called("notify")[0].json?.to, ["team@another.test"]);
     assert.equal(called("reply")[0].json?.from, "Sam Other <team@another.test>");
@@ -599,7 +599,7 @@ describe("the Apps Script sheet writer", () => {
     assert.equal(call.json?.secret, WEBHOOK_SECRET);
     assert.equal(call.json?.tab, "Submissions");
     const row = call.json?.row as string[];
-    assert.equal(row.length, 11);
+    assert.equal(row.length, 16);
     assert.deepEqual(row.slice(1, 6), ["A website", "", VISITOR.name, VISITOR.email, "'=HYPERLINK(\"x\")"]);
     assert.equal(row[10], "production");
     assert.ok(String(called("notify")[0].json?.text).includes("Sheet: saved"));

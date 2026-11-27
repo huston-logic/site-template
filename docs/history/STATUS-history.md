@@ -315,3 +315,49 @@ worktrees, four at once) and two fix waves; a Sonnet builder check read the desi
 | Commits | 18 plus 10 merge commits |
 | Time in checks | about 20 minutes (`check:fast` per commit and in each worktree, 3 full checks, 2 local a11y runs, 1 local Lighthouse run) |
 | Time waiting on CI | 0: auto-merge is queued; nothing waited on CI |
+
+## Record: For the master lines from the forms and downloads run (moved from STATUS.md unchanged, 2026-11-27)
+
+- Site owners can add their own forms by chatting: quote requests, booking requests, sign-ups and "get the free guide".
+- A form is built only from seven kinds of question; owners cannot add code, hidden fields or their own checks.
+- A form can send the visitor a PDF by email; this collects an email address but does not lock the file.
+- A form never asks for card numbers, ID numbers or passwords; health questions get a warning; consent boxes start empty.
+- When a form collects a new kind of personal data, the owner is offered a matching privacy page change.
+- The site's contact form stays Huston Logic's to change; owners add other forms beside it.
+- Where form answers go and who is emailed stay Huston Logic settings; sites on the Sheet need one script update first.
+- Phone screens no longer fail the speed check on pages led by a photo; the bar itself is unchanged.
+
+## Record: Forms and downloads run (2026-11-25), moved from STATUS.md unchanged (2026-11-27)
+
+Process run, unattended, from Grant's brief. Design: `docs/superpowers/specs/2026-11-25-forms-and-downloads-design.md`
+(16 rulings with costs, builder-check answers). Plan: `docs/superpowers/plans/2026-11-25-forms-and-downloads.md`. Opus
+designed, coordinated, did the design critique and the final rulings; Sonnet implemented five tasks (four in parallel
+git worktrees) and one fix wave; a Sonnet builder check read the design; Haiku wrote the docs. Two PRs: #34 (the approved
+Lighthouse compression, PROCESS.md rule 17, merged) and #35.
+
+- **Checks:** full `npm run check` passes (725 Worker and shared-module tests, 531 script tests, content and design
+  checks, build); `npm run test:a11y` passes locally (118 passed, 4 skipped); `npm run test:lighthouse` passes locally (every page 100 for performance, accessibility, best practices and SEO; the showcase 100 with SEO 69 as a noindex page). The contact page is
+  pixel-identical to `main` at 390 and 1440 (`npm run report:changes`, `npm run compare:screens`); the partner and
+  topic variants were checked by hand. The Worker bundles with the form files (esbuild). All six owner sayings, plus the
+  refused card-number field, are tests in `worker/editor/forms-acceptance.test.ts`.
+- **Reviews:** review-code (client JS carried the authoring checks, a field id that reads inherited properties, the
+  showcase id could shadow a file, the change report missed the contact form, key order, duplicated registry parsing,
+  dead test stubs), review-security (no high or medium; an answers cell that could reach 6001 characters, a contact
+  defence-in-depth gap), review-a11y (the button-style question lacked `aria-invalid`, a weak test), and the design
+  critique ("(optional)" after checkbox sentences; a showcase checkbox that promised an email). All fixed except two
+  parked: a field error can be read twice (the contact form's unchanged pattern), and without JavaScript the send button
+  still shows beside the note.
+- **Judgment calls:** one file per form plus a generated registry the Worker bundles; the contact form's topic, partner
+  variant and delivery stay code; owners cannot change the contact form in this run; every form has one required email
+  field; "works without JavaScript" means it renders and says how else to reach the owner, since nothing can pass the
+  human check without it; per-form rate limits on the existing ids; only download forms email the visitor; two new Sheet
+  tabs with one fixed header; new forms get 32 KB, the contact form keeps 16 KB; TIN, PIN and passport narrowed so "tin
+  roof", "bowling pins" and "terms and conditions" pass; `src/content/contact.ts` is now wiring (tier 3).
+- **New dependencies:** none.
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | about 1 hour 15 minutes (21:30 to about 22:45, PR open and reviewed) |
+| Commits | 19 (2 in #34, 17 in #35) plus 5 merge commits |
+| Time in checks | about 25 minutes (`check:fast` per commit and in each worktree, 3 full checks, 2 change reports, 1 local a11y run, 1 local Lighthouse run) |
+| Time waiting on CI | about 9 minutes for #34 (queued before the main work, merged while it ran); 0 for #35 (auto-merge queued) |

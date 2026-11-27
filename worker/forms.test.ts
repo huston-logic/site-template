@@ -299,7 +299,7 @@ describe("a valid quote request", () => {
       assert.deepEqual(await bodyOf(response), { ok: true });
       const { tab, row } = rowOf();
       assert.equal(tab, "Forms");
-      assert.equal(row.length, 6);
+      assert.equal(row.length, 11);
       assert.match(row[0] ?? "", /^\d{4}-\d\d-\d\dT/);
       assert.deepEqual(row.slice(1, 4), ["Quote request", NAME, EMAIL]);
       assert.equal(row[4], `Your name: ${NAME}\nEmail: ${EMAIL}\nProject type: Kitchen\nTell me about the project: ${MESSAGE}\nI agree to be contacted about this request.: Yes\nSend me news.: No`);

@@ -125,3 +125,5 @@ These need Huston Logic. Ask, and Huston Logic will tell you what it takes.
 - **Spacing, shape and motion.** The design sets these. Huston Logic changes them.
 - **A font that is not on the list.** Huston Logic checks the font and adds it. Fonts on the list are in Lane 1.
 - **Changes to how the contact form sends notes.** Huston Logic builds it.
+- **Ad and analytics tracking IDs** (`tracking` in `site.config.ts`: Google Analytics, Google Ads and the Meta Pixel).
+  Huston Logic sets them. Your AI app cannot set or change them. See [docs/TRACKING.md](TRACKING.md).

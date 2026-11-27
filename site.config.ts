@@ -157,4 +157,18 @@ export const siteConfig = {
     extraFrameSrc: [] as string[],
   },
   analytics: { cloudflareWebAnalytics: true },
+  /**
+   * Ad and analytics tags (docs/TRACKING.md; design: docs/superpowers/specs/2026-11-27-ad-tracking-design.md). All null
+   * means no tag loads and the CSP is unchanged. Tags load only on the production build, on the site's own host, after
+   * the page has loaded, and never when the browser sends Global Privacy Control. Owner-only file: no chat tool can set
+   * or change an ID. After a change run `npm run sync:config` (it adds only the CSP origins the set IDs need).
+   */
+  tracking: {
+    /** GA4 measurement ID, like "G-ABC123DEF4". */
+    ga4MeasurementId: null as string | null,
+    /** Google Ads: the account's tag ID ("AW-" and digits) and the conversion labels for a lead and a purchase. */
+    googleAds: { id: null as string | null, leadLabel: null as string | null, purchaseLabel: null as string | null },
+    /** Meta Pixel ID (15 to 17 digits). */
+    metaPixelId: null as string | null,
+  },
 } as const;

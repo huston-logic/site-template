@@ -8,16 +8,12 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { brandFiles, configProblems, driftedFiles, wranglerText } from "./config-rules.mjs";
+import { headersText } from "./headers-text.mjs";
 
 const root = new URL("..", import.meta.url).pathname;
 const { siteConfig: c } = await import(pathToFileURL(join(root, "site.config.ts")).href);
 
-// The video sites the video blocks may embed (the single allowlist in src/blocks/embeds.ts).
-const { embedOrigins } = await import(pathToFileURL(join(root, "src/blocks/embeds.ts")).href);
-
 const { registrySource, REGISTRY_PATH } = await import(pathToFileURL(join(root, "src/forms/registry.ts")).href);
-
-const unique = (list) => [...new Set(list)];
 
 // The checks on site.config.ts and the secret names (by destination, docs/SECRETS.md) live in config-rules.mjs.
 const problems = configProblems(c);
@@ -29,74 +25,6 @@ if (problems.length > 0) {
 }
 
 const wrangler = () => wranglerText(c);
-
-function headers() {
-  const insights = c.analytics.cloudflareWebAnalytics;
-  const script = unique([
-    "'self'",
-    "'unsafe-inline'",
-    "https://challenges.cloudflare.com",
-    ...(insights ? ["https://static.cloudflareinsights.com"] : []),
-    ...c.csp.extraScriptSrc,
-  ]);
-  const connect = unique(["'self'", ...(insights ? ["https://cloudflareinsights.com"] : []), ...c.csp.extraConnectSrc]);
-  const frame = unique(["https://challenges.cloudflare.com", ...embedOrigins, ...c.csp.extraFrameSrc]);
-  const autoplay = `autoplay=(${embedOrigins.map((origin) => `"${origin}"`).join(" ")})`;
-  const csp = [
-    "default-src 'self'",
-    `script-src ${script.join(" ")}`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data:",
-    "font-src 'self'",
-    `connect-src ${connect.join(" ")}`,
-    `frame-src ${frame.join(" ")}`,
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-    "upgrade-insecure-requests",
-  ].join("; ");
-  return `# Cloudflare response headers (Pages and Workers static assets).
-# https://developers.cloudflare.com/pages/configuration/headers/
-# https://developers.cloudflare.com/workers/static-assets/headers/
-# Next.js static export emits inline bootstrap scripts, so script-src needs 'unsafe-inline'.
-# Tighten (hashes or nonces) if the hosting setup ever allows it. Update frame-src/script-src/connect-src
-# when a scheduler or form provider is added.
-# https://challenges.cloudflare.com (script-src, frame-src): Cloudflare Turnstile on the contact form.
-# https://static.cloudflareinsights.com (script-src) and https://cloudflareinsights.com (connect-src): Cloudflare Web Analytics.
-# ${embedOrigins.join(", ")} (frame-src, and autoplay in Permissions-Policy): the video and audio blocks
-# swap in a player from these sites when a visitor presses play; the list is embedOrigins in src/blocks/embeds.ts.
-# The form posts to the same-origin Worker (/api/contact), so form-action stays 'self'.
-# These headers apply to static files only; the Worker sets its own headers on /api/* responses.
-
-/*
-  Content-Security-Policy: ${csp}
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: accelerometer=(), ${autoplay}, camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()
-  Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Resource-Policy: same-origin
-  Strict-Transport-Security: max-age=31536000; includeSubDomains
-
-# PDFs in public/files/ always download and never run on the site's origin (docs/CHANGE-SCOPE.md, "PDF rules").
-/files/*
-  Content-Disposition: attachment
-  Content-Security-Policy: sandbox
-  X-Content-Type-Options: nosniff
-
-/_next/static/*
-  Cache-Control: public, max-age=31536000, immutable
-
-# Keep Cloudflare preview/production *.pages.dev URLs out of search results.
-https://:project.pages.dev/*
-  X-Robots-Tag: noindex
-
-# Same for *.workers.dev worker and preview URLs.
-https://:version.:subdomain.workers.dev/*
-  X-Robots-Tag: noindex
-`;
-}
 
 let brand;
 try {
@@ -119,7 +47,7 @@ const formIds = existsSync(formsDir) ? readdirSync(formsDir).filter((name) => na
 
 const generated = {
   "wrangler.jsonc": wrangler(),
-  "public/_headers": headers(),
+  "public/_headers": headersText(c),
   ...fromBrand,
   [REGISTRY_PATH]: registrySource(formIds),
 };

@@ -5,6 +5,7 @@ import type { FormDefinition, FormDownload } from "../src/forms/schema.ts";
 import type { SubmissionValue } from "../src/forms/submission.ts";
 import type { ContactSubmission } from "../src/lib/contact-validation.ts";
 import { autoReplyFirstName } from "../src/lib/first-name.ts";
+import { emailLine, sheetCells, type Attribution } from "./attribution.ts";
 import type { Destination, WorkerConfig } from "./config.ts";
 import type { Mode, SaveStatus } from "./env.ts";
 import { escapeHtml } from "./html.ts";
@@ -37,7 +38,7 @@ function saveLine(destination: Destination, status: SaveStatus): string {
 }
 
 /** The internal email to the site owner: plain text, every field labelled, plus whether the Sheet row or the app lead was saved. */
-export function notificationEmail(config: WorkerConfig, s: ContactSubmission, mode: Mode, receivedAt: string, status: SaveStatus) {
+export function notificationEmail(config: WorkerConfig, s: ContactSubmission, mode: Mode, receivedAt: string, status: SaveStatus, attribution: Attribution | null = null) {
   const subject = cap(`${previewPrefix(mode)}New note: ${needLabel(s)} from ${s.name}`, 120);
   const lines = [
     `Need: ${needLabel(s)}`,
@@ -52,6 +53,7 @@ export function notificationEmail(config: WorkerConfig, s: ContactSubmission, mo
     "What's going on:",
     s.message,
     "",
+    emailLine(attribution, receivedAt),
     `Received: ${receivedAt}`,
     saveLine(config.destination, status),
   ];
@@ -109,9 +111,12 @@ export function pipelineMessage(config: WorkerConfig, s: ContactSubmission): str
   return cap(extras.length > 0 ? `${s.message}\n\n${extras.join("\n")}` : s.message, PIPELINE_MESSAGE_MAX);
 }
 
-/** The Sheet row, in the header order: Received, Need, Topic, Name, Email, Business, Message, Tools, Website, Source, Mode. */
-export function sheetRow(s: ContactSubmission, mode: Mode, receivedAt: string): string[] {
-  return [receivedAt, needLabel(s), s.topic, s.name, s.email, s.business, s.message, s.tools, s.website, s.source, mode];
+/**
+ * The Sheet row, in the header order: Received, Need, Topic, Name, Email, Business, Message, Tools, Website, Source, Mode,
+ * then the five lead-source cells (Came from, Campaign, Click ID, First seen, Days to note).
+ */
+export function sheetRow(s: ContactSubmission, mode: Mode, receivedAt: string, attribution: Attribution | null = null): string[] {
+  return [receivedAt, needLabel(s), s.topic, s.name, s.email, s.business, s.message, s.tools, s.website, s.source, mode, ...sheetCells(attribution, receivedAt)];
 }
 
 /** The most characters one Sheet cell takes (the Apps Script refuses more). */
@@ -130,9 +135,9 @@ function answersCell(lines: AnswerLine[]): string {
   return text.length > room ? `${text.slice(0, room - ANSWERS_CUT.length)}${ANSWERS_CUT}` : text;
 }
 
-/** The Forms tab row, one fixed header for every form: Received (UTC), Form, Name, Email, Answers, Mode. */
-export function formSheetRow(def: FormDefinition, value: SubmissionValue, mode: Mode, receivedAt: string): string[] {
-  return [receivedAt, def.name, nameOf(def, value), emailOf(def, value), answersCell(answerLines(def, value)), mode];
+/** The Forms tab row, one fixed header for every form: Received (UTC), Form, Name, Email, Answers, Mode, then the five lead-source cells. */
+export function formSheetRow(def: FormDefinition, value: SubmissionValue, mode: Mode, receivedAt: string, attribution: Attribution | null = null): string[] {
+  return [receivedAt, def.name, nameOf(def, value), emailOf(def, value), answersCell(answerLines(def, value)), mode, ...sheetCells(attribution, receivedAt)];
 }
 
 /** The Pipeline lead: the name field or, without one, the email address; the answers travel in the message. */
@@ -144,10 +149,10 @@ export function formPipelineLead(def: FormDefinition, value: SubmissionValue): P
 }
 
 /** The internal email for a form: plain text, every answer labelled, whether it was saved, and the mode when not live. */
-export function formNotificationEmail(config: WorkerConfig, def: FormDefinition, value: SubmissionValue, mode: Mode, receivedAt: string, status: SaveStatus) {
+export function formNotificationEmail(config: WorkerConfig, def: FormDefinition, value: SubmissionValue, mode: Mode, receivedAt: string, status: SaveStatus, attribution: Attribution | null = null) {
   const who = nameOf(def, value) || emailOf(def, value);
   const subject = cap(`${previewPrefix(mode)}New ${def.name} from ${who}`, 120);
-  const lines = [`Form: ${def.name}`, "", ...answerLines(def, value).map(answerText), "", `Received: ${receivedAt}`, saveLine(config.destination, status)];
+  const lines = [`Form: ${def.name}`, "", ...answerLines(def, value).map(answerText), "", emailLine(attribution, receivedAt), `Received: ${receivedAt}`, saveLine(config.destination, status)];
   if (mode !== "production") lines.push(`Mode: ${mode}`);
   return { subject, text: lines.join("\n") };
 }

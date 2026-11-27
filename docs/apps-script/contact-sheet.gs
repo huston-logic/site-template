@@ -13,9 +13,10 @@
  *   TAB_FORMS_PREVIEW optional  Tab for branch previews of the other forms. Default "Forms preview" (contact.sheetTabs.formsPreview).
  *
  * Header row of each tab (row 1), the same order the Worker sends (worker/messages.ts, sheetRow):
- *   Received (UTC) | Need | Topic | Name | Email | Business | Message | Tools | Website | Source | Mode
+ *   Received (UTC) | Need | Topic | Name | Email | Business | Message | Tools | Website | Source | Mode | Came from | Campaign | Click ID | First seen (UTC) | Days to note
  * Header row of the two forms tabs (worker/messages.ts, formSheetRow), one header for every form:
- *   Received (UTC) | Form | Name | Email | Answers | Mode
+ *   Received (UTC) | Form | Name | Email | Answers | Mode | Came from | Campaign | Click ID | First seen (UTC) | Days to note
+ * The last five columns are the lead source (worker/attribution.ts). Rows save with or without their headers.
  *
  * Deploy as: Web app, Execute as "Me", Who has access "Anyone". The secret is what keeps the URL private.
  * Every failure returns {"ok":false} with no details.

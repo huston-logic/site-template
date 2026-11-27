@@ -60,6 +60,10 @@ Where items run: A1–A8 and D5 on the onboarding call. C7, D6–D8 and the D9 w
 | D9 | **Google Business Profile**, only if the business is eligible: it must meet customers in person during its stated hours (at its place, or by travelling to them). Online-only businesses are not eligible. Storefront: show address. Travels to customers: service-area business, address hidden, service areas named. Never a PO box, mailbox or unstaffed virtual office. If the client already has a profile, don't make a new one; just change the website link at cutover. Client is Owner, Grant is Manager | C + G | Profile verified; category, hours, services, website link filled |
 | D10 | Bing Places: import from Google Business Profile | G | Listing claimed |
 | D11 | Analytics, optional: Cloudflare Web Analytics. If on, the privacy page says so | G | Dashboard shows visits; privacy sentence present |
+| D12 | Ad tracking IDs (`tracking` in `site.config.ts`) either set, or deliberately left `null`; `npm run check:config` passes. Left `null`, no ad or analytics tag loads | G | Merged PR with the IDs, or `check:config` output with them null |
+| D13 | The five source headers added to the first row of each contact and form tab: Came from, Campaign, Click ID, First seen (UTC), Days to note (columns L to P on contact tabs, G to K on form tabs). Needed on every site, since source capture is always on. First check those columns are empty; move any column the owner added there to the right | G | Header row shows the five names in each tab |
+| D14 | Each tag tested on the live site (GA4 Realtime and DebugView, Google Ads conversion status, Meta Test events, GPC, and the source test). Only if IDs are set | G | Test notes in `03 Ship`; test rows deleted. Steps in [docs/TRACKING.md](TRACKING.md), "How to test each tag" |
+| D15 | Tracking on means the privacy page says so. Every site also mentions the site's own source cookie, tags or not. Suggested wording for both is in [docs/TRACKING.md](TRACKING.md) | C + G | Privacy page text checked on the live site |
 
 ### E. Handoff
 

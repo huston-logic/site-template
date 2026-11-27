@@ -3,6 +3,8 @@ import { siteConfig } from "@/content/site";
 import { inter, newsreader, outfit } from "@/lib/fonts";
 import { OG_IMAGE_PATH, ogImages, siteName } from "@/lib/metadata";
 import { getBrand } from "@/lib/settings";
+import { CAPTURE_SCRIPT } from "@/tracking/capture-script";
+import { TagsSlot } from "@/tracking/tags-slot";
 import "./palette.css";
 import "./globals.css";
 
@@ -34,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${inter.variable} ${newsreader.variable}`}>
       <head>
         <script>{"document.documentElement.classList.add('js')"}</script>
+        <script>{CAPTURE_SCRIPT}</script>
       </head>
       <body className="flex min-h-dvh flex-col">
         <a
@@ -43,6 +46,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         {/* The header, main and footer come from app/(site)/layout.tsx (SiteChrome). */}
+        {/* Before the page: its effects then run before any block's, so a block may report from a mount effect. */}
+        <TagsSlot />
         {children}
       </body>
     </html>
