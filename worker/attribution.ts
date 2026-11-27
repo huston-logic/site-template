@@ -159,12 +159,13 @@ export function freshState(state: SourceState, now: number): SourceState | null 
 }
 
 /**
- * The cookie after one visit, or null when nothing changes (so no Set-Cookie). No state: the visit is the first touch.
+ * The cookie after one visit, or null when nothing changes (so no Set-Cookie). No state: the visit is the first touch,
+ * unless it has neither a tag nor another site's referrer (a www/bare-host hop or an app referrer), which records nothing.
  * A tagged visit becomes the last tagged touch; an untagged one changes nothing once a first touch exists.
  */
 export function mergeVisit(state: SourceState | null, touch: Touch, now: number): SourceState | null {
   const current = state ? freshState(state, now) : null;
-  if (!current) return { f: touch };
+  if (!current) return isTagged(touch) || touch.ref !== undefined ? { f: touch } : null;
   if (!isTagged(touch)) return null;
   return { f: current.f, l: touch };
 }
@@ -319,6 +320,8 @@ export function sourceSummary(a: Attribution): string {
   if (t.gclid || t.gbraid || t.wbraid) return "Google Ads";
   if (t.fbclid) return "Facebook or Instagram";
   if (t.msclkid) return "Microsoft Ads";
+  // Tagged, but without utm_source or a click ID (a hand-made link with only utm_medium or utm_campaign).
+  if (isTagged(t)) return cap(t.utm_medium ? `Tagged link / ${t.utm_medium}` : "Tagged link", 60);
   if (t.ref) return cap(`Referral: ${t.ref}`, 60);
   return "Direct";
 }

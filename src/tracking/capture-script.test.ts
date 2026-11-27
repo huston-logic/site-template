@@ -4,7 +4,7 @@ import { CAPTURE_SCRIPT } from "./capture-script.ts";
 
 interface Call {
   url: string;
-  init: { method: string; headers: Record<string, string>; body: string; keepalive: boolean; credentials: string };
+  init: { method: string; headers: Record<string, string>; body: string; keepalive: boolean };
 }
 
 function run(search: string, referrer: string, fetchImpl?: (url: string, init: Call["init"]) => unknown) {
@@ -28,7 +28,7 @@ test("an internal referrer sends nothing", () => {
 });
 
 test("utm and click ID parameters send the exact body", () => {
-  for (const search of ["?utm_source=google&utm_medium=cpc", "?gclid=abc", "?x=1&fbclid=z"]) {
+  for (const search of ["?utm_source=google&utm_medium=cpc", "?gclid=abc", "?x=1&fbclid=z", "?utm_term=a", "?msclkid=m", "?gbraid=g&wbraid=w"]) {
     const calls = run(search, "");
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, "/api/visit");
@@ -37,7 +37,6 @@ test("utm and click ID parameters send the exact body", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ path: `/landing${search}`, referrer: "" }),
       keepalive: true,
-      credentials: "same-origin",
     });
   }
 });
@@ -59,7 +58,13 @@ test("a malformed referrer never throws", () => {
   assert.equal(run("?gclid=a", "::::").length, 1);
 });
 
+// The root layout must stay under Next's 2 KB gzipped inlining limit (see capture-script.ts).
 test("the script is plain and small", () => {
-  assert.ok(CAPTURE_SCRIPT.length < 1024);
+  assert.ok(CAPTURE_SCRIPT.length <= 400, `${CAPTURE_SCRIPT.length} characters`);
   assert.ok(!CAPTURE_SCRIPT.includes("</script"));
+});
+
+test("a look-alike key or a key without a value sends nothing", () => {
+  assert.equal(run("?xgclid=1&utm_sourcex=2", "").length, 0);
+  assert.equal(run("?gclid", "").length, 0);
 });

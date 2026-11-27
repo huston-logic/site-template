@@ -79,8 +79,10 @@ describe("mergeVisit", () => {
   const first: Touch = { at: NOW - 10 * DAY, path: "/" };
   const tagged: Touch = { at: NOW, utm_source: "google", utm_medium: "cpc" };
 
-  test("no state: the visit is the first touch", () => {
-    assert.deepEqual(mergeVisit(null, first, NOW), { f: first });
+  test("no state: a tagged or referred visit is the first touch; a bare visit records nothing", () => {
+    assert.equal(mergeVisit(null, first, NOW), null);
+    const referred: Touch = { ...first, ref: "news.test" };
+    assert.deepEqual(mergeVisit(null, referred, NOW), { f: referred });
     assert.deepEqual(mergeVisit(null, tagged, NOW), { f: tagged });
   });
 
@@ -98,7 +100,8 @@ describe("mergeVisit", () => {
   test("an expired f is replaced by the oldest surviving touch", () => {
     const old: Touch = { at: NOW - 91 * DAY, utm_source: "old" };
     assert.deepEqual(mergeVisit({ f: old, l: { at: NOW - 5 * DAY, utm_source: "mid" } }, tagged, NOW), { f: { at: NOW - 5 * DAY, utm_source: "mid" }, l: tagged });
-    assert.deepEqual(mergeVisit({ f: old }, { at: NOW }, NOW), { f: { at: NOW } });
+    assert.equal(mergeVisit({ f: old }, { at: NOW }, NOW), null);
+    assert.deepEqual(mergeVisit({ f: old }, { at: NOW, ref: "news.test" }, NOW), { f: { at: NOW, ref: "news.test" } });
   });
 });
 
@@ -290,4 +293,24 @@ describe("setCookieHeader", () => {
     const header = setCookieHeader({ f: { at: NOW } });
     assert.match(header, /^hl_src=[A-Za-z0-9_-]+; Path=\/; Max-Age=7776000; Secure; HttpOnly; SameSite=Lax$/);
   });
+});
+
+test("a visit with no tag and no other site's referrer creates no cookie", () => {
+  const now = 1_800_000_000;
+  const hop = touchFromVisit("/about", "https://www.example.com/", "example.com", now);
+  assert.ok(hop);
+  assert.equal(mergeVisit(null, hop, now), null);
+  const app = touchFromVisit("/", "android-app://com.example.app/", "example.com", now);
+  assert.ok(app);
+  assert.equal(mergeVisit(null, app, now), null);
+});
+
+test("a tag without utm_source or a click ID reads as a tagged link", () => {
+  const now = 1_800_000_000;
+  const medium = touchFromVisit("/?utm_medium=email&utm_campaign=winter", "", "example.com", now);
+  assert.ok(medium);
+  assert.equal(sourceSummary({ first: medium }), "Tagged link / email");
+  const campaign = touchFromVisit("/?utm_campaign=winter", "", "example.com", now);
+  assert.ok(campaign);
+  assert.equal(sourceSummary({ first: campaign }), "Tagged link");
 });

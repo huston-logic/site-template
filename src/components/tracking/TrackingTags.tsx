@@ -39,9 +39,13 @@ function setUpQueues(ids: TrackingBuild["ids"]) {
     window._fbq = fbq;
   }
   window.gtag("js", new Date());
-  if (ids.ga4) window.gtag("config", ids.ga4, { send_page_view: false });
+  if (ids.ga4) window.gtag("config", ids.ga4, { send_page_view: false, allow_google_signals: false });
   if (ids.ads) window.gtag("config", ids.ads.id, { send_page_view: false });
-  if (ids.meta) window.fbq?.("init", ids.meta);
+  if (ids.meta) {
+    // Automatic configuration lets the Pixel read buttons and form fields on its own; events come only from events.ts.
+    window.fbq?.("set", "autoConfig", false, ids.meta);
+    window.fbq?.("init", ids.meta);
+  }
 }
 
 function onIdle(run: () => void) {
@@ -64,9 +68,6 @@ export function TrackingTags({ ids, host }: TrackingBuild) {
         if (target) target(...call.args);
       }
     };
-    const queued = window.hlq ?? [];
-    window.hlq = [];
-    for (const [name, params] of queued) window.hlTrack(name, params);
 
     const onClick = (event: MouseEvent) => {
       if (!(event.target instanceof Element)) return;
@@ -91,7 +92,8 @@ export function TrackingTags({ ids, host }: TrackingBuild) {
   }, [ids, host]);
 
   useEffect(() => {
-    window.hlTrack?.("page_view", { page_path: pathname, page_title: document.title });
+    // No page_title: on a client-side navigation the title may still be the previous page's; GA4 reads it at send time.
+    window.hlTrack?.("page_view", { page_path: pathname });
   }, [pathname]);
 
   return null;

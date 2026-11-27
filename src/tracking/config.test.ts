@@ -116,7 +116,7 @@ describe("trackingCspOrigins", () => {
 
   test("Google Ads alone", () => {
     assert.deepEqual(trackingCspOrigins(settings({ ads: { id: ADS } })), {
-      script: ["https://www.googletagmanager.com", "https://www.googleadservices.com", "https://www.google.com"],
+      script: ["https://www.googletagmanager.com", "https://www.googleadservices.com", "https://www.google.com", "https://googleads.g.doubleclick.net"],
       img: [
         "https://www.googletagmanager.com",
         "https://www.googleadservices.com",
@@ -147,7 +147,7 @@ describe("trackingCspOrigins", () => {
 
   test("all three, de-duplicated, GA4 then Ads then Meta", () => {
     assert.deepEqual(trackingCspOrigins(settings({ ga4: GA4, ads: { id: ADS }, meta: META })), {
-      script: ["https://www.googletagmanager.com", "https://www.googleadservices.com", "https://www.google.com", "https://connect.facebook.net"],
+      script: ["https://www.googletagmanager.com", "https://www.googleadservices.com", "https://www.google.com", "https://googleads.g.doubleclick.net", "https://connect.facebook.net"],
       img: [
         "https://www.googletagmanager.com",
         "https://*.google-analytics.com",
@@ -202,7 +202,7 @@ describe("trackingForBuild", () => {
   test("the fixture IDs with no host check on a non-production build, whatever the config holds", () => {
     const result = trackingForBuild({ ...config, tracking: EMPTY_TRACKING }, { TRACKING_FIXTURE: "1" });
     assert.deepEqual(result, { ids: trackingIds(FIXTURE_TRACKING), host: null });
-    assert.deepEqual(trackingForBuild(config, { TRACKING_FIXTURE: "1", WORKERS_CI: "1", WORKERS_CI_BRANCH: "feat/x" })?.host, null);
+    assert.throws(() => trackingForBuild(config, { TRACKING_FIXTURE: "1", WORKERS_CI: "1", WORKERS_CI_BRANCH: "feat/x" }), /Workers Builds build/);
   });
 
   test("the fixture on a production build throws", () => {

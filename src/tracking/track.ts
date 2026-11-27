@@ -1,4 +1,6 @@
-// What blocks call to report an event. With no tags on the page it only queues (at most 50) and sends nothing.
+// What blocks call to report an event. With no tags on the page (no IDs, a preview, or Global Privacy Control) it does
+// nothing. No queue: blocks report only after hydration, when TrackingTags has already set window.hlTrack, and a queue
+// would make every page's shared chunk bigger (docs/superpowers/specs/2026-11-27-ad-tracking-design.md, ruling 4).
 import type { EventName, EventParams } from "./events.ts";
 
 declare global {
@@ -7,7 +9,6 @@ declare global {
   }
   interface Window {
     hlTrack?: (name: string, params?: unknown) => void;
-    hlq?: [string, unknown][];
     dataLayer?: unknown[];
     gtag?: (...args: unknown[]) => void;
     fbq?: Fbq;
@@ -24,15 +25,12 @@ export interface Fbq {
   version: string;
 }
 
-const QUEUE_LIMIT = 50;
-
 export function track<N extends EventName>(name: N, params?: EventParams[N]): void {
   if (typeof window === "undefined") return;
-  if (typeof window.hlTrack === "function") {
-    window.hlTrack(name, params);
-    return;
+  // A failing third-party script must never stop a form's success step.
+  try {
+    window.hlTrack?.(name, params);
+  } catch {
+    // Reporting is best effort.
   }
-  const queue = (window.hlq ??= []);
-  queue.push([name, params]);
-  if (queue.length > QUEUE_LIMIT) queue.splice(0, queue.length - QUEUE_LIMIT);
 }

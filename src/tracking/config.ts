@@ -86,8 +86,9 @@ export interface CspAdditions {
   frame: string[];
 }
 
-// Google's "Use a Content Security Policy" guide for Google tags (fetched 2026-11-27); Meta publishes no list, so its two
-// hosts come from the Pixel's base code. Rulings 8 to 10 in the design say what is left out on purpose.
+// Google's "Use a Content Security Policy" guide for Google tags (fetched 2026-11-27), plus the Ads fallback script on
+// googleads.g.doubleclick.net that a fixture Lighthouse run showed blocked; Meta publishes no list, so its two hosts come
+// from the Pixel's base code. Rulings 8 to 10 in the design say what is left out on purpose.
 const GTM = "https://www.googletagmanager.com";
 const GA4_ORIGINS: CspAdditions = {
   script: [GTM],
@@ -103,7 +104,7 @@ const ADS_HOSTS = [
   "https://www.google.com",
 ];
 const ADS_ORIGINS: CspAdditions = {
-  script: [GTM, "https://www.googleadservices.com", "https://www.google.com"],
+  script: [GTM, "https://www.googleadservices.com", "https://www.google.com", "https://googleads.g.doubleclick.net"],
   img: ADS_HOSTS,
   connect: [...ADS_HOSTS, "https://ad.doubleclick.net"],
   frame: [GTM],
@@ -133,12 +134,13 @@ interface BuildSiteConfig {
 /**
  * What the root layout renders the tag loader with, or null. A production build (Workers Builds on the production
  * branch) with at least one ID gets the real IDs and the site's host. `TRACKING_FIXTURE=1` gives the fixture IDs and no
- * host check, for local tests only; on a production build it throws so fake IDs can never ship.
+ * host check, for local tests only; on any Workers Builds build (production or preview) it throws, so fake IDs and an
+ * unchecked host can never ship.
  */
 export function trackingForBuild(config: BuildSiteConfig, env: Record<string, string | undefined>): TrackingBuild | null {
   const production = isProductionBuild(env, config.domain.productionBranch);
   if (env[FIXTURE_ENV] === "1") {
-    if (production) throw new Error(`${FIXTURE_ENV}=1 is for local test builds only and must not be set on the production build.`);
+    if (production || env["WORKERS_CI"]) throw new Error(`${FIXTURE_ENV}=1 is for local test builds only and must not be set on a Workers Builds build.`);
     const ids = trackingIds(FIXTURE_TRACKING);
     return ids ? { ids, host: null } : null;
   }

@@ -20,7 +20,7 @@ export function finishBuild({ outDir, env, productionBranch, siteConfig }) {
   const drafts = !showcaseRemoved;
   writeFileSync(join(outDir, "site-version.json"), `${JSON.stringify({ commit, builtAt: new Date().toISOString(), drafts })}\n`);
   if (env[FIXTURE_ENV] === "1") {
-    if (showcaseRemoved) throw new Error(`${FIXTURE_ENV}=1 is for local test builds only and must not be set on the production build.`);
+    if (showcaseRemoved || env.WORKERS_CI) throw new Error(`${FIXTURE_ENV}=1 is for local test builds only and must not be set on a Workers Builds build.`);
     if (siteConfig) writeFileSync(join(outDir, "_headers"), headersText({ ...siteConfig, tracking: FIXTURE_TRACKING }));
   }
   if (showcaseRemoved) {

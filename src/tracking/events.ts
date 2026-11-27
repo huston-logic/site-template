@@ -72,6 +72,16 @@ function pick(params: Record<string, string | number>, keys: string[]): Record<s
   return out;
 }
 
+const URL_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "gbraid", "wbraid", "fbclid", "msclkid"];
+
+/** The page address GA4 gets: origin and path plus only the campaign and click-ID parameters, never the fragment, so a link that carries anything else (an email in a newsletter link) never reaches Google. */
+export function pageLocation(location: { origin: string; pathname: string; search: string }): string {
+  const kept = new URLSearchParams();
+  for (const [key, value] of new URLSearchParams(location.search)) if (URL_KEYS.includes(key)) kept.append(key, value);
+  const query = kept.toString();
+  return `${location.origin}${location.pathname}${query ? `?${query}` : ""}`;
+}
+
 /** The exact gtag and fbq calls for one event under the IDs a build has. Nothing for a product with no ID. */
 export function eventCalls(name: string, params: unknown, ids: TrackingIds): TrackCall[] {
   if (!(EVENT_NAMES as readonly string[]).includes(name)) return [];
@@ -90,10 +100,11 @@ export function eventCalls(name: string, params: unknown, ids: TrackingIds): Tra
 
   switch (event) {
     case "page_view":
-      // No send_to: one call reaches GA4 and Google Ads alike.
-      if (ids.ga4 || ids.ads) {
-        const location = typeof globalThis.location === "object" ? globalThis.location.href : undefined;
-        calls.push({ to: "gtag", args: ["event", "page_view", { ...p, ...(location ? { page_location: location } : {}) }] });
+      // GA4 only: a page view sent to Google Ads is a remarketing ping that sets third-party cookies on every page
+      // (design ruling 17). Google Ads gets conversions only.
+      if (ids.ga4) {
+        const location = typeof globalThis.location === "object" ? pageLocation(globalThis.location) : undefined;
+        calls.push({ to: "gtag", args: ["event", "page_view", { ...p, ...(location ? { page_location: location } : {}), send_to: ids.ga4 }] });
       }
       meta("PageView");
       break;
@@ -127,3 +138,4 @@ export function eventCalls(name: string, params: unknown, ids: TrackingIds): Tra
   }
   return calls;
 }
+

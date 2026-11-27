@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { TrackingIds } from "./config.ts";
-import { EVENT_NAMES, eventCalls } from "./events.ts";
+import { EVENT_NAMES, eventCalls, pageLocation } from "./events.ts";
 
 const ALL: TrackingIds = {
   ga4: "G-TEST000000",
@@ -19,18 +19,16 @@ test("no IDs gives no calls for any event", () => {
   for (const name of EVENT_NAMES) assert.deepEqual(eventCalls(name, { form_id: "x", item_id: "y", value: 1, currency: "USD", transaction_id: "t" }, {}), []);
 });
 
-test("page_view: one gtag call without send_to, and PageView for Meta", () => {
+test("page_view: GA4 only (no Ads remarketing ping), and PageView for Meta", () => {
   const calls = eventCalls("page_view", { page_path: "/a", page_title: "A" }, ALL);
   assert.deepEqual(calls, [
-    { to: "gtag", args: ["event", "page_view", { page_path: "/a", page_title: "A" }] },
+    { to: "gtag", args: ["event", "page_view", { page_path: "/a", page_title: "A", send_to: GA }] },
     { to: "fbq", args: ["track", "PageView"] },
   ]);
 });
 
-test("page_view reaches gtag with only the Ads id, and Meta alone gets only PageView", () => {
-  const ads = eventCalls("page_view", { page_path: "/" }, { ads: { id: "AW-000000000" } });
-  assert.equal(ads.length, 1);
-  assert.equal(ads[0].to, "gtag");
+test("page_view sends nothing to Google with only the Ads id, and Meta alone gets only PageView", () => {
+  assert.deepEqual(eventCalls("page_view", { page_path: "/" }, { ads: { id: "AW-000000000" } }), []);
   assert.deepEqual(eventCalls("page_view", { page_path: "/" }, { meta: "000000000000000" }), [{ to: "fbq", args: ["track", "PageView"] }]);
 });
 
@@ -123,4 +121,9 @@ test("no personal or unlisted field passes through", () => {
     for (const bad of ["Ada", "a@b.co", "555", "hi\"", "href", "answers"]) assert.ok(!text.includes(bad), `${name} leaked ${bad}`);
   }
   assert.deepEqual(eventCalls("form_start", "not an object", ALL)[0].args[2], { send_to: GA });
+});
+
+test("page_location keeps only the campaign and click-ID parameters and drops the fragment", () => {
+  assert.equal(pageLocation({ origin: "https://example.com", pathname: "/a", search: "?email=a%40b.test&utm_source=google&gclid=x" }), "https://example.com/a?utm_source=google&gclid=x");
+  assert.equal(pageLocation({ origin: "https://example.com", pathname: "/", search: "?name=Ada" }), "https://example.com/");
 });

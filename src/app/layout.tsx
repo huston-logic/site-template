@@ -1,16 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { TrackingTags } from "@/components/tracking/TrackingTags";
 import { siteConfig } from "@/content/site";
 import { inter, newsreader, outfit } from "@/lib/fonts";
 import { OG_IMAGE_PATH, ogImages, siteName } from "@/lib/metadata";
 import { getBrand } from "@/lib/settings";
 import { CAPTURE_SCRIPT } from "@/tracking/capture-script";
-import { trackingForBuild } from "@/tracking/config";
-import { siteConfig as baseConfig } from "../../site.config";
+import { TagsSlot } from "@/tracking/tags-slot";
 import "./palette.css";
 import "./globals.css";
-
-const tags = trackingForBuild(baseConfig, process.env);
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -51,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
         {/* The header, main and footer come from app/(site)/layout.tsx (SiteChrome). */}
         {children}
-        {tags ? <TrackingTags ids={tags.ids} host={tags.host} /> : null}
+        <TagsSlot />
       </body>
     </html>
   );
