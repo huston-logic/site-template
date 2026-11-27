@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { registry, seedSite } from "./test-support.ts";
+import { seedSite } from "./test-support.ts";
 import { isCommittablePath } from "./site-reader.ts";
 import { cardKey } from "../uploads/store.ts";
 import { aiApp, JPEG, makeUploadsEditor, type Called, type UploadsEditor } from "./uploads-test-support.ts";
@@ -9,14 +9,11 @@ import { aiApp, JPEG, makeUploadsEditor, type Called, type UploadsEditor } from 
  * The owner sayings of the catalog run (spec: docs/superpowers/specs/2026-11-27-catalog-and-quotes-design.md, R18 and R19),
  * each played as the owner's AI app calling the MCP endpoint on the fake GitHub, with a real upload store on fake R2. A test
  * checks the proposal's change list, and the files a publish commits; a refusal checks the plain-words reason.
- *
- * The seeded pieces are drafts unless the `catalog` block exists in the registry (then the site has a live catalog page, a
- * live quote form and live pieces, which is the real shape). Either way the same rules are judged.
+ * The seeded site has a live catalog page, a live quote form and live pieces: the real shape.
  */
 
 const json = (value: unknown) => JSON.stringify(value, null, 2) + "\n";
-const hasBlock = registry.some((definition) => definition.type === "catalog");
-const status = hasBlock ? "live" : "draft";
+const status = "live";
 
 const catalogSettings = {
   itemWord: { singular: "piece", plural: "pieces" },
@@ -81,16 +78,14 @@ function files(): Record<string, string> {
       out[`public${src.replace(/\.webp$/, "-card.webp")}`] = "card-bytes";
     }
   }
-  if (hasBlock) {
-    out["src/content/pages/catalog.json"] = json({
-      path: "/catalog",
-      title: "Catalog",
-      description: "Pieces made to order.",
-      status: "live",
-      menu: { label: "Catalog", order: 15, places: ["header"] },
-      blocks: [{ type: "hero", content: { title: "The catalog" } }, { type: "catalog", content: { heading: "Pieces" } }],
-    });
-  }
+  out["src/content/pages/catalog.json"] = json({
+    path: "/catalog",
+    title: "Catalog",
+    description: "Pieces made to order.",
+    status: "live",
+    menu: { label: "Catalog", order: 15, places: ["header"] },
+    blocks: [{ type: "hero", content: { title: "The catalog" } }, { type: "catalog", content: { heading: "Pieces" } }],
+  });
   return out;
 }
 
@@ -353,7 +348,7 @@ test("list_collections and get_collection cover the catalog, with each piece's e
   const t = site();
   const ai = aiApp(t);
   const listed = await ai("list_collections");
-  assert.ok(listed.text.includes(`catalog: Catalog (${hasBlock ? "4 live, 0 draft" : "0 live, 4 draft"}, 0 archived)`), listed.text);
+  assert.ok(listed.text.includes(`catalog: Catalog (4 live, 0 draft, 0 archived)`), listed.text);
   assert.ok(listed.text.includes("catalog: 2 filters"), listed.text);
   assert.ok(listed.text.includes("pricing: 1 option group"), listed.text);
 
