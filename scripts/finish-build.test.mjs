@@ -3,7 +3,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { siteConfig } from "../site.config.ts";
 import { finishBuild } from "./finish-build.mjs";
+import { headersText } from "./headers-text.mjs";
+import { FIXTURE_TRACKING } from "../src/tracking/config.ts";
 
 function fakeOut() {
   const outDir = mkdtempSync(join(tmpdir(), "finish-build-"));
@@ -87,4 +90,30 @@ test("the stamp says whether drafts were built: yes off production, no on a prod
   const unnamed = fakeOut();
   assert.equal(finishBuild({ outDir: unnamed, env: { WORKERS_CI: "1" }, productionBranch: "main" }).drafts, false);
   assert.equal(stamp(unnamed).drafts, false);
+});
+
+test("TRACKING_FIXTURE=1 rewrites out/_headers with the CSP the fixture IDs need", () => {
+  const outDir = fakeOut();
+  writeFileSync(join(outDir, "_headers"), "committed headers");
+  finishBuild({ outDir, env: { TRACKING_FIXTURE: "1" }, productionBranch: "main", siteConfig });
+  const written = readFileSync(join(outDir, "_headers"), "utf8");
+  assert.equal(written, headersText({ ...siteConfig, tracking: FIXTURE_TRACKING }));
+  assert.match(written, /script-src [^;]*https:\/\/www\.googletagmanager\.com/);
+  assert.match(written, /connect-src [^;]*https:\/\/connect\.facebook\.net/);
+});
+
+test("without TRACKING_FIXTURE=1 out/_headers is left alone", () => {
+  for (const env of [{}, { TRACKING_FIXTURE: "0" }, { TRACKING_FIXTURE: "true" }, { WORKERS_CI: "1", WORKERS_CI_BRANCH: "main" }]) {
+    const outDir = fakeOut();
+    writeFileSync(join(outDir, "_headers"), "committed headers");
+    finishBuild({ outDir, env, productionBranch: "main", siteConfig });
+    assert.equal(readFileSync(join(outDir, "_headers"), "utf8"), "committed headers", JSON.stringify(env));
+  }
+});
+
+test("TRACKING_FIXTURE=1 on a production build throws and leaves _headers alone", () => {
+  const outDir = fakeOut();
+  writeFileSync(join(outDir, "_headers"), "committed headers");
+  assert.throws(() => finishBuild({ outDir, env: { TRACKING_FIXTURE: "1", WORKERS_CI: "1", WORKERS_CI_BRANCH: "main" }, productionBranch: "main", siteConfig }), /local test builds only/);
+  assert.equal(readFileSync(join(outDir, "_headers"), "utf8"), "committed headers");
 });
