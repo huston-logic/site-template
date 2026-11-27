@@ -346,3 +346,27 @@ describe("forms caps", () => {
     assert.ok(problems.some((line) => line.includes("forms.extra is not a form setting")));
   });
 });
+
+describe("configProblems: tracking", () => {
+  const none = { ga4MeasurementId: null, googleAds: { id: null, leadLabel: null, purchaseLabel: null }, metaPixelId: null };
+
+  test("a site with no tracking group, or all IDs null, has no tracking problems", () => {
+    assert.deepEqual(configProblems(config()), []);
+    assert.deepEqual(configProblems({ ...config(), tracking: none }), []);
+  });
+
+  test("a bad ID fails the check, even when another part of the config is also wrong", () => {
+    const tracking = { ...none, ga4MeasurementId: "UA-1", metaPixelId: "[[PIXEL]]" };
+    const problems = configProblems({ ...config(), tracking });
+    assert.equal(problems.length, 2);
+    assert.match(problems[0], /tracking\.ga4MeasurementId must be null or a GA4 measurement ID/);
+    assert.match(problems[1], /tracking\.metaPixelId must be null or a Meta Pixel ID/);
+    const broken = { ...config(), contact: { ...config().contact, rateLimitIds: undefined }, tracking };
+    assert.equal(configProblems(broken).length, 3);
+  });
+
+  test("a conversion label without the Ads id fails the check", () => {
+    const tracking = { ...none, googleAds: { id: null, leadLabel: "LeadLabel1", purchaseLabel: null } };
+    assert.match(configProblems({ ...config(), tracking }).join("\n"), /tracking\.googleAds\.id must be set when a conversion label is set/);
+  });
+});

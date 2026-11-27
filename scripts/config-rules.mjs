@@ -5,6 +5,7 @@ import { isHttpsOrigin } from "../worker/pipeline-url.ts"; // the same rule the 
 import { fontsModule } from "../src/brand/fonts.ts";
 import { FONTS_PATH, PALETTE_PATH } from "../src/brand/generated.ts";
 import { paletteCss } from "../src/brand/palette.ts";
+import { trackingProblems } from "../src/tracking/config.ts";
 
 const DESTINATIONS = ["sheet", "pipeline"];
 const WRITERS = ["apps-script", "service-account"];
@@ -226,6 +227,10 @@ ${kv}${uploadBindings}  "ratelimits": ${ratelimits},
 
 /** One plain line per problem; an empty array means the config passes. */
 export function configProblems(c) {
+  return [...siteProblems(c), ...trackingProblems(c.tracking)];
+}
+
+function siteProblems(c) {
   const problems = [];
   const { contact, domain } = c;
 
