@@ -25,6 +25,8 @@ type Props = {
   quote: { id: string; form: PublicForm } | null;
   /** The heading level of the form's heading, one below the heading above the panel. */
   headingLevel: "h2" | "h3";
+  /** True where nothing else on the page names the preselected piece (the quote-builder block; a piece's page has its H1). */
+  namePiece?: boolean;
 };
 
 const clamp = (n: number, min: number, max: number): number =>
@@ -43,6 +45,7 @@ export function QuoteBuilder({
   itemWord,
   quote,
   headingLevel,
+  namePiece = false,
 }: Props) {
   const prefix = useId();
   const [slug, setSlug] = useState<string | null>(initialSlug);
@@ -134,6 +137,12 @@ export function QuoteBuilder({
 
   return (
     <div className="hl-js-only rounded-panel bg-white p-6 shadow-card md:p-9">
+      {namePiece && initialSlug !== null && item !== null ? (
+        <div className="mb-6 border-b border-hairline pb-6">
+          <p className="font-ui text-label font-medium text-ink-2">{`${itemWord.singular.charAt(0).toUpperCase()}${itemWord.singular.slice(1)}`}</p>
+          <p className="mt-1 font-ui text-card-title font-bold">{item.name}</p>
+        </div>
+      ) : null}
       {initialSlug === null ? (
         <div className="mb-6">
           <label

@@ -63,6 +63,7 @@ export function QuoteBuilderBlock({
         itemWord={settings.itemWord}
         quote={quote}
         headingLevel="h3"
+        namePiece
       />
       <noscript>
         <div className="rounded-panel bg-white p-6 shadow-card md:p-9">
