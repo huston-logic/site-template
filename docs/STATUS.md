@@ -12,11 +12,11 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 - **Live:** not checked from the repo; client sites deploy from their own repos.
 - **Merged:** PRs #1 to #35, all merged except #3 (Dependabot, closed unmerged). #35 (forms and downloads) merged on
   2026-11-26.
-- **Open:** PR_NUMBER, ad tracking and lead source (`feat/ad-tracking`), queued for auto-merge behind the required checks.
+- **Open:** #36, ad tracking and lead source (`feat/ad-tracking`), queued for auto-merge behind the required checks.
 - **Site editor, uploads, collections, brand and forms (in `main`):** owners change pages, add photos and PDFs, keep a
   blog, list videos, episodes, testimonials and team, change business details, brand and a notice, and add forms by
   chatting; the editor and uploads are off by default, built and tested against mocks only. `docs/EDITING.md`.
-- **Ad tracking and lead source (in PR_NUMBER):** GA4, Google Ads and Meta Pixel tags behind owner-only IDs (all null),
+- **Ad tracking and lead source (in #36):** GA4, Google Ads and Meta Pixel tags behind owner-only IDs (all null),
   production only, never under GPC; one event list; a Worker-set `hl_src` cookie keeps the first and last tagged touch
   for 90 days, and every submission carries it to the Sheet, the email and the Pipeline post. `docs/TRACKING.md`.
 - **Still open per `docs/TEMPLATE.md`:** template README polish, and deciding which Huston content rules in AGENTS.md
@@ -26,7 +26,7 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 
 In order:
 
-1. Check that PR_NUMBER merged (auto-merge queued). "Needs your eyes": AGENTS.md (the tracking layer in Architecture,
+1. Check that #36 merged (auto-merge queued). "Needs your eyes": AGENTS.md (the tracking layer in Architecture,
    the Lead source paragraph, `TrackingTags` as a client component, gtag.js and the Meta Pixel as script exceptions,
    the GA4 wildcard CSP exception, `TRACKING_FIXTURE`, `npm run test:tracking`), README (ad tracking CSP origins),
    package.json (new `test:tracking` script, test glob `src/tracking/*.test.ts`; no dependency change), site.config.ts
@@ -119,7 +119,7 @@ Earlier lines were copied to the master and moved to `docs/history/STATUS-histor
 
 Process run, unattended. Design (18 rulings with costs): `docs/superpowers/specs/2026-11-27-ad-tracking-design.md`; plan:
 `docs/superpowers/plans/2026-11-27-ad-tracking.md`. Opus designed, integrated, tested and fixed; three Sonnet
-implementers in parallel worktrees; Haiku drafted the docs; the three reviewers ran once. One PR: PR_NUMBER.
+implementers in parallel worktrees; Haiku drafted the docs; the three reviewers ran once. One PR: #36.
 
 - **Checks:** full `npm run check` passes (832 Worker and shared-module tests, 543 script tests, content and design
   checks, build). With no IDs, `public/_headers` is byte-identical to `main`, all 9 pages are pixel-identical at
@@ -143,6 +143,6 @@ implementers in parallel worktrees; Haiku drafted the docs; the three reviewers 
 | Measure | This run |
 |---|---|
 | Wall-clock time | about 50 minutes (12:22 to about 13:10, PR open and reviewed) |
-| Commits | COMMIT_COUNT |
+| Commits | 10 plus 3 merge commits |
 | Time in checks | about 25 minutes (`check:fast` per commit in four places, 2 full checks, 8 builds, 2 local Lighthouse runs, 4 browser test runs, 1 change report) |
 | Time waiting on CI | 0 (auto-merge queued; the next run does not depend on it) |
