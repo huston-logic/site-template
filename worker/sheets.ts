@@ -94,7 +94,7 @@ export async function appendRow(keyJson: string | undefined, sheetId: string | u
     log("sheet_config_missing");
     return false;
   }
-  const range = encodeURIComponent(`${tab}!A:K`);
+  const range = encodeURIComponent(`${tab}!A:T`);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
   const body = JSON.stringify({ values: [row.map(safeCell)] });
   for (let attempt = 1; attempt <= 2; attempt++) {
