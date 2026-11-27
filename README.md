@@ -160,6 +160,18 @@ Each URL prints `PASS` or `FAIL` with the reason. A URL passes only when the fir
 
 The contact page shows a disabled "Pick a time" button, clearly marked, and every "Book a free call" button points at `/contact#book` until `contact.schedulerUrl` is set in `site.config.ts`. If the scheduler is embedded in an iframe, add its origin to `frame-src` in `public/_headers`. Analytics is Cloudflare Web Analytics, which is cookieless: its two origins are in the CSP and the privacy page says so. Turn it on in the Cloudflare dashboard (nothing is added to the site's code).
 
+### Ad tracking origins (Content Security Policy)
+
+The ad tags are off until their IDs are set in `site.config.ts` (`tracking`). Then `npm run sync:config` adds only the origins that the set IDs need to `public/_headers`. The list is in `src/tracking/config.ts`. Each product adds these origins:
+
+| Product (when its ID is set) | script-src | img-src | connect-src | frame-src |
+|---|---|---|---|---|
+| Google Analytics 4 | `https://www.googletagmanager.com` | `https://www.googletagmanager.com`, `https://*.google-analytics.com` | `https://www.googletagmanager.com`, `https://*.google-analytics.com`, `https://*.analytics.google.com` | none |
+| Google Ads | `https://www.googletagmanager.com`, `https://www.googleadservices.com`, `https://www.google.com`, `https://googleads.g.doubleclick.net` | `https://www.googletagmanager.com`, `https://www.googleadservices.com`, `https://googleads.g.doubleclick.net`, `https://pagead2.googlesyndication.com`, `https://www.google.com` | the img-src list, plus `https://ad.doubleclick.net` | `https://www.googletagmanager.com` |
+| Meta Pixel | `https://connect.facebook.net` | `https://www.facebook.com` | `https://www.facebook.com`, `https://connect.facebook.net` | none |
+
+With no ID set, `public/_headers` is the same as before. Country Google domains (such as `www.google.co.uk`) are not listed; a site can add them with `csp.extraConnectSrc`. Google Signals is not allowed. Setup and tests are in [docs/TRACKING.md](docs/TRACKING.md).
+
 ## Contact form
 
 The form on `/contact` (`src/components/hl/ContactForm.tsx`) posts JSON to `POST /api/contact`, handled by a small Worker script, `worker/contact.ts`. `wrangler.jsonc` runs the Worker **only for `/api/*`** (`run_worker_first`); every page and file is still the static export in `./out`.

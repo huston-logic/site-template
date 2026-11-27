@@ -62,7 +62,7 @@ base code):
 | Set | script-src | img-src | connect-src | frame-src |
 |---|---|---|---|---|
 | GA4 | www.googletagmanager.com | www.googletagmanager.com, *.google-analytics.com | www.googletagmanager.com, *.google-analytics.com, *.analytics.google.com | none |
-| Google Ads | www.googletagmanager.com, www.googleadservices.com, www.google.com | www.googletagmanager.com, www.googleadservices.com, googleads.g.doubleclick.net, pagead2.googlesyndication.com, www.google.com | the img-src list plus ad.doubleclick.net | www.googletagmanager.com |
+| Google Ads | www.googletagmanager.com, www.googleadservices.com, www.google.com, googleads.g.doubleclick.net | www.googletagmanager.com, www.googleadservices.com, googleads.g.doubleclick.net, pagead2.googlesyndication.com, www.google.com | the img-src list plus ad.doubleclick.net | www.googletagmanager.com |
 | Meta Pixel | connect.facebook.net | www.facebook.com | www.facebook.com, connect.facebook.net | none |
 
 With no ID set, `public/_headers` is byte-identical to `main`.
@@ -71,24 +71,28 @@ With no ID set, `public/_headers` is byte-identical to `main`.
 
 `trackingForBuild(config, env)` decides at build time: null (nothing rendered) unless at least one ID is set and the
 build is the production build (`isProductionBuild`, the rule drafts and `/blocks` already use). The root layout renders
-the client component `TrackingTags` only when it is not null. At run time `TrackingTags` does nothing when
+`<TagsSlot />` from `src/tracking/tags-slot.tsx`, which renders nothing and imports nothing; when `trackingForBuild` is
+not null, `next.config.ts` aliases that import to `tags-slot-on.tsx`, which renders the client component `TrackingTags`.
+This Next version cannot code-split a client component imported by a server layout, so a plain conditional render
+would still ship and preload the loader's chunk on every page of a build with no IDs. At run time `TrackingTags` does nothing when
 `navigator.globalPrivacyControl` is true or the host is not the site's own domain (or its `www.` twin). Otherwise it sets
 up the gtag and fbq queues at once, so no event is lost, and adds the two script tags after the `load` event, in an idle
 callback, so they never compete with first paint.
 
 A local test build can set `TRACKING_FIXTURE=1`: it uses the fixture IDs in `src/tracking/config.ts` (obviously fake),
-skips the host check, and makes `scripts/finish-build.mjs` rewrite `out/_headers` with the fixture CSP. A production
-build with the variable set fails.
+skips the host check, and makes `scripts/finish-build.mjs` rewrite `out/_headers` with the fixture CSP. Any Workers
+Builds build (production or preview) with the variable set fails.
 
 ## The event layer
 
 `src/tracking/events.ts` is the one map. `track(name, params)` (`src/tracking/track.ts`) is what blocks call; it hands
-the event to `TrackingTags` when present and otherwise queues it (at most 50) and does nothing else, so with no IDs it
-makes no request.
+the event to `TrackingTags` (`window.hlTrack`) when present and otherwise does nothing, so with no IDs it makes no
+request. There is no queue: blocks report only after hydration, when the loader is already set up, and a queue made the
+shared chunk of every page bigger.
 
 | Event | Fired by | GA4 | Google Ads | Meta |
 |---|---|---|---|---|
-| page_view | `TrackingTags`, every path change including the first | page_view | (gets page_view through gtag) | PageView |
+| page_view | `TrackingTags`, every path change including the first | page_view (send_to GA4; page_location without fragment, only campaign and click-ID parameters) | none (ruling 17) | PageView |
 | form_start | contact form and form block, first focus | form_start {form_id} | none | none |
 | lead | contact form and form block, on the Worker's success | generate_lead {form_id} | conversion, send_to lead label | Lead |
 | click_call | any `tel:` link, one document listener | click_call | none | Contact |
@@ -154,10 +158,15 @@ before this note)`, or `Came from: not known`. The Pipeline post gains `source` 
 3. **Capture only when there is something to record.** A direct first visit is not recorded, so "First seen" and "Days
    to note" can start at a later, tagged visit. This keeps "no new requests" true for direct visits and every test page.
    Cost if wrong: days-to-note reads short for people who first came directly.
-4. **"Matches main" with no IDs** means: `public/_headers` and the CSP are identical, no page loads any new host, the
-   pages look the same (pixel comparison), and the only additions are the inline capture script (under 1 KB per page)
-   and the no-op `track` calls in two client components. JS chunk hashes change. Cost if wrong: if byte-identical HTML
-   was meant, the capture script would have to move behind a switch.
+4. **"Matches main" with no IDs** means: `public/_headers` and the CSP are identical, no page asks any new host or
+   `/api/visit` on a direct visit, the pages look the same (pixel comparison), and the only additions are the inline
+   capture script (387 characters per page) and the no-op `track` calls in the two forms. Measured on the built site: every
+   page makes one more same-origin request than `main`, because Turbopack split the shared chunk that holds the forms,
+   `EnterObserver` and the video players into two files after it grew by about 460 bytes; no tag code is in either.
+   The capture script is kept under 400 characters because the root layout's prefetch data must stay under Next's
+   2,048-byte (gzipped) inlining limit: at 683 characters it crossed it and every page fetched one more file
+   (`__next._index.txt`). Cost if wrong: if no extra same-origin file at all was meant, the form events would have to
+   move into code that is already in that chunk, or the chunking tuned.
 5. **GPC stops the tags, not the first-party source capture.** The source never leaves the site's own Worker except to
    the owner's own Sheet, inbox and Pipeline app, and nothing is sent to an ad network. Cost if wrong: a privacy review
    could ask to skip capture when `Sec-GPC: 1` is sent; that is one check in `worker/visit.ts`.
@@ -187,7 +196,17 @@ before this note)`, or `Came from: not known`. The Pipeline post gains `source` 
 15. **New Sheet columns have no header until Grant adds them** (Needs Grant). Rows save either way. The service-account
     writer's range grows from `A:K` to `A:T`. Cost if wrong: unlabelled columns until the owner step is done.
 16. **`TRACKING_FIXTURE` is a new build variable**, read only by `src/tracking/config.ts` and `scripts/finish-build.mjs`,
-    and refused on the production build. Cost if wrong: one more variable in AGENTS.md's list.
+    and refused on every Workers Builds build. Cost if wrong: one more variable in AGENTS.md's list.
+17. **Google Ads gets conversions only, no page views.** A fixture Lighthouse run showed that a page_view reaching the
+    Ads tag is a remarketing ping that sets doubleclick third-party cookies on every page (best practices 73 on every
+    page) and loads a fallback script from googleads.g.doubleclick.net, which Google's CSP guide does not list (now
+    allowed). The brief needs visitors per ad, the funnel and the lead per ad, which GA4, the conversion and the Sheet
+    give. Cost if wrong: no remarketing audiences in Google Ads; turning them on is one `send_to` in `events.ts` and
+    accepting the cookie warning.
+18. **The tags get no chance to read forms.** The Pixel is set to `autoConfig` false before `init`, GA4 to
+    `allow_google_signals: false`, and docs/TRACKING.md has Grant switch off Meta's Automatic advanced matching and leave
+    Google's enhanced conversions and user-provided data collection off (account settings code cannot reach). Cost if
+    wrong: if an account setting is switched on anyway, hashed emails and phone numbers reach Meta or Google.
 
 ## Done when
 
