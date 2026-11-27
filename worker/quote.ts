@@ -11,7 +11,7 @@ import type { WorkerConfig } from "./config.ts";
 import { sendEmail } from "./email.ts";
 import { log, type ContactEnv, type Mode } from "./env.ts";
 import { formNotificationEmail, formPipelineLead, formSheetRow } from "./messages.ts";
-import { formSpec, type SubmissionSpec } from "./forms.ts";
+import { formSpec, type LazySpec, type SubmissionSpec } from "./forms.ts";
 
 /**
  * The quote form's extras (docs/superpowers/specs/2026-11-27-catalog-and-quotes-design.md, R14 to R16). `POST
@@ -40,11 +40,11 @@ export async function loadCatalogData(env: ContactEnv, requestUrl: string): Prom
   }
 }
 
-/** The selection as typed data, or null when no person could have made it through the page. */
-function readSelection(raw: unknown, data: CatalogData): { slug: string; selection: Selection } | null {
+/** The selection's shape as typed data, or null when no person could have made it through the page (a 400). Prices are not judged here. */
+function readShape(raw: unknown): { slug: string; selection: Selection } | null {
   if (!isRecord(raw) || Object.keys(raw).some((key) => !SELECTION_KEYS.includes(key))) return null;
   const slug = raw["item"];
-  if (typeof slug !== "string" || !Object.hasOwn(data.items, slug)) return null;
+  if (typeof slug !== "string") return null;
   const selection: Selection = {};
   const options = raw["options"];
   if (options !== undefined) {
@@ -56,9 +56,14 @@ function readSelection(raw: unknown, data: CatalogData): { slug: string; selecti
     if (typeof people !== "number") return null;
     selection.people = people;
   }
-  const item = data.items[slug];
-  if (!item || !priceRange(item, data.pricing, selection, slug).ok) return null;
   return { slug, selection };
+}
+
+/** Whether a well-formed selection still prices against today's data. When not, the page the visitor used is out of date (a 409). */
+function stillPrices(data: CatalogData, slug: string, selection: Selection): boolean {
+  if (!Object.hasOwn(data.items, slug)) return false;
+  const item = data.items[slug];
+  return item !== undefined && priceRange(item, data.pricing, selection, slug).ok;
 }
 
 type Parts = { piece: string; link: string | null; choices: { group: string; label: string }[]; people: { label: string; count: number } | null; estimate: string };
@@ -115,10 +120,11 @@ export function quoteSpec(config: WorkerConfig, def: FormDefinition, data: Catal
     keys: new Set<string>([...base.keys, SELECTION_KEY]),
     validate(fields) {
       const { [SELECTION_KEY]: rawSelection, ...rest } = fields;
-      const picked = readSelection(rawSelection, data);
+      const picked = readShape(rawSelection);
       if (!picked) return { ok: false, malformed: true, fields: [] };
       const answers = base.validate(rest);
       if (!answers.ok) return answers;
+      if (!stillPrices(data, picked.slug, picked.selection)) return { ok: false, malformed: false, fields: [], changed: true };
       return { ok: true, value: { answers: answers.value, ...picked } };
     },
     dryRun() {
@@ -145,6 +151,19 @@ export function quoteSpec(config: WorkerConfig, def: FormDefinition, data: Catal
       const sent = await sendEmail(env.RESEND_API_KEY, { from: `${config.replyFromName} <${siteEmail}>`, to, replyTo: siteEmail, headers: REPLY_HEADERS, ...email }, `${submissionId}-estimate`, "estimate");
       if (!sent) log("estimate_email_failed");
       return sent ? { ok: true } : { ok: true, delivered: false };
+    },
+  };
+}
+
+/** The quote form's spec with the catalog read deferred: the handler reads the data only after its cheap checks (R15). */
+export function quoteLazySpec(config: WorkerConfig, def: FormDefinition, load: () => Promise<CatalogData | null>): LazySpec<QuoteValue> {
+  const base = formSpec(config, def, QUOTE_FORM_ID);
+  return {
+    head: { maxBytes: base.maxBytes, keys: new Set<string>([...base.keys, SELECTION_KEY]), rateKey: base.rateKey },
+    unavailableEvent: "catalog_data_unavailable",
+    async resolve() {
+      const data = await load();
+      return data ? quoteSpec(config, def, data) : null;
     },
   };
 }

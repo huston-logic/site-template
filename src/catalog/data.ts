@@ -19,7 +19,10 @@ export function buildCatalogData(input: { items: readonly LoadedItem[]; settings
       status: item.status,
     };
   }
-  return { version: 1, pagePath: input.pagePath, itemWord: { ...input.settings.itemWord }, pricing: input.pricing, items };
+  // Exact prices (and their slugs) of a draft or archived piece stay out of the public file: only visible pieces keep theirs.
+  const exact: PricingTable["exact"] = {};
+  for (const [slug, prices] of Object.entries(input.pricing.exact)) if (Object.hasOwn(items, slug)) exact[slug] = prices;
+  return { version: 1, pagePath: input.pagePath, itemWord: { ...input.settings.itemWord }, pricing: { ...input.pricing, exact }, items };
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
