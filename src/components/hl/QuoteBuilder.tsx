@@ -8,7 +8,6 @@ import { providers } from "@/content/providers";
 import type { PublicForm } from "@/forms/schema";
 import { track } from "@/tracking/track";
 import { rangeWords } from "./catalog-data";
-import { EstimateTag } from "./CatalogCard";
 import { itemWords } from "./catalog-words";
 import { FormView, type FormSelection } from "./FormView";
 import { TextLink } from "./TextLink";
@@ -39,7 +38,11 @@ export function QuoteBuilder({ pricing, items, initialSlug, itemWord, quote, hea
   const prefix = useId();
   const [slug, setSlug] = useState<string | null>(initialSlug);
   const [chosen, setChosen] = useState<Record<string, string>>({});
-  const [peopleText, setPeopleText] = useState("");
+  // The box starts at the smallest party, so the number the estimate uses is always on screen.
+  const [peopleText, setPeopleText] = useState(() => {
+    const first = items.find((candidate) => candidate.slug === initialSlug);
+    return first !== undefined && first.perPerson && pricing.perPerson !== null ? String(pricing.perPerson.min) : "";
+  });
   const [open, setOpen] = useState(false);
   const [sent, setSent] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -48,8 +51,14 @@ export function QuoteBuilder({ pricing, items, initialSlug, itemWord, quote, hea
   const fee = item !== null && item.perPerson ? pricing.perPerson : null;
   const Heading = headingLevel;
 
+  // Opening moves focus to the form's heading; closing with "Change my selection" returns it to the button.
+  const returnFocus = useRef(false);
   useEffect(() => {
     if (open) headingRef.current?.focus();
+    else if (returnFocus.current) {
+      returnFocus.current = false;
+      requestRef.current?.focus();
+    }
   }, [open]);
 
   const people = fee === null ? undefined : clamp(Number.isNaN(Number.parseInt(peopleText, 10)) ? fee.min : Number.parseInt(peopleText, 10), fee.min, fee.max);
@@ -57,7 +66,6 @@ export function QuoteBuilder({ pricing, items, initialSlug, itemWord, quote, hea
   const options = Object.fromEntries(groups.map((group) => [group.id, chosen[group.id] ?? group.choices[0]?.id ?? ""]));
   const priced = item === null ? null : priceRange(item, pricing, { options, ...(people === undefined ? {} : { people }) }, item.slug);
   const range = priced !== null && priced.ok ? formatRange(priced.result, pricing.currency, rangeWords) : null;
-  const isRange = priced !== null && priced.ok && priced.result.kind === "range";
   const selection: FormSelection | null = item === null ? null : { item: item.slug, options, ...(people === undefined ? {} : { people }) };
 
   function pick(next: string) {
@@ -178,14 +186,14 @@ export function QuoteBuilder({ pricing, items, initialSlug, itemWord, quote, hea
               <p aria-live="polite" aria-atomic="true" className="font-ui text-h3 font-bold">
                 {range ?? catalogWords.onRequest}
               </p>
-              {isRange ? <EstimateTag /> : null}
             </div>
             <p className="mt-3 max-w-narrow text-small text-ink-2">{pricing.note}</p>
 
             <div className="mt-6">
               {quote === null ? (
                 <TextLink href="/contact">{catalogWords.askRoute(itemWord.singular)}</TextLink>
-              ) : (
+              ) : open ? null : (
+                // Once the form is open the button gives way to it; "Change my selection" brings it back.
                 <button
                   ref={requestRef}
                   type="button"
@@ -235,8 +243,8 @@ export function QuoteBuilder({ pricing, items, initialSlug, itemWord, quote, hea
                   <button
                     type="button"
                     onClick={() => {
+                      returnFocus.current = true;
                       setOpen(false);
-                      requestRef.current?.focus();
                     }}
                     className="mt-3 inline-flex min-h-11 items-center font-ui font-medium text-green underline underline-offset-quarter-em"
                   >

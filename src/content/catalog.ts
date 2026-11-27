@@ -16,7 +16,7 @@ export const catalogWords = {
   undo: "Undo the last filter",
   showMore: (n: number) => `Show ${n} more`,
   /** "12 of 61 pieces". */
-  count: (shown: number, total: number, plural: string) => `${shown} of ${total} ${plural}`,
+  count: (shown: number, total: number, plural: string) => (shown === total ? `${total} ${plural}` : `${shown} of ${total} ${plural}`),
   /** "Show 12 pieces", on the phone's filter panel. */
   showResults: (n: number, singular: string, plural: string) => `Show ${n} ${n === 1 ? singular : plural}`,
   emptyHeading: (plural: string) => `No ${plural} match these filters`,
@@ -41,7 +41,7 @@ export const catalogWords = {
     increase: "More",
     noScript: "To ask for a quote, write to me from the contact page.",
     summaryPiece: "Piece",
-    formHeading: "Request this quote",
+    formHeading: "Your details",
     changeSelection: "Change my selection",
   },
   email: {
