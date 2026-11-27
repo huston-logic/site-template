@@ -58,7 +58,16 @@ test.describe("with JavaScript", () => {
     await page.goto("/blocks?type=jug,teapot&nonsense=1", { waitUntil: "networkidle" });
     const expected = countFor({ type: ["jug"] });
     await expect(page.locator(BLOCK).getByText(catalogWords.count(expected, total, "pieces"), { exact: true })).toBeVisible();
-    await expect(page).toHaveURL(/\?type=jug$/);
+    // Landing leaves the address as it came, so campaign parameters are never stripped.
+    await expect(page).toHaveURL(/\?type=jug,teapot&nonsense=1$/);
+  });
+
+  test("changing a filter keeps utm and click ids and rewrites only the filter parameters", async ({ page }) => {
+    await page.goto("/blocks?utm_source=ad&gclid=abc&type=jug,teapot", { waitUntil: "networkidle" });
+    const block = page.locator(BLOCK);
+    await block.getByRole("button", { name: /^Remove filter/ }).first().click();
+    await expect(page).toHaveURL(/\?utm_source=ad&gclid=abc$/);
+    await expect(block.locator("[data-trigger]:visible").first()).toBeFocused();
   });
 
   test("the empty state offers Clear filters, which restores every piece", async ({ page }) => {

@@ -44,6 +44,32 @@ export function toSearch(picks: readonly Pick[], filters: readonly FilterDef[]):
   return parts.length === 0 ? "" : `?${parts.join("&")}`;
 }
 
+/**
+ * The address's query with the filter choices swapped in: every parameter that is not a filter id (utm_*, gclid, fbclid and
+ * the rest) stays as it was, in its order and spelling; the filter parameters are replaced by the current choices and
+ * come last. Returns "" or a string starting with "?".
+ */
+export function mergeSearch(current: string, picks: readonly Pick[], filters: readonly FilterDef[]): string {
+  const ids = new Set(filters.map((filter) => filter.id));
+  const kept = current
+    .replace(/^\?/, "")
+    .split("&")
+    .filter((part) => {
+      if (part === "") return false;
+      const raw = part.split("=")[0] ?? "";
+      let key = raw;
+      try {
+        key = decodeURIComponent(raw.replace(/\+/g, " "));
+      } catch {
+        // A malformed key is not a filter id; keep it as it came.
+      }
+      return !ids.has(key);
+    });
+  const own = toSearch(picks, filters).replace(/^\?/, "");
+  const all = own === "" ? kept : [...kept, own];
+  return all.length === 0 ? "" : `?${all.join("&")}`;
+}
+
 /** Adds the pick, or removes it when it is already chosen. */
 export function toggle(picks: readonly Pick[], pick: Pick): Pick[] {
   const has = picks.some((candidate) => candidate.filter === pick.filter && candidate.value === pick.value);
