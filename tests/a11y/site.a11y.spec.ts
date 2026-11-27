@@ -2,7 +2,7 @@ import { readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { auditRoutes, indexableRoutes, noindexRoutes } from "../../src/lib/routes";
+import { auditRoutes, indexableRoutes, noindexRoutes, showcaseItemRoutes } from "../../src/lib/routes";
 import { KNOWN_ISSUES } from "./known-issues";
 
 // WCAG 2.0, 2.1 and 2.2 levels A and AA (axe tags are not cumulative), plus axe's best-practice rules
@@ -153,7 +153,7 @@ test("every built page is in src/lib/routes.ts", async ({}, testInfo) => {
     .filter((file) => file !== "404.html" && file !== "_not-found.html")
     .map((file) => "/" + file.replace(/(^|\/)index\.html$/, "").replace(/\.html$/, ""))
     .map((route) => (route === "/" ? route : route.replace(/\/$/, "")));
-  const listed = [...indexableRoutes, ...noindexRoutes];
+  const listed = [...indexableRoutes, ...noindexRoutes, ...showcaseItemRoutes];
   expect(
     builtRoutes.filter((route) => !listed.includes(route)).sort(),
     "These built pages are not in src/lib/routes.ts, so they would never be scanned. Add them there.",

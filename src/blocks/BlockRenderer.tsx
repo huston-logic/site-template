@@ -2,13 +2,14 @@ import type { ComponentType } from "react";
 import { Glow } from "@/components/hl/Glow";
 import type { LoadedItem } from "@/collections/schema";
 import type { BusinessData } from "@/settings/business";
+import { getCatalog } from "@/lib/catalog";
 import { getItems } from "@/lib/collections";
 import { blockComponents } from "./components";
 import { EnterObserver } from "./EnterObserver";
 import { registry } from "./definitions";
 import { spacingFor } from "./rhythm";
 import type { AnyBlockDefinition, BlockInstance } from "./schema";
-import type { BlockProps } from "./types";
+import type { BlockProps, CatalogView } from "./types";
 
 type AnyProps = BlockProps<Record<string, unknown>>;
 
@@ -28,13 +29,15 @@ type BlockViewProps = {
   page?: number;
   /** Business details for the business-details block when they are not business.json (the showcase's example). */
   business?: BusinessData;
+  /** The catalog the catalog blocks read: the renderer builds it from the site's files, the showcase passes the example catalog. */
+  catalog?: CatalogView;
 };
 
 /**
  * One block in its wrapper, which owns the spacing (rhythm.ts), the glows and the entrance motion, so a block's
  * component carries none of those. The page renderer and the /blocks showcase both build blocks with this.
  */
-export function BlockView({ block, index, previous, primary, items = [], page, business }: BlockViewProps) {
+export function BlockView({ block, index, previous, primary, items = [], page, business, catalog }: BlockViewProps) {
   const def = definitions.get(block.type);
   const Component = blockComponents[block.type] as ComponentType<AnyProps> | undefined;
   if (!def || !Component) throw new Error(`The block type "${block.type}" has no definition or component.`);
@@ -45,7 +48,7 @@ export function BlockView({ block, index, previous, primary, items = [], page, b
     <div className={`relative ${spacingFor(def, index, previous)}`} data-block={block.type} data-motion={animated ? "enter" : undefined}>
       {def.placement.position === "first" ? <Glow variant="green" className="hl-glow-hero" /> : null}
       {def.placement.position === "last" ? <Glow variant="seam" className="hl-glow-closing" /> : null}
-      <Component content={block.content} variant={block.variant ?? def.variants[0]?.name ?? "default"} anchor={anchor} headingId={headingId} primary={primary} items={items} page={page} business={business} />
+      <Component content={block.content} variant={block.variant ?? def.variants[0]?.name ?? "default"} anchor={anchor} headingId={headingId} primary={primary} items={items} page={page} business={business} catalog={catalog} />
     </div>
   );
 }
@@ -56,6 +59,8 @@ export function BlockView({ block, index, previous, primary, items = [], page, b
  * index, which shows its own empty text. `page` is the page of the post index to show (/blog/page/<n>).
  */
 export function BlockRenderer({ blocks, page }: { blocks: readonly BlockInstance[]; page?: number }) {
+  const isCatalogBlock = (type: string) => definitions.get(type)?.collection === "catalog";
+  const catalog = blocks.some((block) => isCatalogBlock(block.type)) ? getCatalog() : undefined;
   const shown = blocks.flatMap((block) => {
     const def = definitions.get(block.type);
     const items = def?.collection === undefined ? [] : getItems(def.collection);
@@ -72,6 +77,7 @@ export function BlockRenderer({ blocks, page }: { blocks: readonly BlockInstance
           primary={index === 0}
           items={items}
           page={page}
+          catalog={isCatalogBlock(block.type) ? catalog : undefined}
         />
       ))}
       <EnterObserver />

@@ -1095,3 +1095,66 @@ The people from your Team collection, in the order you set there, with a photo, 
   "intro": "A sentence about who you work with."
 }
 ```
+
+## Catalog (`catalog`)
+
+Every piece in your catalog as a card with its photo, name and price estimate, with filters, a count and a Show more button. Each card opens the piece's own page, where the visitor chooses options and asks for a quote. Without JavaScript every piece is listed. It is left out of the page while no piece is visible.
+
+**Where it can go:** anywhere, once.
+
+**Needs JavaScript:** The filter bar, the count, the empty state and Show more need JavaScript; they show and hide the cards the server already drew, so the whole catalog still lists without it.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `grid` (default): Four cards across on wide screens and two on phones: a tall photo, the name and a price estimate.
+- `showcase`: Three larger cards across on wide screens and one on phones, with the name set larger and a quiet line of facts under it.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `intro` | Introduction | no | up to 280 characters |
+
+**Motion:** No entrance motion. The filter bar reveals and hides cards itself, so the grid stays still and never moves under the visitor's pointer.
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading for the catalog",
+  "intro": "A sentence that says what the pieces are and how to narrow them down."
+}
+```
+
+## Quote builder (`quote-builder`)
+
+A panel where the visitor picks a piece, chooses its options, sees the price estimate change and asks for a quote. Name a piece to preselect it; otherwise the visitor chooses from every visible piece. It is left out of the page while no piece is visible.
+
+**Where it can go:** anywhere, once.
+
+**Needs JavaScript:** The options, the changing estimate and the quote form need JavaScript. Without it the panel shows the contact route.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `panel` (default): One centred panel with the heading and introduction above the builder.
+- `beside`: The heading and introduction on the left, the builder panel on the right (stacked on phones).
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `intro` | Introduction | no | up to 280 characters |
+| `item` | Piece. The piece to preselect. Leave empty to let the visitor choose. | no | the slug of a live catalog piece |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that invites a quote request",
+  "intro": "A sentence that says what the visitor can choose and what happens after they ask."
+}
+```
