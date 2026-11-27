@@ -63,6 +63,12 @@ Ask for any of these in plain words.
   Take it down whenever you like. Works today.
 - **New forms.** Ask for a form, such as a quote request or a sign-up, with the fields you need, and place it on a page. Works today.
 - **File-download forms.** A visitor leaves their email address to get a PDF you uploaded. Works today.
+- **Catalog pieces.** Add, change, archive and restore pieces, with photos you uploaded, and hide a piece's price. Works
+  once Huston Logic has set up the catalog on your site. See the Catalog section in [EDITING.md](EDITING.md).
+- **Catalog filters.** Add a filter or a value, and rename a label. Works once the catalog is set up.
+- **Pricing table.** Change the option groups and their choices, the per-person fee, the note and the rounding, or raise
+  or lower one choice by a percent. The prices are estimates, and a price change lists every piece it changes before
+  you say yes. Works once the catalog is set up.
 
 ### The check on every change
 
@@ -125,5 +131,11 @@ These need Huston Logic. Ask, and Huston Logic will tell you what it takes.
 - **Spacing, shape and motion.** The design sets these. Huston Logic changes them.
 - **A font that is not on the list.** Huston Logic checks the font and adds it. Fonts on the list are in Lane 1.
 - **Changes to how the contact form sends notes.** Huston Logic builds it.
+- **Catalog setup and the first load.** Huston Logic fills in the catalog's filters and pricing table, imports the first
+  set of pieces and their photos from a spreadsheet, and adds the catalog page. After that the owner changes the catalog
+  by chat (Lane 1).
+- **Where quote requests and estimates are sent.** The quote form's destination, its email recipients and its wiring
+  are settings, not page text. Huston Logic changes them. The quote form's questions, button and thank-you are changed
+  by chat, as for any form (see [EDITING.md](EDITING.md), Forms).
 - **Ad and analytics tracking IDs** (`tracking` in `site.config.ts`: Google Analytics, Google Ads and the Meta Pixel).
   Huston Logic sets them. Your AI app cannot set or change them. See [docs/TRACKING.md](TRACKING.md).

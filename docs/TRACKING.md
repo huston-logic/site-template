@@ -60,24 +60,30 @@ names below were right in November 2026; both rename menus often, so look for th
 ## Events
 
 The site sends these events. "Reserved" means the event exists in the code but no page uses it yet. Those are for later
-features (gallery quotes, bookings and gift cards).
+features (bookings and gift cards).
 
 | Event | When it fires | GA4 name | Google Ads | Meta Pixel |
 |---|---|---|---|---|
 | Page view | Each time a visitor opens a page, and each time the page changes without a reload | `page_view` | none: Google Ads gets conversions only (design ruling 17) | `PageView` |
 | Form start | The first time a visitor clicks into a form (the contact form or a form the owner made) | `form_start` | none | none |
-| Lead | A form is sent and the server confirms it was saved | `generate_lead` | Counts as a conversion (the Lead label) | `Lead` |
+| Lead | A form is sent and the server confirms it was saved (the quote form included, with form ID `quote`) | `generate_lead` | Counts as a conversion (the Lead label) | `Lead` |
 | Click call | A visitor clicks a phone number link | `click_call` | none | `Contact` |
 | Click email | A visitor clicks an email address link | `click_email` | none | `Contact` |
-| View item | Reserved: a visitor views one item | `view_item` | none | `ViewContent` |
-| Quote start | Reserved: a visitor starts a quote request | `quote_start` | none | none |
+| View item | A visitor opens one catalog piece's page. Once per view | `view_item` | none | `ViewContent` |
+| Quote start | A visitor presses "Request this quote" in the catalog's quote builder | `quote_start` | none | none |
 | Begin checkout | Reserved: a visitor starts paying | `begin_checkout` | none | `InitiateCheckout` |
 | Purchase | Reserved: a sale is complete | `purchase` | Counts as a conversion (the Purchase label) | `Purchase` |
+
+A catalog piece's page sends "View item" once per view; "Request this quote" in the quote builder sends "Quote start";
+a quote request that reaches the owner sends "Lead" with `form_id` `quote`.
 
 Notes:
 
 - No event carries a name, an email address, a phone number, an answer or a link. Only the form's ID, an item ID, and
   a price and currency (for purchases) can go with an event.
+- Catalog events send ids and names only. "View item" sends the piece's slug (`item_id`) and its name (`item_name`).
+  "Quote start" sends the slug only. "Lead" and "Form start" send the form's ID, so the quote form sends `quote`. No
+  event sends a price, an estimate, an option choice, a guest count or a quote answer.
 - Meta gets only standard events. Form starts and quote starts stay in GA4.
 - The lead and purchase conversions are the ones Google Ads and Meta count as results.
 - Google Ads gets no page views, so it builds no remarketing lists (lists of past visitors to show ads to again). A page

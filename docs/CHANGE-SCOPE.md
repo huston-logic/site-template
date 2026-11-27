@@ -198,6 +198,23 @@ The change report maps these files to the pages they can change:
 - `business.json`, `notice.json`, `brand.json`, `src/app/palette.css` and `src/lib/fonts.ts` map to every page. The report
   flags a brand change as "touches every page".
 
+## Catalog (pieces, filters, prices and the quote form)
+
+- **Piece files** (`src/content/collections/catalog/<slug>.json`) are tier 1 when the whole site passes the content check at
+  the head commit, as for other item files. Deleting one is tier 3: archive it instead.
+- **`src/content/catalog.json`** (the item word and the filters) and **`src/content/pricing.json`** (the pricing table) are
+  tier 1 on the same terms.
+- **`src/content/forms/quote.json`** is the quote form. It is a form file, so it follows the forms rules above: tier 1 when
+  the site passes the content check. It cannot be archived while a catalog page is live (a content problem).
+- **Card files** (`<name>-card.webp`, the grid copy of a cover, in `public/images/uploads/` or `public/images/catalog/`)
+  follow the photo rules. A card counts as used when its source photo is used with real alt text beside it, so the card
+  itself needs no alt text.
+
+In the change report, a piece maps to the catalog page (its gallery) and to its own page. `catalog.json` and `pricing.json`
+map to the catalog page and to the first three live pieces in gallery order (`CATALOG_SAMPLE` in
+`scripts/change-report.mjs`). `quote.json` maps to the catalog page and to the first piece. Only pages that hold a catalog
+block are photographed.
+
 ## Running it
 
 ```bash

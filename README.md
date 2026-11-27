@@ -282,6 +282,25 @@ npx wrangler dev --port 4823 --ip localhost --var SITE_ENV:development --var TUR
 
 (With the `service-account` writer, use `--var GOOGLE_SERVICE_ACCOUNT_KEY:x --var GOOGLE_SHEET_ID:x` instead of the last two. With the `"pipeline"` destination, use `--var INTAKE_SECRET:x` instead of the Sheet vars. In development mode nothing is sent or written, so the dummy values are never used.) This serves the built site and the Worker at http://localhost:4823 in development mode (also in `.claude/launch.json` as `worker`). On localhost the form uses Cloudflare's always-pass test site key. To see the "couldn't verify" error, use the always-fail secret `2x0000000000000000000000000000000AA`. These are Cloudflare's published test values, not secrets. A local `.dev.vars` file would also work and is git-ignored, but never put real keys in it.
 
+## Catalog and quotes
+
+A catalog is a set of pieces with photos, filters and price estimates. Huston Logic sets it up on a site, and the owner changes it by chat (see [docs/EDITING.md](docs/EDITING.md), "Catalog"). The files are one JSON file per piece in `src/content/collections/catalog/`, the filters in `src/content/catalog.json`, the pricing table in `src/content/pricing.json` and the quote form in `src/content/forms/quote.json` (id `quote`, live in the template). The catalog's photos are in `public/images/catalog/`, and each cover has a `-card.webp` file for the grid.
+
+**The quote endpoint.** `POST /api/forms/quote` takes the quote form's answers and a `selection`: the piece's slug, the choice for each option group, and the guest count when the piece takes one. It goes through the same layers as the other forms: same origin, size limit, rate limit (`quote:<ip>`), honeypot and Turnstile (action `form`). It refuses any key besides the answers, the selection, the honeypot and the token, so a posted price is refused, never read.
+
+**The Worker computes the estimate.** The Worker reads `/catalog.json` from the site's own static files through the `ASSETS` binding (the same deploy as the Worker). It refuses a missing or non-live piece, an option that the piece does not use, or a guest count out of range with 400 `malformed`. It works out the range with `src/catalog/price.ts`, and uses only that figure. If it cannot read `/catalog.json`, it refuses the request with 502 and logs `catalog_data_unavailable`, so the quote fails closed.
+
+**Where the quote goes.** The same destination as the other forms (`contact.destination`). The Sheet's `Forms` tab gets the same row as any form, with no new column and no Apps Script change. The Answers cell starts with `Piece: <name>`, `Link: <site url>/<page>/<slug>`, one `<group>: <choice>` line per option, `Guests: <n>` when it applies and `Estimate: <range>` (or `Price on request`), then the answers. The owner's email and the Pipeline message carry the same lines.
+
+**Scripts.**
+
+```bash
+npm run import:catalog -- <csv> <photos folder> <mapping.json> [--write]
+npm run fixture:catalog -- <n> <dir>
+```
+
+`import:catalog` loads a first set of pieces from a spreadsheet export. It is a dry run unless `--write` is given. The mapping file format and the steps are in [docs/EDITING.md](docs/EDITING.md), "Setting up a catalog on one site". `fixture:catalog` writes `<n>` generated pieces, the settings and a catalog page into a throwaway checkout (`<dir>`), to measure a build at size. Never run it in the real repo: its files are not content.
+
 ## Deploy to Cloudflare Workers
 
 Merging a pull request into `main` deploys the site automatically through Cloudflare Workers Builds. Other branches get preview URLs (Cloudflare Worker Previews, configured by the `previews` block in `wrangler.jsonc`). Never run `wrangler deploy` by hand. The Worker config is `wrangler.jsonc`: static assets from `./out`, plus the Worker (entry `worker/index.ts`: the contact form, and the site editor when `editor.enabled` is on, see `docs/EDITING.md`), which wrangler bundles at deploy time. The build and deploy commands did not change when the Worker was added.
