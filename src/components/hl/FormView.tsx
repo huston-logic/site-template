@@ -153,6 +153,7 @@ export function FormView({
       showFieldErrors(body.fields.filter((f): f is string => typeof f === "string"));
       return;
     }
+    if (response.status === 409 && body?.error === "changed") return fail("changed");
     if (response.status === 429) return fail("rateLimited");
     if (body?.error === "rejected") return fail("notVerified");
     return fail("failed");

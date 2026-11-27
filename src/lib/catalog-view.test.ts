@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { exampleCatalog } from "../catalog/example.ts";
-import { cardPrice, factsOf, itemView, quietFacts } from "../components/hl/catalog-data.ts";
+import { cardPrice, factsOf, itemView, pricingForItems, quietFacts } from "../components/hl/catalog-data.ts";
 
 const { settings, pricing, items } = exampleCatalog;
 const first = items[0]!;
@@ -22,5 +22,15 @@ describe("the catalog's card and item lines", () => {
     assert.equal(facts[0]?.name, "Type");
     assert.deepEqual(facts[0]?.labels, ["Jugs"]);
     assert.equal(quietFacts(itemView(first), settings, 2).split(", ").length, 2);
+  });
+});
+
+describe("the pricing sent to the browser", () => {
+  it("keeps exact prices only for the named pieces", () => {
+    const table = { ...pricing, exact: { a: { g: { c: 1 } }, b: { g: { c: 2 } } } };
+    assert.deepEqual(pricingForItems(table, ["a"]).exact, { a: { g: { c: 1 } } });
+    assert.deepEqual(pricingForItems(table, ["z"]).exact, {});
+    assert.deepEqual(Object.keys(pricingForItems(table, ["a", "b"]).exact), ["a", "b"]);
+    assert.equal(pricingForItems(table, ["a"]).currency, pricing.currency);
   });
 });

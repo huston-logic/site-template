@@ -20,6 +20,7 @@ export const formWords = {
     notVerified: "That didn't go through. Please try again.",
     rateLimited: "Too many tries in a row. Wait a minute and try again.",
     failed: "That didn't send. Please try again in a few minutes.",
+    changed: "This piece or its options changed since the page loaded. Reload the page to see the current estimate.",
   },
   downloadNotSent: "The email with your file didn't send. Please write to us and we'll send it.",
   noScript: "This form needs JavaScript to send. You can also write to",

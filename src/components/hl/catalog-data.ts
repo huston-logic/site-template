@@ -61,3 +61,12 @@ export function quietFacts(view: ItemView, settings: CatalogSettings, count: num
     .map((fact) => fact.labels[0] ?? "")
     .join(", ");
 }
+
+/** The pricing table with exact prices only for the named pieces, so the browser is sent no other piece's figures. */
+export function pricingForItems(pricing: PricingTable, slugs: readonly string[]): PricingTable {
+  const exact = Object.fromEntries(slugs.flatMap((slug) => (Object.hasOwn(pricing.exact, slug) && pricing.exact[slug] !== undefined ? [[slug, pricing.exact[slug]]] : [])));
+  return { ...pricing, exact };
+}
+
+/** The pricing table with only this piece's exact prices. */
+export const pricingFor = (pricing: PricingTable, slug: string): PricingTable => pricingForItems(pricing, [slug]);

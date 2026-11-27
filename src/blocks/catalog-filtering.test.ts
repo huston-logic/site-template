@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { facetCounts, fits, matchingPositions, parseSearch, selectedOf, toggle, toSearch, type CardValues, type FilterDef } from "./catalog-filtering.ts";
+import { facetCounts, fits, matchingPositions, mergeSearch, parseSearch, selectedOf, toggle, toSearch, type CardValues, type FilterDef } from "./catalog-filtering.ts";
 
 const filters: FilterDef[] = [
   { id: "type", name: "Type", values: [{ id: "jug", label: "Jugs" }, { id: "vase", label: "Vases" }, { id: "bowl", label: "Bowls" }] },
@@ -50,4 +50,13 @@ test("toggle adds, then removes", () => {
   const added = toggle([], { filter: "type", value: "jug" });
   assert.equal(added.length, 1);
   assert.deepEqual(toggle(added, { filter: "type", value: "jug" }), []);
+});
+
+test("merging the choices into the address keeps utm and click ids and swaps only the filter parameters", () => {
+  const picks = [{ filter: "type", value: "vase" }];
+  assert.equal(mergeSearch("?utm_source=ad&gclid=abc&type=jug&fbclid=z", picks, filters), "?utm_source=ad&gclid=abc&fbclid=z&type=vase");
+  assert.equal(mergeSearch("?type=jug&glaze=ash", [], filters), "");
+  assert.equal(mergeSearch("?gclid=a%20b&type=jug&glaze=ash", [], filters), "?gclid=a%20b");
+  assert.equal(mergeSearch("", picks, filters), "?type=vase");
+  assert.equal(mergeSearch("?utm_medium=cpc", [], filters), "?utm_medium=cpc");
 });
