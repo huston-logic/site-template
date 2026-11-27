@@ -29,17 +29,6 @@ export interface ProposalUpload {
   card?: boolean;
 }
 
-/** The R2 key of an upload's catalog card (720 by 900 WebP), made beside the file when the photo is uploaded. */
-export const cardKeyFor = (id: string): string => `inbox/${id}/card`;
-
-/** Reads an upload's card from the inbox bucket; null when the object is missing (an upload made before cards existed). */
-export const cardReaderFor =
-  (bucket: Pick<R2Bucket, "get">) =>
-  async (id: string): Promise<Uint8Array | null> => {
-    const object = await bucket.get(cardKeyFor(id));
-    return object ? new Uint8Array(await object.arrayBuffer()) : null;
-  };
-
 /** Where an upload's card goes in the repo: the photo's path with "-card" before the extension. */
 export const cardRepoPath = (upload: { path: string }): string => cardPathFor(upload.path);
 

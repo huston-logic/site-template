@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { registry, seedSite } from "./test-support.ts";
 import { isCommittablePath } from "./site-reader.ts";
-import { cardKeyFor } from "./uploads.ts";
+import { cardKey } from "../uploads/store.ts";
 import { aiApp, JPEG, makeUploadsEditor, type Called, type UploadsEditor } from "./uploads-test-support.ts";
 
 /**
@@ -125,7 +125,9 @@ async function publishAndMerge(t: UploadsEditor, ai: ReturnType<typeof aiApp>, i
 async function upload(t: UploadsEditor, name: string, card: Uint8Array | null = CARD): Promise<string> {
   const result = await t.store.add(JPEG, name);
   assert.ok(result.ok, result.ok ? "" : result.message);
-  if (card) await t.r2.bucket.put(cardKeyFor(result.upload.id), card);
+  // Uploads now make their own card; null stands for a photo uploaded before cards existed.
+  if (card) await t.r2.bucket.put(cardKey(result.upload.id), card);
+  else await t.r2.bucket.delete(cardKey(result.upload.id));
   return result.upload.id;
 }
 
