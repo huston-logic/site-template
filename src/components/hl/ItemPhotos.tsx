@@ -26,6 +26,7 @@ export function ItemPhotos({ photos }: { photos: readonly ItemPhoto[] }) {
           sizes="(min-width: 900px) 58vw, 100vw"
           className="object-contain"
           preload={index === 0}
+          fetchPriority={index === 0 ? "high" : undefined}
         />
       </div>
       {photos.length > 1 ? (
