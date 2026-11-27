@@ -12,6 +12,8 @@ export interface ContactEnv {
   /** Destination "pipeline" only: the shared secret the Pipeline app copy checks in the X-Intake-Secret header. */
   INTAKE_SECRET?: string;
   CONTACT_RATE_LIMIT?: RateLimit;
+  /** The site's own static assets: the quote form reads `/catalog.json` (its price source) through it. */
+  ASSETS?: Fetcher;
 }
 
 /** Bindings the owner's chat tools add. All optional: they exist only when `editor.enabled` is true (wrangler.jsonc). */

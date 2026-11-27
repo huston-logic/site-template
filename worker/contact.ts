@@ -1,3 +1,4 @@
+import { QUOTE_FORM_ID } from "../src/catalog/schema.ts";
 import { honeypot } from "../src/content/contact-fields.ts";
 import { CONTACT_BODY_BYTES } from "../src/forms/contact.ts";
 import { contactKeys, validateContact, type ContactInput, type ContactSubmission } from "../src/lib/contact-validation.ts";
@@ -8,6 +9,7 @@ import { sendEmail } from "./email.ts";
 import { log, resolveMode, type ContactEnv, type Mode, type SaveStatus } from "./env.ts";
 import { findForm, formFiles, formSpec, TOKEN_KEY, type Delivery, type FormSource, type SubmissionSpec } from "./forms.ts";
 import { jsonResponse } from "./http.ts";
+import { loadCatalogData, quoteSpec } from "./quote.ts";
 import { autoReplyEmail, notificationEmail, pipelineMessage, sheetRow } from "./messages.ts";
 import { sendToPipeline } from "./pipeline.ts";
 import { readBody } from "./read-body.ts";
@@ -216,9 +218,11 @@ async function handleSubmission<T>(config: WorkerConfig, spec: SubmissionSpec<T>
 
 /**
  * Builds the Worker from a config. The default export below uses the real site.config.ts and the generated form
- * registry; the tests pass a fixture config and, for the forms, their own definitions.
+ * registry; the tests pass a fixture config and, for the forms, their own definitions. The form with id `quote` gets the
+ * catalog extras (worker/quote.ts) when `quoteExtras` is true, which is the default for the real registry only: a test
+ * that uses its own "quote" fixture opts in with a third argument.
  */
-export function createWorker(config: WorkerConfig, forms: FormSource = formFiles) {
+export function createWorker(config: WorkerConfig, forms: FormSource = formFiles, quoteExtras: boolean = forms === formFiles) {
   return {
     async fetch(request: Request, env: ContactEnv): Promise<Response> {
       const url = new URL(request.url);
@@ -236,8 +240,21 @@ export function createWorker(config: WorkerConfig, forms: FormSource = formFiles
           log("form_definition_invalid");
           return json(500, { ok: false, error: "failed" });
         }
-        const spec = formSpec(config, found.def, formId);
-        formResponse = (req) => handleSubmission(config, spec, req, env, url);
+        const { def } = found;
+        if (quoteExtras && formId === QUOTE_FORM_ID) {
+          // Fail closed: without the site's catalog data the Worker has no prices to compute from.
+          formResponse = async (req) => {
+            const data = await loadCatalogData(env, req.url);
+            if (!data) {
+              log("catalog_data_unavailable");
+              return json(502, { ok: false, error: "failed" });
+            }
+            return handleSubmission(config, quoteSpec(config, def, data), req, env, url);
+          };
+        } else {
+          const spec = formSpec(config, def, formId);
+          formResponse = (req) => handleSubmission(config, spec, req, env, url);
+        }
       }
       if (request.method !== "POST") return json(405, { error: "method_not_allowed" }, { allow: "POST" });
       return formResponse ? formResponse(request) : handleSubmission(config, contactSpec(config), request, env, url);

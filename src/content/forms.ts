@@ -28,4 +28,6 @@ export const formWords = {
     subject: "Your copy of {title}",
     lines: ["Here is {title}, as you asked.", "Download it here:"],
   },
+  /** The quote form's estimate email subject when the form file has no `reply`. */
+  quoteSubject: "Your estimate",
 };

@@ -128,31 +128,40 @@ function answerText(line: AnswerLine): string {
 }
 
 /** The "Answers" cell: one `Label: value` line per answer given, cut with a fixed ending past the cell limit. */
-function answersCell(lines: AnswerLine[]): string {
-  const text = lines.map(answerText).join("\n");
+function answersCell(lines: AnswerLine[], lead: readonly string[] = []): string {
+  const text = [...lead, ...lines.map(answerText)].join("\n");
   // safeCell may add a leading apostrophe on the way out, and the Apps Script refuses a cell over the limit: leave room for it.
   const room = SHEET_CELL_MAX - (safeCell(text) === text ? 0 : 1);
   return text.length > room ? `${text.slice(0, room - ANSWERS_CUT.length)}${ANSWERS_CUT}` : text;
 }
 
 /** The Forms tab row, one fixed header for every form: Received (UTC), Form, Name, Email, Answers, Mode, then the five lead-source cells. */
-export function formSheetRow(def: FormDefinition, value: SubmissionValue, mode: Mode, receivedAt: string, attribution: Attribution | null = null): string[] {
-  return [receivedAt, def.name, nameOf(def, value), emailOf(def, value), answersCell(answerLines(def, value)), mode, ...sheetCells(attribution, receivedAt)];
+export function formSheetRow(def: FormDefinition, value: SubmissionValue, mode: Mode, receivedAt: string, attribution: Attribution | null = null, lead: readonly string[] = []): string[] {
+  return [receivedAt, def.name, nameOf(def, value), emailOf(def, value), answersCell(answerLines(def, value), lead), mode, ...sheetCells(attribution, receivedAt)];
 }
 
 /** The Pipeline lead: the name field or, without one, the email address; the answers travel in the message. */
-export function formPipelineLead(def: FormDefinition, value: SubmissionValue): PipelineLead {
+export function formPipelineLead(def: FormDefinition, value: SubmissionValue, lead: readonly string[] = []): PipelineLead {
   const email = emailOf(def, value);
-  const message = cap(`Form: ${def.name}\n\n${answerLines(def, value).map(answerText).join("\n")}`, PIPELINE_MESSAGE_MAX);
+  const message = cap(`Form: ${def.name}\n\n${[...lead, ...answerLines(def, value).map(answerText)].join("\n")}`, PIPELINE_MESSAGE_MAX);
   const business = organizationOf(def, value);
   return { name: nameOf(def, value) || email, email, message, ...(business ? { business } : {}) };
 }
 
 /** The internal email for a form: plain text, every answer labelled, whether it was saved, and the mode when not live. */
-export function formNotificationEmail(config: WorkerConfig, def: FormDefinition, value: SubmissionValue, mode: Mode, receivedAt: string, status: SaveStatus, attribution: Attribution | null = null) {
+export function formNotificationEmail(
+  config: WorkerConfig,
+  def: FormDefinition,
+  value: SubmissionValue,
+  mode: Mode,
+  receivedAt: string,
+  status: SaveStatus,
+  attribution: Attribution | null = null,
+  extra: { lead: readonly string[]; subject: string } | null = null,
+) {
   const who = nameOf(def, value) || emailOf(def, value);
-  const subject = cap(`${previewPrefix(mode)}New ${def.name} from ${who}`, 120);
-  const lines = [`Form: ${def.name}`, "", ...answerLines(def, value).map(answerText), "", emailLine(attribution, receivedAt), `Received: ${receivedAt}`, saveLine(config.destination, status)];
+  const subject = cap(`${previewPrefix(mode)}${extra ? extra.subject : `New ${def.name} from ${who}`}`, 120);
+  const lines = [`Form: ${def.name}`, "", ...(extra ? [...extra.lead, ""] : []), ...answerLines(def, value).map(answerText), "", emailLine(attribution, receivedAt), `Received: ${receivedAt}`, saveLine(config.destination, status)];
   if (mode !== "production") lines.push(`Mode: ${mode}`);
   return { subject, text: lines.join("\n") };
 }
