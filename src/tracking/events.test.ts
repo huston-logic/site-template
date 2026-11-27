@@ -127,3 +127,17 @@ test("page_location keeps only the campaign and click-ID parameters and drops th
   assert.equal(pageLocation({ origin: "https://example.com", pathname: "/a", search: "?email=a%40b.test&utm_source=google&gclid=x" }), "https://example.com/a?utm_source=google&gclid=x");
   assert.equal(pageLocation({ origin: "https://example.com", pathname: "/", search: "?name=Ada" }), "https://example.com/");
 });
+
+test("every GA4 event carries the cleaned page address when there is a location", () => {
+  const saved = Object.getOwnPropertyDescriptor(globalThis, "location");
+  Object.defineProperty(globalThis, "location", { configurable: true, value: { origin: "https://example.com", pathname: "/quote", search: "?email=a%40b.test&gclid=x" } });
+  try {
+    const [lead] = eventCalls("lead", { form_id: "quote" }, { ga4: GA });
+    assert.deepEqual(lead, { to: "gtag", args: ["event", "generate_lead", { form_id: "quote", page_location: "https://example.com/quote?gclid=x", send_to: GA }] });
+    const [call] = eventCalls("click_call", undefined, { ga4: GA });
+    assert.equal((call.args[2] as { page_location: string }).page_location, "https://example.com/quote?gclid=x");
+  } finally {
+    if (saved) Object.defineProperty(globalThis, "location", saved);
+    else delete (globalThis as { location?: unknown }).location;
+  }
+});

@@ -34,8 +34,9 @@ In order:
    comments only; no redeploy).
 2. For each site that saves to the Google Sheet: add five header cells to row 1, `Came from | Campaign | Click ID |
    First seen (UTC) | Days to note`: columns L to P on "Submissions" and "Preview", G to K on "Forms" and "Forms
-   preview". Nothing else: rows already save with the new cells (the Apps Script takes up to 20 columns), and sites on
-   the Pipeline app need nothing.
+   preview". First check those columns are empty and move any column the owner added there to the right. Rows already
+   save with the new cells (the Apps Script takes up to 20 columns); sites on the Pipeline app need nothing. Every
+   site's privacy page should mention the source cookie, tags or not (`docs/TRACKING.md`, wording).
 3. Before ads run on a site (accounts, so yours): `docs/TRACKING.md`, "Set up one site", steps 1 to 11: GA4 property and
    two enhanced-measurement switches off, Google Ads Lead and Purchase conversion actions and labels, auto-tagging on,
    enhanced conversions off, link Ads to GA4, key events, the Meta Pixel with Automatic advanced matching off. Put the

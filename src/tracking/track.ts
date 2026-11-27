@@ -1,6 +1,7 @@
 // What blocks call to report an event. With no tags on the page (no IDs, a preview, or Global Privacy Control) it does
-// nothing. No queue: blocks report only after hydration, when TrackingTags has already set window.hlTrack, and a queue
-// would make every page's shared chunk bigger (docs/superpowers/specs/2026-11-27-ad-tracking-design.md, ruling 4).
+// nothing. No queue: the root layout renders the tag slot before the page, so TrackingTags sets window.hlTrack before
+// any block's effect runs, mount effects included, and a queue would make every page's shared chunk bigger
+// (docs/superpowers/specs/2026-11-27-ad-tracking-design.md, ruling 4). Never call it during render.
 import type { EventName, EventParams } from "./events.ts";
 
 declare global {

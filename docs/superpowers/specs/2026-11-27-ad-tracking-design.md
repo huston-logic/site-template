@@ -87,8 +87,9 @@ Builds build (production or preview) with the variable set fails.
 
 `src/tracking/events.ts` is the one map. `track(name, params)` (`src/tracking/track.ts`) is what blocks call; it hands
 the event to `TrackingTags` (`window.hlTrack`) when present and otherwise does nothing, so with no IDs it makes no
-request. There is no queue: blocks report only after hydration, when the loader is already set up, and a queue made the
-shared chunk of every page bigger.
+request. There is no queue: the root layout renders the tag slot before the page, so the loader's effect runs before any block's
+(mount effects included), and a queue made the shared chunk of every page bigger. Every GA4 event, and both tag configs
+at setup, carry the cleaned page address (origin, path and only the campaign and click-ID parameters).
 
 | Event | Fired by | GA4 | Google Ads | Meta |
 |---|---|---|---|---|

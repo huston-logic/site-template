@@ -10,7 +10,8 @@ import { readBody } from "./read-body.ts";
  * limit (ruling 13). Logs hold fixed event names only, never a value.
  */
 
-const MAX_BODY_BYTES = 2048;
+// Room for a 4,096-character path (attribution.ts) plus the referrer: a long landing URL is trimmed there, not refused.
+const MAX_BODY_BYTES = 8192;
 const CSP = { "content-security-policy": "default-src 'none'; frame-ancestors 'none'" };
 
 function reject(status: number, error: string, extra: Record<string, string> = {}): Response {

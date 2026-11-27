@@ -62,8 +62,9 @@ test("the tags load after the page, the CSP allows exactly the fixture origins, 
   expect(asked).toContain("www.googletagmanager.com/gtag/js");
   expect(asked).toContain("connect.facebook.net/en_US/fbevents.js");
   const first = await calls(page);
-  expect(first.gtag).toContainEqual(["config", "G-TEST000000", { send_page_view: false, allow_google_signals: false }]);
-  expect(first.gtag).toContainEqual(["config", "AW-000000000", { send_page_view: false }]);
+  const home = `${new URL(page.url()).origin}/`;
+  expect(first.gtag).toContainEqual(["config", "G-TEST000000", { send_page_view: false, allow_google_signals: false, page_location: home }]);
+  expect(first.gtag).toContainEqual(["config", "AW-000000000", { send_page_view: false, page_location: home }]);
   expect(first.fbq).toContainEqual(["set", "autoConfig", false, "000000000000000"]);
   expect(first.fbq).toContainEqual(["init", "000000000000000"]);
   expect(events(first)).toEqual(["page_view"]);
@@ -110,7 +111,7 @@ test("the contact form fires form_start on first focus and lead on success, to G
   await page.waitForURL("**/contact/thanks");
   await expect.poll(async () => events(await calls(page))).toEqual(["page_view", "form_start", "generate_lead", "conversion", "page_view"]);
   const c = await calls(page);
-  expect(c.gtag).toContainEqual(["event", "generate_lead", { form_id: "contact", send_to: "G-TEST000000" }]);
+  expect(c.gtag).toContainEqual(["event", "generate_lead", { form_id: "contact", page_location: expect.stringMatching(/\/contact$/), send_to: "G-TEST000000" }]);
   expect(c.gtag).toContainEqual(["event", "conversion", { send_to: "AW-000000000/TestLeadLabel" }]);
   expect(meta(c)).toEqual(["PageView", "Lead", "PageView"]);
   expect(JSON.stringify(c)).not.toContain("ada@example.org");
@@ -140,8 +141,8 @@ test("a form block fires form_start and lead on success", async ({ page, context
   await expect.poll(async () => events(await calls(page))).toContain("generate_lead");
   const c = await calls(page);
   expect(events(c)[0]).toBe("page_view");
-  expect(c.gtag).toContainEqual(["event", "form_start", { form_id: formId, send_to: "G-TEST000000" }]);
-  expect(c.gtag).toContainEqual(["event", "generate_lead", { form_id: formId, send_to: "G-TEST000000" }]);
+  expect(c.gtag).toContainEqual(["event", "form_start", { form_id: formId, page_location: expect.any(String), send_to: "G-TEST000000" }]);
+  expect(c.gtag).toContainEqual(["event", "generate_lead", { form_id: formId, page_location: expect.any(String), send_to: "G-TEST000000" }]);
   expect(c.gtag).toContainEqual(["event", "conversion", { send_to: "AW-000000000/TestLeadLabel" }]);
   expect(meta(c)).toEqual(["PageView", "Lead"]);
   expect(JSON.stringify(c)).not.toContain("ada@example.org");

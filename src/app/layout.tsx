@@ -46,8 +46,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         {/* The header, main and footer come from app/(site)/layout.tsx (SiteChrome). */}
-        {children}
+        {/* Before the page: its effects then run before any block's, so a block may report from a mount effect. */}
         <TagsSlot />
+        {children}
       </body>
     </html>
   );

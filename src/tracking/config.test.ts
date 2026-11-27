@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import {
   EMPTY_TRACKING,
@@ -230,4 +231,16 @@ describe("isSiteHost", () => {
     assert.equal(isSiteHost("shop.example.com", "example.com"), false);
     assert.equal(isSiteHost("localhost", "example.com"), false);
   });
+});
+
+// The build-time swap (next.config.ts) only works while its alias key is exactly the layout's import and points at a
+// real file. If a rename breaks either, a production build with IDs would quietly ship no tags.
+test("the tag-slot alias in next.config.ts matches the layout's import and an existing file", () => {
+  const nextConfig = readFileSync(new URL("../../next.config.ts", import.meta.url), "utf8");
+  const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  const alias = nextConfig.match(/\{ "(@\/tracking\/[^"]+)": "\.\/([^"]+)" \}/);
+  assert.ok(alias, "next.config.ts has the tag-slot alias");
+  assert.ok(layout.includes(`import { TagsSlot } from "${alias[1]}";`), "layout.tsx imports the aliased path");
+  assert.ok(existsSync(new URL(`../../${alias[2]}`, import.meta.url)), alias[2]);
+  assert.ok(existsSync(new URL("./tags-slot.tsx", import.meta.url)));
 });

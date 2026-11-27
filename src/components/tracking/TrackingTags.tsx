@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { isSiteHost, type TrackingBuild } from "@/tracking/config";
-import { eventCalls } from "@/tracking/events";
+import { eventCalls, pageLocation } from "@/tracking/events";
 import type { Fbq } from "@/tracking/track";
 
 const GTAG_SRC = "https://www.googletagmanager.com/gtag/js?id=";
@@ -39,8 +39,10 @@ function setUpQueues(ids: TrackingBuild["ids"]) {
     window._fbq = fbq;
   }
   window.gtag("js", new Date());
-  if (ids.ga4) window.gtag("config", ids.ga4, { send_page_view: false, allow_google_signals: false });
-  if (ids.ads) window.gtag("config", ids.ads.id, { send_page_view: false });
+  // The landing address, cleaned, read now: gtag.js arrives after load, when a client-side move may have dropped the gclid.
+  const page_location = pageLocation(location);
+  if (ids.ga4) window.gtag("config", ids.ga4, { send_page_view: false, allow_google_signals: false, page_location });
+  if (ids.ads) window.gtag("config", ids.ads.id, { send_page_view: false, page_location });
   if (ids.meta) {
     // Automatic configuration lets the Pixel read buttons and form fields on its own; events come only from events.ts.
     window.fbq?.("set", "autoConfig", false, ids.meta);

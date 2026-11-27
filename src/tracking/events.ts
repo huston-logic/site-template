@@ -72,7 +72,7 @@ function pick(params: Record<string, string | number>, keys: string[]): Record<s
   return out;
 }
 
-const URL_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "gbraid", "wbraid", "fbclid", "msclkid"];
+const URL_KEYS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "utm_id", "utm_source_platform", "gclid", "gbraid", "wbraid", "dclid", "fbclid", "msclkid", "gad_source", "gad_campaignid"];
 
 /** The page address GA4 gets: origin and path plus only the campaign and click-ID parameters, never the fragment, so a link that carries anything else (an email in a newsletter link) never reaches Google. */
 export function pageLocation(location: { origin: string; pathname: string; search: string }): string {
@@ -88,8 +88,11 @@ export function eventCalls(name: string, params: unknown, ids: TrackingIds): Tra
   const event = name as EventName;
   const p = clean(event, params);
   const calls: TrackCall[] = [];
+  // Every GA4 event carries the cleaned address, or gtag would send the full URL with every parameter.
+  const here = typeof globalThis.location === "object" ? pageLocation(globalThis.location) : undefined;
+  const at = here ? { page_location: here } : {};
   const ga4 = (gaName: string, extra: Record<string, string | number> = p) => {
-    if (ids.ga4) calls.push({ to: "gtag", args: ["event", gaName, { ...extra, send_to: ids.ga4 }] });
+    if (ids.ga4) calls.push({ to: "gtag", args: ["event", gaName, { ...extra, ...at, send_to: ids.ga4 }] });
   };
   const adsConversion = (label: string | undefined, extra: Record<string, string | number>) => {
     if (ids.ads && label) calls.push({ to: "gtag", args: ["event", "conversion", { send_to: `${ids.ads.id}/${label}`, ...extra }] });
@@ -103,8 +106,7 @@ export function eventCalls(name: string, params: unknown, ids: TrackingIds): Tra
       // GA4 only: a page view sent to Google Ads is a remarketing ping that sets third-party cookies on every page
       // (design ruling 17). Google Ads gets conversions only.
       if (ids.ga4) {
-        const location = typeof globalThis.location === "object" ? pageLocation(globalThis.location) : undefined;
-        calls.push({ to: "gtag", args: ["event", "page_view", { ...p, ...(location ? { page_location: location } : {}), send_to: ids.ga4 }] });
+        calls.push({ to: "gtag", args: ["event", "page_view", { ...p, ...at, send_to: ids.ga4 }] });
       }
       meta("PageView");
       break;

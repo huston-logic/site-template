@@ -111,7 +111,7 @@ describe("POST /api/visit", () => {
     ["no origin", () => visit({ path: "/", referrer: "" }, { origin: null }), 403],
     ["a cross-site fetch", () => visit({ path: "/", referrer: "" }, { site: "cross-site" }), 403],
     ["form-encoded content", () => visit({ path: "/", referrer: "" }, { contentType: "application/x-www-form-urlencoded" }), 415],
-    ["a body over 2 KB", () => visit({ path: `/${"x".repeat(2100)}`, referrer: "" }), 413],
+    ["a body over 8 KB", () => visit({ path: `/${"x".repeat(8300)}`, referrer: "" }), 413],
     ["broken JSON", () => visit(null, { raw: "{" }), 400],
     ["an array", () => visit([]), 400],
     ["null", () => visit(null), 400],
@@ -129,13 +129,13 @@ describe("POST /api/visit", () => {
     });
   }
 
-  test("a chunked body over 2 KB without a length is refused", async () => {
+  test("a chunked body over 8 KB without a length is refused", async () => {
     const init: RequestInit & { duplex: "half" } = {
       method: "POST",
       headers: { origin: ORIGIN, "content-type": "application/json", "sec-fetch-site": "same-origin" },
       body: new ReadableStream({
         start(controller) {
-          controller.enqueue(new TextEncoder().encode(JSON.stringify({ path: `/${"x".repeat(3000)}`, referrer: "" })));
+          controller.enqueue(new TextEncoder().encode(JSON.stringify({ path: `/${"x".repeat(9000)}`, referrer: "" })));
           controller.close();
         },
       }),

@@ -83,7 +83,11 @@ Notes:
 - Google Ads gets no page views, so it builds no remarketing lists (lists of past visitors to show ads to again). A page
   view sent to Google Ads sets third-party cookies on every page, which costs the site its best-practices score. To
   turn remarketing on later, see design ruling 17.
-- The page address GA4 gets keeps only the `utm_*` and click-ID values, so anything else in a link never reaches Google.
+- The page address every GA4 event gets keeps only the campaign values (`utm_*`, `gad_*`) and click IDs, so anything
+  else in a link never reaches GA4. The Google Ads and Meta scripts read the page address themselves, so a link that
+  carries an email address would still reach them: never put personal data in a link to the site.
+- Blocks report with `track()` from `src/tracking/track.ts`, from an event handler or an effect, never during render.
+  The tag loader is set up before any block's effects run.
 
 ## Funnel report in GA4
 
@@ -196,7 +200,9 @@ A first visit with no tag, such as a visitor who types the address, is not recor
 note" start at the first tagged visit. Later untagged visits do not change the record. The first touch is kept for 90 days, then the oldest
 visit still kept takes its place.
 
-**The five Sheet cells.** Each row gets five new cells at the end:
+**The five Sheet cells.** Each row gets five new cells at the end. They are stored as text, like every cell the site
+writes (that is what keeps a formula out), so to average "Days to note" convert it first, for example
+`=AVERAGE(ARRAYFORMULA(VALUE(P2:P)))`.
 
 | Column | Meaning |
 |---|---|
@@ -209,6 +215,8 @@ visit still kept takes its place.
 The Sheet needs these five headers in the first row of each tab, after the existing headers. On the contact tabs
 (Submissions and Preview) that is columns L to P. On the form tabs (Forms and Forms preview) that is columns G to K.
 Rows still save without them, but the columns have no names until the headers are added. See the launch checklist.
+Before this reaches a Sheet in use, check that those columns are empty: if the owner added columns of their own there
+(a "Status" or "Follow-up" column), move them to the right first, or the new cells land under their headers.
 On the contact tabs, do not confuse **Came from** (column L, measured by the site) with **Source** (column J, the
 visitor's own answer to "How did you hear about me?").
 
@@ -230,8 +238,13 @@ number of days to note. Today the app's `/intake` stores `source` and ignores th
 
 ## Privacy page wording (suggestion)
 
-The privacy page copy is not changed by this run. Once tracking is on, the privacy page should say so. You can adapt
-this short paragraph:
+The privacy page copy is not changed by this run. Every site sets the source cookie from now on, tags or not, so every
+privacy page should mention it. With no tags, adapt this sentence:
+
+> The site sets its own cookie that remembers which ad or website brought you here, for 90 days. If you send me a
+> message, I keep that with your message. It is not shared with anyone else.
+
+Once tracking is on, adapt this paragraph instead:
 
 > This site uses analytics and advertising measurement tools from Google and Meta. They count visits and show which
 > ads bring visitors. The site also sets its own cookie that remembers which ad or website brought you here, for 90
