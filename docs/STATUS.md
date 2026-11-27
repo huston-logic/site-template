@@ -129,13 +129,13 @@ implementers in parallel worktrees; Haiku drafted the docs; the three reviewers 
   ruling 4). With the fixture IDs: `npm run test:tracking` (new, 6 browser tests, outside hosts stubbed) passes,
   including a page and form made by the editor's own operations, and GPC loading nothing; Lighthouse with the tags on
   scores 100/100/100/100 on every page (the showcase SEO 69 as a noindex page, as on `main`).
-- **Found by the fixture Lighthouse run and fixed:** a missing Ads script host in the CSP, and page views sent to Google
-  Ads setting third-party cookies (best practices 73 on every page).
+- **Fixture Lighthouse found and fixed:** a missing Ads script host; Ads page views setting third-party cookies (73).
 - **Reviews:** review-code (a throwing ad script could stop a form's success step; a stale page title; a bare visit could
   create an empty first touch; a utm tag without utm_source read "Direct"), review-security (no high; medium: the Meta
   Pixel's automatic configuration and advanced matching could read forms; low: the fixture on a preview build, the
   page address sent to GA4 kept every parameter, the GA4 wildcard origins undocumented), review-a11y (none; the same
-  success-step point). All fixed. Design critique: nothing visible changed (pixel-identical), so none was needed.
+  success-step point), a final pre-merge review (full URL on other GA4 events; the cookie missing from the privacy
+  checklist; owner-added Sheet columns; mount-effect events). All fixed. No design critique: nothing visible changed.
 - **Judgment calls (all in the design):** the cookie comes from `POST /api/visit`, not a Worker before every page; capture
   only tagged or referred visits; a build-time alias keeps tag code out of builds without IDs; the capture script stays
   under 400 characters (Next's 2 KB prefetch-inlining limit); GA4 gets `generate_lead`; page views to GA4 only.
@@ -143,7 +143,7 @@ implementers in parallel worktrees; Haiku drafted the docs; the three reviewers 
 
 | Measure | This run |
 |---|---|
-| Wall-clock time | about 50 minutes (12:22 to about 13:10, PR open and reviewed) |
-| Commits | 10 plus 3 merge commits |
-| Time in checks | about 25 minutes (`check:fast` per commit in four places, 2 full checks, 8 builds, 2 local Lighthouse runs, 4 browser test runs, 1 change report) |
+| Wall-clock time | about 1 hour (12:22 to about 13:20, PR open, reviewed and fixed) |
+| Commits | 12 plus 3 merge commits |
+| Time in checks | about 25 minutes (`check:fast` per commit in four places, 4 full checks, 10 builds, 2 local Lighthouse runs, 5 browser test runs, 2 change reports) |
 | Time waiting on CI | 0 (auto-merge queued; the next run does not depend on it) |
