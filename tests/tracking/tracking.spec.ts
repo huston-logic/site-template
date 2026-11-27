@@ -55,9 +55,11 @@ test("the tags load after the page, the CSP allows exactly the fixture origins, 
   await settle(page);
   const csp = response?.headers()["content-security-policy"] ?? "";
   const origins = trackingCspOrigins(FIXTURE_TRACKING);
-  for (const origin of [...origins.script]) expect(csp).toMatch(new RegExp(`script-src [^;]*${origin.replace(/[.*]/g, "\\$&")}`));
-  for (const origin of [...origins.connect]) expect(csp).toMatch(new RegExp(`connect-src [^;]*${origin.replace(/[.*]/g, "\\$&")}`));
-  for (const origin of [...origins.img]) expect(csp).toMatch(new RegExp(`img-src [^;]*${origin.replace(/[.*]/g, "\\$&")}`));
+  const directive = (name: string) => csp.split(";").map((part) => part.trim().split(/\s+/)).find((tokens) => tokens[0] === name)?.slice(1) ?? [];
+  for (const origin of origins.script) expect(directive("script-src")).toContain(origin);
+  for (const origin of origins.connect) expect(directive("connect-src")).toContain(origin);
+  for (const origin of origins.img) expect(directive("img-src")).toContain(origin);
+  for (const origin of origins.frame) expect(directive("frame-src")).toContain(origin);
 
   expect(asked).toContain("www.googletagmanager.com/gtag/js");
   expect(asked).toContain("connect.facebook.net/en_US/fbevents.js");
@@ -155,7 +157,7 @@ test("with Global Privacy Control on, no tag is requested and nothing is queued"
   const page = await context.newPage();
   await page.goto("/", { waitUntil: "load" });
   await page.waitForTimeout(1500);
-  expect(asked.filter((host) => !host.startsWith("challenges.cloudflare.com"))).toEqual([]);
+  expect(asked.filter((request) => request.split("/")[0] !== "challenges.cloudflare.com")).toEqual([]);
   expect(await page.evaluate(() => typeof (window as unknown as { hlTrack?: unknown }).hlTrack)).toBe("undefined");
   await context.close();
 });

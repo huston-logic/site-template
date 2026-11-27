@@ -53,7 +53,7 @@ describe("trackingProblems", () => {
     for (const [path, value] of cases) {
       const problems = trackingProblems(value);
       assert.equal(problems.length, 1, JSON.stringify(value));
-      assert.match(problems[0] ?? "", new RegExp(`^site\\.config\\.ts {2}${path.replace(/\./g, "\\.")} must be`));
+      assert.ok((problems[0] ?? "").startsWith(`site.config.ts  ${path} must be`), problems[0]);
     }
   });
 
