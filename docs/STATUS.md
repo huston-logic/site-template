@@ -135,7 +135,8 @@ implementers in parallel worktrees; Haiku drafted the docs; the three reviewers 
   Pixel's automatic configuration and advanced matching could read forms; low: the fixture on a preview build, the
   page address sent to GA4 kept every parameter, the GA4 wildcard origins undocumented), review-a11y (none; the same
   success-step point), a final pre-merge review (full URL on other GA4 events; the cookie missing from the privacy
-  checklist; owner-added Sheet columns; mount-effect events). All fixed. No design critique: nothing visible changed.
+  checklist; owner-added Sheet columns; mount-effect events); CodeQL (5 alerts in test regexes). All fixed. No design
+  critique: nothing visible changed.
 - **Judgment calls (all in the design):** the cookie comes from `POST /api/visit`, not a Worker before every page; capture
   only tagged or referred visits; a build-time alias keeps tag code out of builds without IDs; the capture script stays
   under 400 characters (Next's 2 KB prefetch-inlining limit); GA4 gets `generate_lead`; page views to GA4 only.
@@ -144,6 +145,6 @@ implementers in parallel worktrees; Haiku drafted the docs; the three reviewers 
 | Measure | This run |
 |---|---|
 | Wall-clock time | about 1 hour (12:22 to about 13:20, PR open, reviewed and fixed) |
-| Commits | 12 plus 3 merge commits |
+| Commits | 14 plus 3 merge commits |
 | Time in checks | about 25 minutes (`check:fast` per commit in four places, 4 full checks, 10 builds, 2 local Lighthouse runs, 5 browser test runs, 2 change reports) |
 | Time waiting on CI | 0 (auto-merge queued; the next run does not depend on it) |
