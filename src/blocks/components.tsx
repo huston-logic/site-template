@@ -1,5 +1,6 @@
 import { siteBlockComponents } from "@/site-blocks/components";
 import { BusinessDetailsBlock } from "./library/business-details/BusinessDetailsBlock";
+import { CatalogBlock } from "./library/catalog/CatalogBlock";
 import { ClosingCtaBlock } from "./library/closing-cta/ClosingCtaBlock";
 import { ContactFormBlock } from "./library/contact-form/ContactFormBlock";
 import { EpisodeListBlock } from "./library/episode-list/EpisodeListBlock";
@@ -13,6 +14,7 @@ import { LegalSectionsBlock } from "./library/legal-sections/LegalSectionsBlock"
 import { PhotoTextBlock } from "./library/photo-text/PhotoTextBlock";
 import { PostIndexBlock } from "./library/post-index/PostIndexBlock";
 import { ProseBlock } from "./library/prose/ProseBlock";
+import { QuoteBuilderBlock } from "./library/quote-builder/QuoteBuilderBlock";
 import { StepsBlock } from "./library/steps/StepsBlock";
 import { TeamBlock } from "./library/team/TeamBlock";
 import { TestimonialsBlock } from "./library/testimonials/TestimonialsBlock";
@@ -45,5 +47,7 @@ export const blockComponents: Record<string, BlockComponent> = {
   "episode-list": EpisodeListBlock,
   testimonials: TestimonialsBlock,
   team: TeamBlock,
+  catalog: CatalogBlock,
+  "quote-builder": QuoteBuilderBlock,
   ...siteBlockComponents,
 };

@@ -1,6 +1,8 @@
 // The single list of site routes. The sitemap, the accessibility check (tests/a11y) and Lighthouse CI (lighthouserc.cjs)
 // all read it, so a page added as a file in src/content/pages is listed for search engines and scanned by CI.
 // Plain Node (type stripping) and Playwright load this file: relative imports with .ts, no aliases, no enums.
+import { exampleCatalog } from "../catalog/example.ts";
+import { CATALOG_BLOCK, itemPathFor } from "../catalog/schema.ts";
 import { pickItems } from "../collections/pick.ts";
 import type { LoadedItem } from "../collections/schema.ts";
 import { extraPageNumbers, indexPath, postPath } from "./blog.ts";
@@ -8,7 +10,7 @@ import { readItemFiles } from "./content-files.ts";
 import { showDrafts } from "./drafts.ts";
 import { readPageFiles } from "./page-files.ts";
 
-type RoutePage = { path: string; status?: unknown; menu?: { order?: unknown; places?: unknown } };
+type RoutePage = { path: string; status?: unknown; blocks?: unknown; menu?: { order?: unknown; places?: unknown } };
 
 const live = readPageFiles()
   .flatMap(({ data, error }) => (error === undefined && typeof data === "object" && data !== null ? [data as RoutePage] : []))
@@ -50,14 +52,37 @@ const postItems: LoadedItem[] = readItemFiles()
 export const postSlugs = (items: readonly LoadedItem[], drafts: boolean): string[] => pickItems(items, "posts", drafts).map((item) => item.slug);
 const blog = blogRoutes(postSlugs(postItems, false), postSlugs(postItems, showDrafts()));
 
-/** Every indexable route: the live pages, the blog's extra index pages and every live post. This is the sitemap. */
-export const indexableRoutes: string[] = [...pageRoutes, ...blog.indexPages, ...blog.posts];
+/** The path of the one live page that holds the catalog block, or null. */
+const catalogPagePath: string | null =
+  live.find((page) => Array.isArray(page.blocks) && page.blocks.some((block) => typeof block === "object" && block !== null && (block as { type?: unknown }).type === CATALOG_BLOCK))?.path ?? null;
 
-/** What CI audits (Lighthouse, the accessibility scan): the pages, plus the newest live post and /blog/page/2 when it exists. One of each kind of page. */
-export const auditRoutes: string[] = [...pageRoutes, ...blog.posts.slice(0, 1), ...blog.indexPages.slice(0, 1)];
+/** The routes of catalog items under the catalog page: `live` are indexed, `drafts` are built outside production and never indexed. Nothing without a catalog page. */
+export function catalogRoutes(pagePath: string | null, liveSlugs: readonly string[], visible: readonly string[]): { live: string[]; drafts: string[] } {
+  if (pagePath === null) return { live: [], drafts: [] };
+  return { live: liveSlugs.map((slug) => itemPathFor(pagePath, slug)), drafts: visible.filter((slug) => !liveSlugs.includes(slug)).map((slug) => itemPathFor(pagePath, slug)) };
+}
+
+const catalogItems: LoadedItem[] = readItemFiles().flatMap(({ kind, slug, data, error }) =>
+  kind === "catalog" && error === undefined && typeof data === "object" && data !== null && !Array.isArray(data)
+    ? [{ kind, slug, status: (data as { status?: unknown }).status, data } as unknown as LoadedItem]
+    : [],
+);
+const catalogSlugs = (drafts: boolean): string[] => pickItems(catalogItems, "catalog", drafts).map((item) => item.slug);
+const catalogItemRoutes = catalogRoutes(catalogPagePath, catalogSlugs(false), catalogSlugs(showDrafts()));
+
+/** Every indexable route: the live pages, the blog's extra index pages, every live post and every live catalog item. This is the sitemap. */
+export const indexableRoutes: string[] = [...pageRoutes, ...blog.indexPages, ...blog.posts, ...catalogItemRoutes.live];
+
+/** What CI audits (Lighthouse, the accessibility scan): the pages, plus the newest live post, /blog/page/2 when it exists and the first live catalog item. One of each kind of page. */
+export const auditRoutes: string[] = [...pageRoutes, ...blog.posts.slice(0, 1), ...blog.indexPages.slice(0, 1), ...catalogItemRoutes.live.slice(0, 1)];
 
 /** The block showcase: every block and variant with its example content. Built, scanned and audited, never indexed. */
 export const showcaseRoute = "/blocks";
 
-/** Real pages that stay out of the sitemap (noindex). */
-export const noindexRoutes = ["/contact/thanks", showcaseRoute, ...blog.draftPosts];
+/** Every example piece of the showcase has a page at /blocks/catalog/<slug> (built outside production, like /blocks). */
+export const showcaseItemRoutes: string[] = exampleCatalog.items.map((item) => `${showcaseRoute}/catalog/${item.slug}`);
+/** The one example item page the accessibility scan covers (the others are the same design with other data). */
+export const exampleItemRoute: string = showcaseItemRoutes[0] ?? `${showcaseRoute}/catalog`;
+
+/** Real pages that stay out of the sitemap (noindex): the thanks page, the showcase, one example item page, draft posts and draft catalog items. The other example item pages are `showcaseItemRoutes`. */
+export const noindexRoutes = ["/contact/thanks", showcaseRoute, exampleItemRoute, ...blog.draftPosts, ...catalogItemRoutes.drafts];
