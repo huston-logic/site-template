@@ -33,6 +33,14 @@ test("the notice's last day is judged in the business time zone", async () => {
   assert.match(inAuckland.text, /This notice will not show: its end date has passed\./);
 });
 
+// A preselected piece in an example names a showcase piece, which a seeded site does not have.
+const withoutPiece = (example: unknown): unknown => {
+  if (typeof example !== "object" || example === null) return example;
+  const { item: _item, ...rest } = example as Record<string, unknown>;
+  void _item;
+  return rest;
+};
+
 test("the empty-list note covers every block type whose definition names a collection", async () => {
   const withCollection = registry.filter((definition) => definition.collection !== undefined);
   assert.ok(withCollection.length >= 5);
@@ -40,7 +48,7 @@ test("the empty-list note covers every block type whose definition names a colle
     const files = Object.fromEntries(Object.entries(seedFiles()).filter(([path]) => !path.startsWith("src/content/collections/")));
     const t = makeUploadsEditor({ github: new FakeGitHub(files) });
     // A catalog section may not sit on the home page, so it goes on an inner page.
-    const proposed = await aiApp(t)("propose_change", { summary: "Add a list", operations: [{ op: "insert_block", page: definition.collection === "catalog" ? "/hours" : "/", at: 2, block: { type: definition.type, content: definition.example } }] });
+    const proposed = await aiApp(t)("propose_change", { summary: "Add a list", operations: [{ op: "insert_block", page: definition.collection === "catalog" ? "/hours" : "/", at: 2, block: { type: definition.type, content: withoutPiece(definition.example) } }] });
     const kind = definition.collection as string;
     if (kind === "posts") continue; // the post blocks need the /blog page; the existing acceptance test covers them
     assert.match(proposed.text, new RegExp(`has a ${kind} section`), `${definition.type}: ${proposed.text}`);

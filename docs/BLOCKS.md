@@ -1155,6 +1155,7 @@ A panel where the visitor picks a piece, chooses its options, sees the price est
 ```json
 {
   "heading": "A short heading that invites a quote request",
-  "intro": "A sentence that says what the visitor can choose and what happens after they ask."
+  "intro": "A sentence that says what the visitor can choose and what happens after they ask.",
+  "item": "everyday-dinner-set-ash-glaze"
 }
 ```

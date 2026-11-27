@@ -400,7 +400,13 @@ export function QuoteBuilder({
             </div>
           ) : null}
         </>
-      ) : null}
+      ) : (
+        // Before a piece is chosen the panel still says what it does and that every figure is an estimate.
+        <div className="border-t border-hairline pt-6">
+          <p className="font-voice text-h3 italic leading-snug text-ink">{catalogWords.quote.pickToSee(itemWord.singular)}</p>
+          <p className="mt-3 max-w-narrow text-small text-ink-2">{pricing.note}</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import type { ItemPhoto } from "./catalog-data";
 import { catalogWords } from "@/content/catalog";
 
 /**
- * A piece's photos: one large photo in a 4:5 frame, shown whole (object-contain on the tint mat) so nothing is cut off, and
+ * A piece's photos: one large photo in a square frame, shown whole (object-contain on the tint mat) so nothing is cut off, and
  * up to six thumbnails. The first photo loads at once and is the page's largest first-screen image; the others load only
  * when chosen, and the thumbnails are the small card files. No carousel, no autoplay, no swipe handler: buttons only.
  */
@@ -17,7 +17,7 @@ export function ItemPhotos({ photos }: { photos: readonly ItemPhoto[] }) {
   if (current === undefined) return null;
   return (
     <div>
-      <div className="relative aspect-photo-4-5 w-full overflow-hidden rounded-card bg-tint">
+      <div className="relative aspect-square w-full overflow-hidden rounded-card bg-tint">
         <Image
           key={index}
           src={current.src}

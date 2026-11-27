@@ -22,5 +22,6 @@ export const quoteBuilderDefinition = defineBlock({
   example: {
     heading: "A short heading that invites a quote request",
     intro: "A sentence that says what the visitor can choose and what happens after they ask.",
+    item: "everyday-dinner-set-ash-glaze",
   },
 });

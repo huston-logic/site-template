@@ -43,6 +43,7 @@ export const catalogWords = {
     choosePiece: (singular: string) => `${singular.charAt(0).toUpperCase()}${singular.slice(1)}`,
     /** The select's first option, the prompt. */
     choosePrompt: (singular: string) => `Choose a ${singular}`,
+    pickToSee: (singular: string) => `Choose a ${singular} to see its estimate.`,
     estimateLabel: "Estimate",
     estimateSpoken: "Estimate:",
     peopleHint: (min: number, max: number) => `${min} to ${max}`,
