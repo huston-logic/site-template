@@ -56,6 +56,8 @@ export function CatalogCard({ view, href, settings, pricing, variant, index, eag
             height={900}
             sizes={SIZES[variant]}
             loading={eager ? "eager" : "lazy"}
+            // The first card is usually the page's largest first-screen element, so its photo is asked for first.
+            fetchPriority={index === 0 ? "high" : undefined}
             className={`aspect-photo-4-5 w-full rounded-card bg-tint object-cover ${FOCUS[cover.focus ?? "center"]}`}
           />
         ) : null}
