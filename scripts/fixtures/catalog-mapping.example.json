@@ -1,0 +1,15 @@
+{
+  "name": "Name",
+  "slug": "Slug",
+  "description": "Description",
+  "order": "Order",
+  "status": "Status",
+  "defaultStatus": "draft",
+  "price": { "low": "Price from", "high": "Price to" },
+  "askWord": "ask",
+  "perPerson": "Per person",
+  "filters": { "type": "Type", "glaze": "Glaze" },
+  "options": "Options",
+  "exact": { "metal/18k-gold": "Price 18k" },
+  "photos": { "column": "Photos", "alt": "Alt text", "focus": "Focus" }
+}

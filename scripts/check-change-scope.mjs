@@ -21,7 +21,7 @@ import { validateSite as realValidateSite, SETTINGS_NAMES } from "../src/collect
 import { COLLECTION_KINDS, SLUG_RE } from "../src/collections/schema.ts";
 import { registryIds, registrySource } from "../src/forms/registry.ts";
 import { brandFiles } from "./config-rules.mjs";
-import { imageAltCheck } from "./image-alt.mjs";
+import { cardAltCheck, cardSourceUrls, imageAltCheck } from "./image-alt.mjs";
 import { inspectMetadata } from "./image-metadata.mjs";
 import { pdfProblem } from "./pdf-check.mjs";
 
@@ -86,10 +86,10 @@ const extensionOf = (path) => {
 const urlOf = (path) => path.slice("public".length);
 
 /** The .ts, .tsx and .json files under `dir` at `head` that mention the file's address, with their text. `git grep` exits 1 for "none". */
-function readReferences(path, head, git, dir) {
+function readReferences(path, head, git, dir, url = urlOf(path)) {
   let found;
   try {
-    found = git(["grep", "-l", "-I", "-F", "-z", "-e", urlOf(path), head, "--", dir]);
+    found = git(["grep", "-l", "-I", "-F", "-z", "-e", url, head, "--", dir]);
   } catch (error) {
     if (error.status === 1) return [];
     throw error;
@@ -125,6 +125,12 @@ export function gatherChange({ base, head, git, rules = defaultRules }) {
         file.hasMarkup = /<script|<svg|<html|<iframe/i.test(bytes.toString("latin1"));
         if (Object.hasOwn(rules.imageTypes, extensionOf(path))) file.metadata = inspectMetadata(bytes, extensionOf(path));
         imageRefs[path] = readReferences(path, head, git, rules.imageReferenceDir);
+        // A catalog card (<name>-card.webp) is used when its photo is: read the files that mention the photo too.
+        for (const source of cardSourceUrls(urlOf(path))) {
+          for (const reference of readReferences(path, head, git, rules.imageReferenceDir, source)) {
+            if (!imageRefs[path].some((known) => known.path === reference.path)) imageRefs[path].push(reference);
+          }
+        }
       }
       return file;
     }
@@ -362,7 +368,8 @@ export function evaluateChange(
     if (file.path.startsWith(rules.imageDir)) {
       if (file.status !== "D") {
         for (const reason of imageProblems(file, rules)) result.imageProblems.push({ path: safe(file.path), reason: safe(reason) });
-        const { problems, alts } = imageAltCheck(urlOf(file.path), imageRefs[file.path] ?? [], rules);
+        const altCheck = cardSourceUrls(urlOf(file.path)).length > 0 ? cardAltCheck : imageAltCheck;
+        const { problems, alts } = altCheck(urlOf(file.path), imageRefs[file.path] ?? [], rules);
         result.images.push({ path: safe(file.path), alts: alts.map(safe) });
         for (const reason of problems) result.altProblems.push({ path: safe(file.path), reason: safe(reason) });
       }

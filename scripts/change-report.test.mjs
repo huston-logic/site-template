@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { rules } from "./change-scope-rules.mjs";
 import { evaluateChange, formatReport } from "./check-change-scope.mjs";
-import { affectedPages, buildReportMarkdown, collectionBlockTypes, extractOptions, findImporters, formForFile, itemForFile, itemInfoFromTexts, pageInfoFromTexts, routeForPageFile, slugForRoute } from "./change-report.mjs";
+import { affectedPages, buildReportMarkdown, catalogOrderFromTexts, collectionBlockTypes, extractOptions, findImporters, formForFile, itemForFile, itemInfoFromTexts, pageInfoFromTexts, routeForPageFile, slugForRoute } from "./change-report.mjs";
 import { registry } from "../src/blocks/definitions.ts";
 
 const allRoutes = ["/", "/services", "/about", "/contact", "/privacy", "/contact/thanks", "/blocks"];
@@ -362,4 +362,53 @@ test("a form file's pages come from the base side too, and the registry photogra
 test("a changed contact form file traces to the pages that use the contact-form block", () => {
   const result = affectedPages({ files: change(["M", "src/content/forms/contact.json"]), sources, pageRoutes, allRoutes: [...allRoutes, "/quote"], pagesHead: formPages, pagesBase: formPages });
   assert.deepEqual(result.map((p) => p.route), ["/contact"]);
+});
+
+// ---- catalog (pieces, settings, the quote form) ----------------------------------------------------------------------
+
+const catalogPages = { ...pagesBefore, "/catalog": live("hero", "catalog") };
+const catalogOrder = ["a", "b", "c", "d"];
+const catalogChange = (files, { head = {}, base = {}, orderHead = catalogOrder, orderBase = catalogOrder } = {}) =>
+  affectedPages({ files, sources, pageRoutes, allRoutes: [...allRoutes, "/catalog"], pagesHead: catalogPages, pagesBase: catalogPages, itemsHead: head, itemsBase: base, catalogOrderHead: orderHead, catalogOrderBase: orderBase });
+
+test("catalogOrderFromTexts lists live pieces by order, then name, and skips others", () => {
+  const text = (status, order, name) => JSON.stringify({ status, order, name });
+  assert.deepEqual(
+    catalogOrderFromTexts([
+      { path: "src/content/collections/catalog/c.json", text: text("live", 2, "Zed") },
+      { path: "src/content/collections/catalog/a.json", text: text("live", 2, "Alpha") },
+      { path: "src/content/collections/catalog/b.json", text: text("live", 1, "Beta") },
+      { path: "src/content/collections/catalog/d.json", text: text("draft", 0, "Draft") },
+      { path: "src/content/collections/catalog/e.json", text: "{" },
+      { path: "src/content/collections/posts/f.json", text: text("live", 0, "Post") },
+    ]),
+    ["b", "a", "c"],
+  );
+});
+
+test("a catalog piece maps to the catalog page and its own page", () => {
+  const result = catalogChange(change(["M", "src/content/collections/catalog/b.json"]), { head: { "catalog/b": "live" }, base: { "catalog/b": "live" } });
+  assert.deepEqual(routesOf(result), ["/catalog", "/catalog/b"]);
+  assert.equal(result.find((p) => p.route === "/catalog/b").before, true);
+  const added = catalogChange(change(["A", "src/content/collections/catalog/new.json"]), { head: { "catalog/new": "live" } });
+  const own = added.find((p) => p.route === "/catalog/new");
+  assert.equal(own.before, false);
+  assert.equal(own.after, true);
+  assert.match(own.reason, /new piece/);
+});
+
+test("catalog.json and pricing.json map to the catalog page and the first three pieces, not every page", () => {
+  for (const path of ["src/content/catalog.json", "src/content/pricing.json"]) {
+    assert.deepEqual(routesOf(catalogChange(change(["M", path]))), ["/catalog", "/catalog/a", "/catalog/b", "/catalog/c"], path);
+  }
+});
+
+test("the quote form maps to the catalog page and the first piece", () => {
+  const result = catalogChange(change(["M", "src/content/forms/quote.json"]));
+  assert.deepEqual(routesOf(result), ["/catalog", "/catalog/a"]);
+  assert.match(result[0].reason, /quote form/);
+});
+
+test("with no catalog page, catalog files photograph nothing", () => {
+  assert.deepEqual(affectedPages({ files: change(["M", "src/content/pricing.json"]), sources, pageRoutes, allRoutes, pagesHead: pagesBefore, pagesBase: pagesBefore, catalogOrderHead: catalogOrder }), []);
 });

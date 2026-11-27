@@ -283,7 +283,7 @@ The pieces in the catalog, in the order you choose. Each is a page under the cat
 
 ## Settings
 
-Three files hold the site-wide settings. Each is one JSON object and is checked by `npm run check:content`.
+Five files hold the site-wide settings. Each is one JSON object and is checked by `npm run check:content`.
 
 ### Business (`src/content/business.json`)
 
@@ -328,6 +328,29 @@ A one-line notice above the header, with an optional link and last day.
 | `text` | yes | The notice, up to 120 characters. "" for no notice. |
 | `link` | no | { label, href }: the link words (up to 40 characters) and a link (see Page rules). It needs notice text. |
 | `endsOn` | yes | The last day it shows, YYYY-MM-DD, or null for no end date. |
+
+### Catalog (`src/content/catalog.json`)
+
+The word for a catalog item and the filters visitors narrow the catalog by. Renaming a label never changes its id, so links from ads keep working.
+
+| Field | Required | Rule |
+| --- | --- | --- |
+| `itemWord` | yes | { "singular", "plural" }: what one item and many items are called, for example "piece" and "pieces". Each 1 to 24 characters. |
+| `filters` | yes | 0 to 7 filters, each { "id", "name", "values" }: the id is a slug (lowercase words and digits joined by hyphens, 1 to 40 characters, unique), the name is 1 to 30 characters, and "values" is 1 to 24 of { "id", "label" } (a slug id, a label of 1 to 40 characters). A value or filter a live item uses cannot be removed. [] for none. |
+
+### Pricing (`src/content/pricing.json`)
+
+The pricing table every catalog estimate comes from: currency, rounding, option groups, an optional per-person fee and exact prices. Owners enter numbers only, never formulas.
+
+| Field | Required | Rule |
+| --- | --- | --- |
+| `currency` | yes | One of USD, CAD, GBP, EUR, AUD, NZD. |
+| `rounding` | yes | The step shown prices round to: 1, 5, 10, 25, 50, 100, 500, 1000. |
+| `spread` | yes | A whole percent from 0 to 50 that widens every range. |
+| `note` | yes | The sentence shown beside every estimate, 1 to 160 characters. |
+| `groups` | yes | 0 to 6 option groups, each { "id", "name" (1 to 30 characters), "choices" }. A group has 2 to 12 choices, each { "id", "label" (1 to 40 characters) } and exactly one of "add" (a whole number from -100000 to 1000000) or "multiply" (0.1 to 10, at most 4 decimals). The first choice is the default. |
+| `perPerson` | yes | null, or { "label" (1 to 24 characters), "amount" (a whole number from 0 to 10000), "min", "max" (1 to 1000, min not above max) }. |
+| `exact` | yes | Item slug, then option group id, then choice id, then a whole amount from 0 to 10000000: an exact price that replaces the item's base price when that choice is picked. Only one group per item may have exact prices, and the item must use that group. |
 
 ## Hero (`hero`)
 

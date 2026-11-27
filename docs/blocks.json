@@ -2228,6 +2228,63 @@
           "rule": "The last day it shows, YYYY-MM-DD, or null for no end date."
         }
       ]
+    },
+    "catalog": {
+      "file": "src/content/catalog.json",
+      "description": "The word for a catalog item and the filters visitors narrow the catalog by. Renaming a label never changes its id, so links from ads keep working.",
+      "fields": [
+        {
+          "name": "itemWord",
+          "required": true,
+          "rule": "{ \"singular\", \"plural\" }: what one item and many items are called, for example \"piece\" and \"pieces\". Each 1 to 24 characters."
+        },
+        {
+          "name": "filters",
+          "required": true,
+          "rule": "0 to 7 filters, each { \"id\", \"name\", \"values\" }: the id is a slug (lowercase words and digits joined by hyphens, 1 to 40 characters, unique), the name is 1 to 30 characters, and \"values\" is 1 to 24 of { \"id\", \"label\" } (a slug id, a label of 1 to 40 characters). A value or filter a live item uses cannot be removed. [] for none."
+        }
+      ]
+    },
+    "pricing": {
+      "file": "src/content/pricing.json",
+      "description": "The pricing table every catalog estimate comes from: currency, rounding, option groups, an optional per-person fee and exact prices. Owners enter numbers only, never formulas.",
+      "fields": [
+        {
+          "name": "currency",
+          "required": true,
+          "rule": "One of USD, CAD, GBP, EUR, AUD, NZD."
+        },
+        {
+          "name": "rounding",
+          "required": true,
+          "rule": "The step shown prices round to: 1, 5, 10, 25, 50, 100, 500, 1000."
+        },
+        {
+          "name": "spread",
+          "required": true,
+          "rule": "A whole percent from 0 to 50 that widens every range."
+        },
+        {
+          "name": "note",
+          "required": true,
+          "rule": "The sentence shown beside every estimate, 1 to 160 characters."
+        },
+        {
+          "name": "groups",
+          "required": true,
+          "rule": "0 to 6 option groups, each { \"id\", \"name\" (1 to 30 characters), \"choices\" }. A group has 2 to 12 choices, each { \"id\", \"label\" (1 to 40 characters) } and exactly one of \"add\" (a whole number from -100000 to 1000000) or \"multiply\" (0.1 to 10, at most 4 decimals). The first choice is the default."
+        },
+        {
+          "name": "perPerson",
+          "required": true,
+          "rule": "null, or { \"label\" (1 to 24 characters), \"amount\" (a whole number from 0 to 10000), \"min\", \"max\" (1 to 1000, min not above max) }."
+        },
+        {
+          "name": "exact",
+          "required": true,
+          "rule": "Item slug, then option group id, then choice id, then a whole amount from 0 to 10000000: an exact price that replaces the item's base price when that choice is picked. Only one group per item may have exact prices, and the item must use that group."
+        }
+      ]
     }
   }
 }
