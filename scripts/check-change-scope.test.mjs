@@ -1317,3 +1317,81 @@ test("real git: a new form file with its matching registry passes; a wrong regis
   assert.equal(broken.code, 1, broken.report);
   assert.match(broken.report, /src\/content\/forms\/quote\.json: is not valid JSON/);
 });
+
+// ---- the catalog: pieces, settings, the quote form and card files ---------------------------------------------
+
+const ring = (extra = {}) => ({
+  status: "draft",
+  name: "Oval ring",
+  photos: [{ src: "/images/catalog/ring-1.webp", alt: "A gold ring with an oval stone on a table" }],
+  description: "A ring with an oval stone.",
+  price: { low: 1200, high: 1800 },
+  order: 1,
+  ...extra,
+});
+
+test("a catalog piece file is tier 1 like any other item; an unknown kind or a bad slug is not", () => {
+  assert.equal(run([file(`${ITEM_DIR}/catalog/oval-ring.json`, "A")]).tier, 1);
+  assert.equal(run([file(`${ITEM_DIR}/catalogue/oval-ring.json`, "A")]).tier, 3);
+  assert.equal(run([file(`${ITEM_DIR}/catalog/Oval Ring.json`, "A")]).tier, 3);
+  const deleted = run([file(`${ITEM_DIR}/catalog/oval-ring.json`, "D")]);
+  assert.equal(deleted.tier, 3);
+  assert.match(deleted.outside[0].reason, /archived, not deleted/);
+});
+
+test("catalog.json and pricing.json are settings files: tier 1 to edit, tier 3 to delete", () => {
+  assert.equal(run([file("src/content/catalog.json"), file("src/content/pricing.json")]).tier, 1);
+  assert.equal(run([file("src/content/pricing.json", "D")]).tier, 3);
+});
+
+test("the quote form file is tier 1 like other forms, while the contact form stays tier 3", () => {
+  assert.equal(run([file("src/content/forms/quote.json")]).tier, 1);
+  assert.equal(run([file("src/content/forms/quote.json", "D")]).tier, 3);
+  assert.equal(run([file("src/content/forms/contact.json")]).tier, 3);
+});
+
+test("a card file beside an upload counts as used when its photo is used with real alt text", () => {
+  const used = usedAs("/images/uploads/k3x9q2mz.webp", "A gold ring with an oval stone on a table");
+  const card = image("public/images/uploads/k3x9q2mz-card.webp", webp);
+  const ok = withRefs([card], { "public/images/uploads/k3x9q2mz-card.webp": used });
+  assert.deepEqual(ok.altProblems, []);
+  assert.deepEqual(ok.images[0].alts, ["A gold ring with an oval stone on a table"]);
+  const orphan = withRefs([card]);
+  assert.equal(orphan.altProblems.length, 1);
+  assert.match(orphan.altProblems[0].reason, /not used by any page or content file, and neither is the photo/);
+  const bad = withRefs([card], { "public/images/uploads/k3x9q2mz-card.webp": usedAs("/images/uploads/k3x9q2mz.webp", "photo") });
+  assert.match(bad.altProblems[0].reason, /says nothing/);
+});
+
+test("the card of a .jpg source counts too, and an image that only looks like a card must be used itself", () => {
+  const card = image("public/images/catalog/ring-1-card.webp", webp);
+  assert.deepEqual(withRefs([card], { "public/images/catalog/ring-1-card.webp": usedAs("/images/catalog/ring-1.jpg") }).altProblems, []);
+  assert.deepEqual(withRefs([card], { "public/images/catalog/ring-1-card.webp": usedAs("/images/catalog/ring-1-card.webp") }).altProblems, []);
+  assert.equal(withRefs([card], { "public/images/catalog/ring-1-card.webp": usedAs("/images/catalog/other.webp") }).altProblems.length, 1);
+});
+
+test("a card file still follows the type, size and metadata rules", () => {
+  const big = file("public/images/catalog/ring-1-card.webp", "A", { head: webp, size: 600 * 1024 });
+  const result = withRefs([big], { "public/images/catalog/ring-1-card.webp": usedAs("/images/catalog/ring-1.webp") });
+  assert.equal(result.imageProblems.length, 1);
+  assert.match(result.imageProblems[0].reason, /over the 500 KB limit/);
+});
+
+test("real git: a new draft piece with its photo and card passes; a card with no used photo fails", () => {
+  const good = inRepo(({ write }) => {
+    write("src/content/collections/catalog/oval-ring.json", `${JSON.stringify(ring(), null, 2)}\n`);
+    write("public/images/catalog/ring-1.webp", makeWebp());
+    write("public/images/catalog/ring-1-card.webp", makeWebp());
+  });
+  assert.equal(good.code, 0, good.report);
+  assert.match(good.report, /ring-1-card\.webp: alt "A gold ring with an oval stone on a table"/);
+  const orphan = inRepo(({ write }) => write("public/images/catalog/spare-card.webp", makeWebp()));
+  assert.equal(orphan.code, 1, orphan.report);
+  assert.match(orphan.report, /neither is the photo/);
+  const noAlt = inRepo(({ write }) => {
+    write("src/content/collections/catalog/oval-ring.json", `${JSON.stringify(ring({ photos: [{ src: "/images/catalog/ring-1.webp", alt: "photo" }] }), null, 2)}\n`);
+    write("public/images/catalog/ring-1.webp", makeWebp());
+    write("public/images/catalog/ring-1-card.webp", makeWebp());
+  });
+  assert.equal(noAlt.code, 1, noAlt.report);
+});

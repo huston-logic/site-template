@@ -9,6 +9,11 @@ import { collections } from "../src/collections/definitions.ts";
 import { CONTRAST_PAIRS } from "../src/brand/contrast-pairs.ts";
 import { COMPANION_TOKENS } from "../src/brand/derive.ts";
 import { CURATED_FONTS, FONT_ROLES } from "../src/brand/fonts.ts";
+import {
+  ADD_MAX, ADD_MIN, CHOICE_LABEL_MAX, CURRENCIES, FILTER_LABEL_MAX, FILTER_NAME_MAX, GROUP_NAME_MAX, ITEM_WORD_MAX, MAX_CHOICES, MAX_FILTERS, MAX_FILTER_VALUES,
+  MAX_GROUPS, MIN_CHOICES, MULTIPLY_DECIMALS, MULTIPLY_MAX, MULTIPLY_MIN, NOTE_MAX, PER_PERSON_AMOUNT_MAX, PER_PERSON_LABEL_MAX, PER_PERSON_LIMIT_MAX, PRICE_MAX,
+  ROUNDING_STEPS, SPREAD_MAX,
+} from "../src/catalog/schema.ts";
 import { LOGO_MAX_RATIO, LOGO_MIN_HEIGHT, LOGO_MIN_WIDTH } from "../src/settings/brand.ts";
 import { SOCIAL_NETWORKS, WEEKDAYS } from "../src/settings/business.ts";
 import { BOOKING_LINK, GENERIC_ALT_WORDS, MENU_PLACES, REQUIRED_LIVE, RESERVED_PATHS } from "../src/blocks/schema.ts";
@@ -222,6 +227,39 @@ export function buildSettings() {
         { name: "endsOn", required: true, rule: "The last day it shows, YYYY-MM-DD, or null for no end date." },
       ],
     },
+    catalog: {
+      file: "src/content/catalog.json",
+      description: "The word for a catalog item and the filters visitors narrow the catalog by. Renaming a label never changes its id, so links from ads keep working.",
+      fields: [
+        { name: "itemWord", required: true, rule: `{ "singular", "plural" }: what one item and many items are called, for example "piece" and "pieces". Each 1 to ${ITEM_WORD_MAX} characters.` },
+        {
+          name: "filters",
+          required: true,
+          rule: `0 to ${MAX_FILTERS} filters, each { "id", "name", "values" }: the id is a slug (lowercase words and digits joined by hyphens, 1 to 40 characters, unique), the name is 1 to ${FILTER_NAME_MAX} characters, and "values" is 1 to ${MAX_FILTER_VALUES} of { "id", "label" } (a slug id, a label of 1 to ${FILTER_LABEL_MAX} characters). A value or filter a live item uses cannot be removed. [] for none.`,
+        },
+      ],
+    },
+    pricing: {
+      file: "src/content/pricing.json",
+      description: "The pricing table every catalog estimate comes from: currency, rounding, option groups, an optional per-person fee and exact prices. Owners enter numbers only, never formulas.",
+      fields: [
+        { name: "currency", required: true, rule: `One of ${CURRENCIES.join(", ")}.` },
+        { name: "rounding", required: true, rule: `The step shown prices round to: ${ROUNDING_STEPS.join(", ")}.` },
+        { name: "spread", required: true, rule: `A whole percent from 0 to ${SPREAD_MAX} that widens every range.` },
+        { name: "note", required: true, rule: `The sentence shown beside every estimate, 1 to ${NOTE_MAX} characters.` },
+        {
+          name: "groups",
+          required: true,
+          rule: `0 to ${MAX_GROUPS} option groups, each { "id", "name" (1 to ${GROUP_NAME_MAX} characters), "choices" }. A group has ${MIN_CHOICES} to ${MAX_CHOICES} choices, each { "id", "label" (1 to ${CHOICE_LABEL_MAX} characters) } and exactly one of "add" (a whole number from ${ADD_MIN} to ${ADD_MAX}) or "multiply" (${MULTIPLY_MIN} to ${MULTIPLY_MAX}, at most ${MULTIPLY_DECIMALS} decimals). The first choice is the default.`,
+        },
+        { name: "perPerson", required: true, rule: `null, or { "label" (1 to ${PER_PERSON_LABEL_MAX} characters), "amount" (a whole number from 0 to ${PER_PERSON_AMOUNT_MAX}), "min", "max" (1 to ${PER_PERSON_LIMIT_MAX}, min not above max) }.` },
+        {
+          name: "exact",
+          required: true,
+          rule: `Item slug, then option group id, then choice id, then a whole amount from 0 to ${PRICE_MAX}: an exact price that replaces the item's base price when that choice is picked. Only one group per item may have exact prices, and the item must use that group.`,
+        },
+      ],
+    },
   };
 }
 
@@ -375,8 +413,8 @@ function settingRows(fields) {
 }
 
 function settingsMarkdown(settings) {
-  const { business, brand, notice } = settings;
-  const lines = ["## Settings", "", "Three files hold the site-wide settings. Each is one JSON object and is checked by `npm run check:content`.", ""];
+  const { business, brand, notice, catalog, pricing } = settings;
+  const lines = ["## Settings", "", "Five files hold the site-wide settings. Each is one JSON object and is checked by `npm run check:content`.", ""];
   lines.push(`### Business (\`${business.file}\`)`, "", business.description, "", ...settingRows(business.fields), "");
   lines.push(`### Brand (\`${brand.file}\`)`, "", brand.description, "");
   lines.push("**Colors** (`colors`, each written as `#rrggbb`):", "");
@@ -385,6 +423,8 @@ function settingsMarkdown(settings) {
   for (const [role, list] of Object.entries(brand.fonts)) lines.push(`- \`${role}\`: ${list.map((f) => `${f.id}${f.label !== f.id ? ` (${f.label})` : ""}`).join(", ")}`);
   lines.push("", `**Logo** (\`logo\`). ${brand.logo.rule}`, "");
   lines.push(`### Notice (\`${notice.file}\`)`, "", notice.description, "", ...settingRows(notice.fields), "");
+  lines.push(`### Catalog (\`${catalog.file}\`)`, "", catalog.description, "", ...settingRows(catalog.fields), "");
+  lines.push(`### Pricing (\`${pricing.file}\`)`, "", pricing.description, "", ...settingRows(pricing.fields), "");
   return lines;
 }
 

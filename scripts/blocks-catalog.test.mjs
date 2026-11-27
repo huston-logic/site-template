@@ -223,6 +223,11 @@ test("the catalog has a Settings section: business, brand (roles, contrast, font
   assert.match(md, /\*\*Contrast rule\.\*\*/);
   assert.match(md, /^- `display`: outfit \(Outfit\)|^- `display`: outfit, /m);
   assert.match(md, /^### Notice \(`src\/content\/notice\.json`\)$/m);
+  assert.deepEqual(catalog.settings.catalog.fields.map((f) => f.name), ["itemWord", "filters"]);
+  assert.deepEqual(catalog.settings.pricing.fields.map((f) => f.name), ["currency", "rounding", "spread", "note", "groups", "perPerson", "exact"]);
+  assert.match(md, /^### Catalog \(`src\/content\/catalog\.json`\)$/m);
+  assert.match(md, /^### Pricing \(`src\/content\/pricing\.json`\)$/m);
+  assert.match(md, /0 to 7 filters/);
 });
 
 test("the page rules name the audio providers next to the video ones", () => {
