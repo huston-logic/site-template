@@ -8,9 +8,9 @@
     { "id": "message", "type": "long-text", "label": "Anything else I should know?", "max": 2000, "required": false }
   ],
   "button": "Send my quote request",
-  "thanks": "Thanks. I have your request and will reply within two working days with a firm quote.",
+  "thanks": "Thanks. I have your request and will reply with a firm quote.",
   "reply": {
     "subject": "Your estimate",
-    "next": "I'll look at your request and reply within two working days with a firm quote. Nothing is booked until we talk."
+    "next": "I'll look at your request and reply with a firm quote. Nothing is booked until we talk."
   }
 }
