@@ -11,6 +11,7 @@ import type { FormField } from "@/forms/schema";
 import { saveHandoff } from "@/lib/contact-handoff";
 import { validateContact, type ContactField, type ContactInput } from "@/lib/contact-validation";
 import { firstName } from "@/lib/first-name";
+import { track } from "@/tracking/track";
 import { errorFor, FieldView, Honeypot, SubmitButton, type FieldIds } from "./form/controls";
 import { turnstileSiteKey, useTurnstile } from "./useTurnstile";
 
@@ -47,6 +48,7 @@ function Form({ urlTopic }: { urlTopic: string | null }) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<SendError | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const started = useRef(false);
   const {
     containerRef: turnstileRef,
     start: startTurnstile,
@@ -73,6 +75,13 @@ function Form({ urlTopic }: { urlTopic: string | null }) {
         ? formRef.current?.querySelector<HTMLInputElement>('input[name="need"]')
         : formRef.current?.querySelector<HTMLElement>(`#${idsFor(first).input}`);
     target?.focus();
+  }
+
+  function onFocus() {
+    startTurnstile();
+    if (started.current) return;
+    started.current = true;
+    track("form_start", { form_id: "contact" });
   }
 
   function fail(error: SendError) {
@@ -134,6 +143,7 @@ function Form({ urlTopic }: { urlTopic: string | null }) {
     const body = (await response.json().catch(() => null)) as { ok?: boolean; autoReply?: boolean; error?: string; fields?: unknown } | null;
 
     if (response.ok && body?.ok === true) {
+      track("lead", { form_id: "contact" });
       saveHandoff(firstName(result.value.name), body.autoReply !== false);
       router.push("/contact/thanks");
       return;
@@ -155,7 +165,7 @@ function Form({ urlTopic }: { urlTopic: string | null }) {
         {partner ? noteForm.partnerHeading : noteForm.heading}
       </h2>
 
-      <form ref={formRef} method="post" noValidate onSubmit={submit} onFocus={startTurnstile} className="mt-6 space-y-6">
+      <form ref={formRef} method="post" noValidate onSubmit={submit} onFocus={onFocus} className="mt-6 space-y-6">
         <input type="hidden" name="topic" value={topic} />
 
         {definition.fields.map((field) => {

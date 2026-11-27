@@ -7,6 +7,7 @@ import { formWords } from "@/content/forms";
 import { providers } from "@/content/providers";
 import type { FormField, PublicForm } from "@/forms/schema";
 import { validateSubmission } from "@/forms/submission";
+import { track } from "@/tracking/track";
 import { errorFor, FieldView, Honeypot, labelFor, NoScriptNote, SubmitButton, type FieldIds } from "./form/controls";
 import { turnstileSiteKey, useTurnstile } from "./useTurnstile";
 
@@ -30,6 +31,7 @@ export function FormView({ id, form, noScriptEmail }: { id: string; form: Public
   const panelRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const thanksRef = useRef<HTMLDivElement>(null);
+  const started = useRef(false);
   const {
     containerRef: turnstileRef,
     start: startTurnstile,
@@ -55,6 +57,13 @@ export function FormView({ id, form, noScriptEmail }: { id: string; form: Public
         ? formRef.current?.querySelector<HTMLInputElement>(`input[name="${first.id}"]`)
         : document.getElementById(idsFor(first).input);
     target?.focus();
+  }
+
+  function onFocus() {
+    startTurnstile();
+    if (started.current) return;
+    started.current = true;
+    track("form_start", { form_id: id });
   }
 
   function fail(error: SendError) {
@@ -113,6 +122,7 @@ export function FormView({ id, form, noScriptEmail }: { id: string; form: Public
       // Keep the panel's height so the page below does not jump when the form is replaced.
       const panel = panelRef.current;
       if (panel) panel.style.minHeight = `${panel.offsetHeight}px`;
+      track("lead", { form_id: id });
       setDone({ delivered: body.delivered !== false });
       return;
     }
@@ -137,7 +147,7 @@ export function FormView({ id, form, noScriptEmail }: { id: string; form: Public
           {form.delivers && !done.delivered ? <p className="mt-4 text-label text-rust">{formWords.downloadNotSent}</p> : null}
         </div>
       ) : (
-        <form ref={formRef} method="post" noValidate onSubmit={submit} onFocus={startTurnstile} className="space-y-6">
+        <form ref={formRef} method="post" noValidate onSubmit={submit} onFocus={onFocus} className="space-y-6">
           {form.fields.map((field) => {
             const choices = (field.options ?? []).map((option) => ({ value: option, label: option }));
             return (
