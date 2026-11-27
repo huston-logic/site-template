@@ -39,7 +39,8 @@ test("the empty-list note covers every block type whose definition names a colle
   for (const definition of withCollection) {
     const files = Object.fromEntries(Object.entries(seedFiles()).filter(([path]) => !path.startsWith("src/content/collections/")));
     const t = makeUploadsEditor({ github: new FakeGitHub(files) });
-    const proposed = await aiApp(t)("propose_change", { summary: "Add a list", operations: [{ op: "insert_block", page: "/", at: 2, block: { type: definition.type, content: definition.example } }] });
+    // A catalog section may not sit on the home page, so it goes on an inner page.
+    const proposed = await aiApp(t)("propose_change", { summary: "Add a list", operations: [{ op: "insert_block", page: definition.collection === "catalog" ? "/hours" : "/", at: 2, block: { type: definition.type, content: definition.example } }] });
     const kind = definition.collection as string;
     if (kind === "posts") continue; // the post blocks need the /blog page; the existing acceptance test covers them
     assert.match(proposed.text, new RegExp(`has a ${kind} section`), `${definition.type}: ${proposed.text}`);
