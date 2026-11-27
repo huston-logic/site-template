@@ -20,7 +20,7 @@ const FILE_BLOB = /^public\/files\/[^/]+\.pdf$/;
 const PAGE_FILE = /^src\/content\/pages\/[a-z0-9]+(?:-[a-z0-9]+)*\.json$/;
 const ITEM_FILE = new RegExp(`^${ITEM_DIR}/(${COLLECTION_KINDS.join("|")})/([a-z0-9]+(?:-[a-z0-9]+)*)\\.json$`);
 const FORM_FILE = new RegExp(`^${FORM_DIR}/([a-z0-9]+(?:-[a-z0-9]+)*)\\.json$`);
-const UPLOAD_PHOTO = /^public\/images\/uploads\/[a-z0-9]{8}\.webp$/;
+const UPLOAD_PHOTO = /^public\/images\/uploads\/[a-z0-9]{8}(?:-card)?\.webp$/;
 const UPLOAD_PDF = /^public\/files\/[a-z0-9]+(?:-[a-z0-9]+)*\.pdf$/;
 /** The files a brand change regenerates from brand.json. */
 export { FONTS_PATH, PALETTE_PATH };

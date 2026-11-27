@@ -14,7 +14,7 @@ import { catalogResult, collectionResult, collectionsResult, formResult, formsRe
 import { filesFor, formFilesFor, formKeyOf, isCommittablePath, isPageFile, itemFilesFor, itemKeyOf, readSite, settingNameOf, settingsFilesFor, validateSet, type Pending, type Snapshot } from "./site-reader.ts";
 import { BRANCH_PREFIX, changeTitle, createStatusReader, deployedReader, editorPulls, isEditorPull, statusLine, type ChangeStatus } from "./status.ts";
 import { GITHUB_DOWN, type ChangeView, type Editor, type EditorDeps, type Owner, type ProposalView, type ToolResult, type UploadView } from "./types.ts";
-import { hasUploadRef, resolveUploads, type ProposalUpload } from "./uploads.ts";
+import { cardRepoPath, hasUploadRef, markCardUploads, MISSING_CARD, resolveUploads, type ProposalUpload } from "./uploads.ts";
 import { AGENCY_NAME } from "./words.ts";
 
 /**
@@ -104,7 +104,8 @@ function isProposalUpload(value: unknown): value is ProposalUpload {
     (value.kind === "photo" || value.kind === "pdf") &&
     typeof value.bytes === "number" &&
     (value.width === undefined || typeof value.width === "number") &&
-    (value.height === undefined || typeof value.height === "number")
+    (value.height === undefined || typeof value.height === "number") &&
+    (value.card === undefined || typeof value.card === "boolean")
   );
 }
 
@@ -153,11 +154,15 @@ export function createEditor(deps: EditorDeps): Editor {
   const statuses = createStatusReader({ config, github, kv, now });
   const deployed = () => deployedReader(assets, config.siteUrl);
   const inbox = deps.uploads;
+  const cardReader = deps.cardReader;
 
   /** The files a proposal commits: its pages, then each upload's bytes read from the inbox and checked against the proposal. */
   async function filesToCommit(proposal: Proposal): Promise<CommitFile[] | ToolResult> {
     const files: CommitFile[] = [...proposal.files];
-    if (files.some((file) => !isCommittablePath(file.path)) || proposal.uploads.some((upload) => !isCommittablePath(upload.path))) {
+    if (
+      files.some((file) => !isCommittablePath(file.path)) ||
+      proposal.uploads.some((upload) => !isCommittablePath(upload.path) || (upload.card === true && !isCommittablePath(cardRepoPath(upload))))
+    ) {
       log("editor_path_refused");
       return error("This proposal would change a file the editor is not allowed to change, so nothing was written. Propose it again, or ask " + AGENCY_NAME + ".");
     }
@@ -168,6 +173,14 @@ export function createEditor(deps: EditorDeps): Editor {
         return error(noLongerThere(upload));
       }
       files.push({ path: upload.path, bytes });
+      if (upload.card === true) {
+        const card = cardReader ? await cardReader(upload.id) : null;
+        if (!card) {
+          log("editor_card_missing");
+          return error(MISSING_CARD);
+        }
+        files.push({ path: cardRepoPath(upload), bytes: card });
+      }
     }
     return files;
   }
@@ -526,8 +539,13 @@ export function createEditor(deps: EditorDeps): Editor {
           const logo = finishLogo(docs.settings, uploads);
           if (logo.problems.length > 0) return refusal(logo.problems);
           docs = { items: docs.items, settings: logo.settings, forms: docs.forms };
+          const marked = markCardUploads(docs.items, touched.items, uploads);
+          uploads = marked.uploads;
+          for (const upload of uploads) {
+            if (upload.card === true && !((cardReader ? await cardReader(upload.id) : null) instanceof Uint8Array)) return refusal([MISSING_CARD]);
+          }
           const values = (kind: ProposalUpload["kind"]) => new Set(uploads.filter((u) => u.kind === kind).map((u) => pageValueFor(u.path)));
-          pending = { images: values("photo"), files: values("pdf"), names: resolved.names };
+          pending = { images: new Set([...values("photo"), ...marked.cards]), files: values("pdf"), names: resolved.names };
         }
         const problems = [
           ...addedPlaceholders(snapshot.pages, after),
