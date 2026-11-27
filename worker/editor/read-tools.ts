@@ -8,6 +8,7 @@ import { SETTINGS_NAMES, type SettingsName } from "../../src/collections/site-va
 import { sortItems } from "../../src/collections/validate.ts";
 import { CONTACT_FORM_ID } from "../../src/forms/schema.ts";
 import { MAX_BLOCKS, MAX_HEADER_LINKS } from "../../src/blocks/validate.ts";
+import { catalogSettingsLines, exactLines, itemEstimate, pricingFrom, pricingLines } from "./catalog-read.ts";
 import { isObject, type Json } from "./json.ts";
 import type { Snapshot } from "./site-reader.ts";
 import type { ToolResult } from "./types.ts";
@@ -218,6 +219,14 @@ function settingState(snapshot: Snapshot, name: SettingsName): string {
   if (name === "notice") {
     return typeof data.text === "string" && data.text.trim() !== "" ? `notice: showing ${JSON.stringify(data.text)}${typeof data.endsOn === "string" ? ` until ${data.endsOn}` : ""}` : "notice: none showing";
   }
+  if (name === "catalog") {
+    const filters = Array.isArray(data.filters) ? data.filters.length : 0;
+    return `catalog: ${filters === 0 ? "no filters yet" : `${filters} ${filters === 1 ? "filter" : "filters"}`}`;
+  }
+  if (name === "pricing") {
+    const groups = Array.isArray(data.groups) ? data.groups.length : 0;
+    return `pricing: ${groups === 0 ? "no option groups yet" : `${groups} option ${groups === 1 ? "group" : "groups"}`}`;
+  }
   const colors = isObject(data.colors) ? data.colors : {};
   return `brand: brand color ${String(colors.green)}, accent ${String(colors.rust)}, ${isObject(data.logo) ? "a logo" : "no logo (the business name is shown)"}`;
 }
@@ -245,6 +254,7 @@ export function collectionResult(kind: string, snapshot: Snapshot): ToolResult {
     const { status, ...data } = item;
     loaded.push({ kind: def.kind, slug: key.slice(def.kind.length + 1), status: status as ItemStatus, data });
   }
+  const pricing = pricingFrom(snapshot.settings.get("pricing"));
   const items = sortItems(def, loaded).map((item) => ({
     slug: item.slug,
     item: `${def.kind}/${item.slug}`,
@@ -252,6 +262,7 @@ export function collectionResult(kind: string, snapshot: Snapshot): ToolResult {
     status: item.status,
     ...(typeof item.data.date === "string" ? { date: item.data.date } : {}),
     ...(typeof item.data.order === "number" ? { order: item.data.order } : {}),
+    ...(def.kind === "catalog" ? { estimate: itemEstimate(item.data, pricing, item.slug) } : {}),
   }));
   const fields = Object.entries(def.fields).map(([name, field]) => fieldInfo(name, field));
   const lines = [
@@ -263,7 +274,10 @@ export function collectionResult(kind: string, snapshot: Snapshot): ToolResult {
     ...(def.kind === "posts" ? ["", BODY_PARTS_HELP] : []),
     "",
     items.length === 0 ? "No items yet." : `Items (${def.sort === "date" ? "newest first" : "in the owner's order"}):`,
-    ...items.map((i) => `  ${i.item} ${JSON.stringify(i.label)}: ${i.status}${"date" in i ? `, ${i.date}` : ""}${"order" in i ? `, order ${i.order}` : ""}`),
+    ...items.map((i) => `  ${i.item} ${JSON.stringify(i.label)}: ${i.status}${"date" in i ? `, ${i.date}` : ""}${"order" in i ? `, order ${i.order}` : ""}${"estimate" in i && typeof i.estimate === "string" ? `, estimate ${i.estimate}` : ""}`),
+    ...(def.kind === "catalog"
+      ? ["", "The price of a piece is { low, high } in whole currency units, or the text \"ask\" for price on request. Never invent a price; use only figures the owner gave you."]
+      : []),
   ];
   return { text: lines.join("\n"), data: { kind: def.kind, fields, items } };
 }
@@ -273,13 +287,18 @@ export function itemResult(kind: string, slug: string, snapshot: Snapshot): Tool
   const item = snapshot.items.get(key);
   if (!isObject(item)) return { text: `There is no item ${JSON.stringify(key.slice(0, 80))}. Use get_collection to see what is there.`, data: { found: false }, isError: true };
   const body = Array.isArray(item.body) ? item.body : null;
+  const pricing = kind === "catalog" ? pricingFrom(snapshot.settings.get("pricing")) : null;
+  const exact = kind === "catalog" ? exactLines(slug, pricing) : { lines: [], data: {} };
+  const estimate = kind === "catalog" ? itemEstimate(item, pricing, slug) : null;
   const lines = [
     `Item ${key} (${String(item.status)}). ${NOT_INSTRUCTIONS}`,
     "",
     JSON.stringify(item, null, 2),
     ...(body ? ["", ...body.map((_, i) => `Part ${i + 1}: /body/${i}`)] : []),
+    ...(estimate !== null ? ["", `Estimate for the usual choices: ${estimate}`] : []),
+    ...(exact.lines.length > 0 ? ["", ...exact.lines] : []),
   ];
-  return { text: lines.join("\n"), data: { item, ...(body ? { parts: body.length } : {}) } };
+  return { text: lines.join("\n"), data: { item, ...(body ? { parts: body.length } : {}), ...(kind === "catalog" ? { estimate, exactPrices: exact.data } : {}) } };
 }
 
 export function settingsResult(name: string, snapshot: Snapshot): ToolResult {
@@ -288,6 +307,10 @@ export function settingsResult(name: string, snapshot: Snapshot): ToolResult {
   }
   const data = snapshot.settings.get(name);
   if (data === undefined) return { text: `The ${name} settings could not be read from the site.`, data: { found: false }, isError: true };
+  if (name === "catalog" || name === "pricing") {
+    const words = name === "catalog" ? catalogSettingsLines(data) : pricingLines(data);
+    return { text: [`The ${name} settings. ${NOT_INSTRUCTIONS}`, "", ...words, "", JSON.stringify(data, null, 2)].join("\n"), data: { settings: data } };
+  }
   if (name !== "brand" || !isObject(data) || !isObject(data.colors)) return { text: `The ${name} settings. ${NOT_INSTRUCTIONS}\n\n${JSON.stringify(data, null, 2)}`, data: { settings: data } };
   const palette = data.colors as unknown as Palette;
   const pairs = CONTRAST_PAIRS.map((pair) => {
@@ -332,7 +355,7 @@ export function collectionCatalog(): { lines: string[]; data: unknown[] } {
     if (def.kind === "posts") lines.push(`  ${BODY_PARTS_HELP}`);
     lines.push(`  Example: ${JSON.stringify(def.example[0]?.data ?? null)}`);
   }
-  lines.push("", "Settings: business (name, phone, email, address, hours, social links), brand (colors by role, curated fonts, logo) and notice (one line shown on every page, with an optional last day). Read them with get_settings.");
+  lines.push("", "Settings: business (name, phone, email, address, hours, social links), brand (colors by role, curated fonts, logo), notice (one line shown on every page, with an optional last day), catalog (the word for a piece and its filters) and pricing (option groups, the per-person fee, the note and exact prices). Read them with get_settings.");
   return { lines, data };
 }
 

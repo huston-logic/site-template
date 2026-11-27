@@ -25,6 +25,8 @@ export interface EditorDeps {
   randomId?: () => string;
   /** The owner's upload inbox; absent when uploads are not set up on this site. */
   uploads?: UploadStore;
+  /** Reads an upload's catalog card (R2 `inbox/<id>/card`); absent when uploads are not set up. A missing card is null. */
+  cardReader?: (id: string) => Promise<Uint8Array | null>;
   /** The site's form caps (`forms` in site.config.ts); missing means the defaults. */
   formSettings?: FormSettings;
 }

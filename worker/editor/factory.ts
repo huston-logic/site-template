@@ -5,6 +5,7 @@ import type { WorkerConfig } from "../config.ts";
 import type { EditorEnv } from "../env.ts";
 import { log } from "../env.ts";
 import { createUploadStore } from "../uploads/store.ts";
+import { cardReaderFor } from "./uploads.ts";
 import { createGitHub } from "./github.ts";
 import { createEditor } from "./service.ts";
 import type { Editor } from "./types.ts";
@@ -44,7 +45,7 @@ export function buildEditor(config: WorkerConfig, env: EditorEnv, deps: { fetch?
     thanksLinks: thanksPageLinks(thanks),
     formSettings: config.forms,
     now,
-    ...(store ? { uploads: store } : {}),
+    ...(store && env.UPLOADS ? { uploads: store, cardReader: cardReaderFor(env.UPLOADS) } : {}),
     ...(deps.fetch ? { fetch: deps.fetch } : {}),
   });
 }

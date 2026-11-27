@@ -3,6 +3,7 @@ import { createFakeImages, type FakeImagesOptions } from "../uploads/fake-images
 import { createFakeR2, type FakeR2 } from "../uploads/fake-r2.ts";
 import { createUploadStore, type UploadStore } from "../uploads/store.ts";
 import type { UploadsConfig } from "../uploads/types.ts";
+import { cardReaderFor } from "./uploads.ts";
 import type { FakeGitHub } from "./fake-github.ts";
 import { handleMcp } from "./mcp.ts";
 import { FakeKv, makeTestEditor, testEditorConfig, type TestEditor } from "./test-support.ts";
@@ -31,7 +32,7 @@ export function makeUploadsEditor(options: { github?: FakeGitHub; images?: FakeI
     now: () => (held.test as TestEditor).now.value,
     randomId: () => `up${String(++counter).padStart(6, "0")}`,
   });
-  const test = (held.test = makeTestEditor({ ...(options.github ? { github: options.github } : {}), ...(options.config ? { config: options.config } : {}), deps: { uploads: store } }));
+  const test = (held.test = makeTestEditor({ ...(options.github ? { github: options.github } : {}), ...(options.config ? { config: options.config } : {}), deps: { uploads: store, cardReader: cardReaderFor(r2.bucket) } }));
   return { ...test, store, r2 };
 }
 

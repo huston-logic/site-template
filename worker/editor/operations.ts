@@ -39,7 +39,8 @@ export type Operation =
   | { op: "add_form"; form: string; definition: Record<string, unknown> }
   | { op: "set_form_status"; form: string; status: FormStatus }
   | { op: "set_brand_color"; role: Role; value: string }
-  | { op: "set_font"; role: "display" | "body" | "accent"; font: string };
+  | { op: "set_font"; role: "display" | "body" | "accent"; font: string }
+  | { op: "scale_price"; group: string; choice: string; percent: number };
 
 /** The items ("posts/<slug>") and settings files ("business", "brand", "notice") a proposal may change, with the pages. */
 export interface Documents {
@@ -72,7 +73,7 @@ export type ApplyResult =
 
 const OP_NAMES = [
   "set", "insert_item", "remove_item", "insert_block", "move_block", "remove_block", "add_page", "archive_page", "restore_page",
-  "add_item", "set_item_status", "add_form", "set_form_status", "set_brand_color", "set_font",
+  "add_item", "set_item_status", "add_form", "set_form_status", "set_brand_color", "set_font", "scale_price",
 ];
 const TARGETS = ["page", "item", "settings", "form"];
 const OP_KEYS: Record<string, string[]> = {
@@ -85,6 +86,7 @@ const OP_KEYS: Record<string, string[]> = {
   set_form_status: ["op", "form", "status"],
   set_brand_color: ["op", "role", "value"],
   set_font: ["op", "role", "font"],
+  scale_price: ["op", "group", "choice", "percent"],
   insert_block: ["op", "page", "at", "block"],
   move_block: ["op", "page", "from", "to"],
   remove_block: ["op", "page", "block"],
@@ -278,6 +280,7 @@ function applyOne(raw: unknown, scope: Scope, ids: Map<string, (string | null)[]
   if (op === "add_item" || op === "set_item_status") return applyItemOp(op, raw, scope);
   if (op === "add_form" || op === "set_form_status") return applyFormOp(op, raw, scope, ids);
   if (op === "set_brand_color" || op === "set_font") return applyBrandOp(op, raw, scope.settings);
+  if (op === "scale_price") return applyScalePrice(raw, scope.settings);
 
   if (op === "add_page") {
     const page = raw.page;
@@ -369,7 +372,7 @@ function applyPointerOp(op: string, raw: Json, root: Json, guard: Guard, keepsNu
 const pageGuard = (page: Json): Guard => (tokens, pointer) => checkAllowed(tokens, page, pointer);
 
 /** Settings fields whose "nothing" is a null value, not a missing field. */
-const NULLABLE_SETTINGS = ["logo", "endsOn", "hours"];
+const NULLABLE_SETTINGS = ["logo", "endsOn", "hours", "perPerson"];
 
 /** The parts of a form file a pointer may reach. */
 const FORM_POINTER_PARTS = ["name", "fields", "button", "thanks", "download"];
@@ -532,4 +535,36 @@ function applyBrandOp(op: string, raw: Json, settings: Map<string, Json>): void 
     return refuse(`the ${label} ${value.toLowerCase()} is not strong enough. For ${lines.join("; and for ")}. ${fix}`);
   }
   brand.colors = role === "brand" ? deriveFromBrand(current, value) : { ...current, rust: value.toLowerCase() };
+}
+
+/** The percent of a scale_price: a number from -50 to 100 with at most two decimals, never 0. */
+function checkPercent(percent: unknown): number {
+  if (typeof percent !== "number" || !Number.isFinite(percent)) return refuse("the percent must be a number, such as 5 or -10.");
+  if (percent < -50 || percent > 100) return refuse(`${percent} percent is outside what one change may do; the percent must be from -50 to 100.`);
+  if (Math.abs(percent * 100 - Math.round(percent * 100)) > 1e-7) return refuse("the percent may have at most two decimals, such as 2.5.");
+  if (percent === 0) return refuse("a change of 0 percent changes nothing.");
+  return percent;
+}
+
+/** Raises or lowers one pricing choice, and every exact price for it, by a percent. */
+function applyScalePrice(raw: Json, settings: Map<string, Json>): void {
+  const pricing = settings.get("pricing");
+  if (!pricing || !Array.isArray(pricing.groups)) return refuse("the pricing table could not be read, so prices cannot be changed.");
+  const percent = checkPercent(raw.percent);
+  const groups = pricing.groups.filter(isObject);
+  const known = (list: unknown[]): string => list.filter(isObject).map((entry) => String(entry.id)).join(", ") || "none";
+  const group = typeof raw.group === "string" ? groups.find((candidate) => candidate.id === raw.group) : undefined;
+  if (!group) return refuse(`there is no option group ${JSON.stringify(raw.group)} in the pricing table; the groups are: ${known(groups)}.`);
+  const choices = Array.isArray(group.choices) ? group.choices.filter(isObject) : [];
+  const choice = typeof raw.choice === "string" ? choices.find((candidate) => candidate.id === raw.choice) : undefined;
+  if (!choice) return refuse(`there is no choice ${JSON.stringify(raw.choice)} in the group ${String(group.id)}; its choices are: ${known(choices)}.`);
+  const factor = 1 + percent / 100;
+  if (typeof choice.add === "number") choice.add = Math.round(choice.add * factor);
+  else if (typeof choice.multiply === "number") choice.multiply = Math.round(choice.multiply * factor * 10_000) / 10_000;
+  else return refuse(`the choice ${String(choice.id)} has no price effect to scale.`);
+  if (!isObject(pricing.exact)) return;
+  for (const groupsOf of Object.values(pricing.exact)) {
+    const amounts = isObject(groupsOf) ? groupsOf[String(group.id)] : undefined;
+    if (isObject(amounts) && typeof amounts[String(choice.id)] === "number") amounts[String(choice.id)] = Math.round((amounts[String(choice.id)] as number) * factor);
+  }
 }
