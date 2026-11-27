@@ -28,7 +28,7 @@ export function resolveSelection(item: PriceItem, pricing: PricingTable, selecti
   for (const groupId of itemGroups) {
     const group = pricing.groups.find((candidate) => candidate.id === groupId);
     if (group === undefined) return fail("This piece uses an option that is not set up.");
-    const wanted = given[groupId];
+    const wanted = Object.hasOwn(given, groupId) ? given[groupId] : undefined;
     const choice = wanted === undefined ? group.choices[0] : group.choices.find((candidate) => candidate.id === wanted);
     if (choice === undefined) return fail("One of the choices is not one I offer.");
     choices.push({ group, choice });
@@ -61,15 +61,17 @@ export function priceRange(item: PriceItem, pricing: PricingTable, selection: Se
   if (!resolved.ok) return resolved;
   if (item.price === "ask") return { ok: true, result: { kind: "ask" } };
 
-  const exacts = pricing.exact[slug] ?? {};
-  const exactGroups = resolved.choices.filter(({ group }) => exacts[group.id] !== undefined);
+  // Own keys only: a slug or id such as "constructor" must never reach a prototype's value.
+  const exacts: Record<string, Record<string, number>> = Object.hasOwn(pricing.exact, slug) ? (pricing.exact[slug] ?? {}) : {};
+  const exactGroups = resolved.choices.filter(({ group }) => Object.hasOwn(exacts, group.id));
   if (exactGroups.length > 1) return fail("This piece has exact prices for more than one option group.");
   let low = item.price.low;
   let high = item.price.high;
   let skip: string | null = null;
   const hit = exactGroups[0];
   if (hit !== undefined) {
-    const amount = exacts[hit.group.id]?.[hit.choice.id];
+    const row = exacts[hit.group.id] ?? {};
+    const amount = Object.hasOwn(row, hit.choice.id) ? row[hit.choice.id] : undefined;
     if (amount !== undefined) {
       low = amount;
       high = amount;

@@ -140,3 +140,12 @@ describe("formatting", () => {
   test("a range reads low to high", () => assert.equal(formatRange({ kind: "range", low: 1200, high: 1800 }, "USD", words), "$1,200 to $1,800"));
   test("ask reads the on-request words", () => assert.equal(formatRange({ kind: "ask" }, "USD", words), "Price on request"));
 });
+
+describe("own keys only", () => {
+  test("a slug that names a prototype property finds no exact price", () => {
+    assert.deepEqual(range(item(), table(), {}, "constructor"), { kind: "range", low: 1200, high: 1800 });
+  });
+  test("an option named like a prototype property is refused", () => {
+    refused(item(), table(), { options: { constructor: "14k" } });
+  });
+});
