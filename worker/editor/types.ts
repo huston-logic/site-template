@@ -29,6 +29,8 @@ export interface EditorDeps {
   cardReader?: (id: string) => Promise<Uint8Array | null>;
   /** The site's form caps (`forms` in site.config.ts); missing means the defaults. */
   formSettings?: FormSettings;
+  /** Whether the site takes payments (`payments` in site.config.ts); missing means it follows site.config.ts. Gift card sales can be turned on only while it is true. */
+  paymentsOn?: boolean;
 }
 
 export interface Editor {

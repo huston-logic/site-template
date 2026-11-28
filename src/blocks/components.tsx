@@ -7,6 +7,7 @@ import { EpisodeListBlock } from "./library/episode-list/EpisodeListBlock";
 import { FaqBlock } from "./library/faq/FaqBlock";
 import { FormBlock } from "./library/form/FormBlock";
 import { GalleryBlock } from "./library/gallery/GalleryBlock";
+import { GiftCardBlock } from "./library/gift-card/GiftCardBlock";
 import { HeroBlock } from "./library/hero/HeroBlock";
 import { HighlightsBlock } from "./library/highlights/HighlightsBlock";
 import { LatestPostsBlock } from "./library/latest-posts/LatestPostsBlock";
@@ -49,5 +50,6 @@ export const blockComponents: Record<string, BlockComponent> = {
   team: TeamBlock,
   catalog: CatalogBlock,
   "quote-builder": QuoteBuilderBlock,
+  "gift-card": GiftCardBlock,
   ...siteBlockComponents,
 };

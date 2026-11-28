@@ -149,6 +149,7 @@ function pullBody(proposal: Proposal, confirmation: string): string {
 export function createEditor(deps: EditorDeps): Editor {
   const { config, github, kv, assets, registry, thanksLinks, now } = deps;
   const formSettings = deps.formSettings ?? DEFAULT_FORM_SETTINGS;
+  const paymentsOn = deps.paymentsOn;
   const doFetch = deps.fetch ?? fetch;
   const makeId = deps.randomId ?? newId;
   const statuses = createStatusReader({ config, github, kv, now });
@@ -350,7 +351,7 @@ export function createEditor(deps: EditorDeps): Editor {
     if (touched.pages.length + touched.items.length + touched.settings.length + touched.forms.length === 0) {
       return { text: `Change ${pull.number} has already been undone, so there is nothing to change.`, data: { change: pull.number } };
     }
-    const invalid = validateSet(snapshot, after, registry, thanksLinks, undefined, { items, settings, forms }, formSettings);
+    const invalid = validateSet(snapshot, after, registry, thanksLinks, undefined, { items, settings, forms }, formSettings, paymentsOn);
     if (invalid.length > 0) return refusal(invalid);
     const { files, changeList } = describe(snapshot, after, { items, settings, forms }, touched, { ids: matchBlockIds(snapshot.pages, after) });
     return store({
@@ -552,7 +553,7 @@ export function createEditor(deps: EditorDeps): Editor {
           ...addedPlaceholders(snapshot.items, docs.items, documentLabel),
           ...addedPlaceholders(snapshot.settings, docs.settings, documentLabel),
           ...addedPlaceholders(snapshot.forms, docs.forms, formLabel),
-          ...validateSet(snapshot, after, registry, thanksLinks, pending, docs, formSettings),
+          ...validateSet(snapshot, after, registry, thanksLinks, pending, docs, formSettings, paymentsOn),
         ];
         if (problems.length > 0) return refusal(problems);
         const onSite = new Set([...snapshot.images, ...snapshot.files]);
