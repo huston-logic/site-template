@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { siteConfig } from "@/content/site";
-import { inter, newsreader, outfit } from "@/lib/fonts";
+import { fontVariables } from "@/lib/fonts";
 import { OG_IMAGE_PATH, ogImages, siteName } from "@/lib/metadata";
 import { getBrand } from "@/lib/settings";
 import { CAPTURE_SCRIPT } from "@/tracking/capture-script";
@@ -33,7 +33,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${inter.variable} ${newsreader.variable}`}>
+    <html lang="en" suppressHydrationWarning className={fontVariables}>
       <head>
         <script>{"document.documentElement.classList.add('js')"}</script>
         <script>{CAPTURE_SCRIPT}</script>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cssMotionProblems, designProblems, motionDeclarationProblems } from "./design-rules.mjs";
+import { cssMotionProblems, cssWeightProblems, designProblems, motionDeclarationProblems } from "./design-rules.mjs";
 
 const tsx = (classes) => `export const A = () => <div className="${classes}" />;\n`;
 const bad = (classes) => designProblems("src/x.tsx", tsx(classes));
@@ -18,7 +18,7 @@ for (const [name, source, expected] of [
   });
 }
 
-for (const cls of ["text-[17px]", "text-lg", "text-sm", "text-2xl", "bg-red-500", "text-slate-900", "bg-black", "font-sans", "font-mono", "font-[Georgia]", "duration-300", "delay-150", "ease-in", "ease-linear", "animate-spin", "rounded-lg", "rounded-[12px]", "shadow-md", "w-[300px]", "max-w-[60ch]", "-ml-[650px]", "min-[900px]:flex", "[mask-type:alpha]", "[--x:12px]", "supports-[display:grid]:grid"]) {
+for (const cls of ["text-[17px]", "text-lg", "text-sm", "text-2xl", "bg-red-500", "text-slate-900", "bg-black", "font-sans", "font-mono", "font-light", "font-black", "md:font-extrabold", "font-[Georgia]", "duration-300", "delay-150", "ease-in", "ease-linear", "animate-spin", "rounded-lg", "rounded-[12px]", "shadow-md", "w-[300px]", "max-w-[60ch]", "-ml-[650px]", "min-[900px]:flex", "[mask-type:alpha]", "[--x:12px]", "supports-[display:grid]:grid"]) {
   test(`fails ${cls}`, () => {
     const problems = bad(cls);
     assert.equal(problems.length, 1, problems.join("\n"));
@@ -27,7 +27,7 @@ for (const cls of ["text-[17px]", "text-lg", "text-sm", "text-2xl", "bg-red-500"
   });
 }
 
-for (const cls of ["grid-cols-[5fr_7fr]", "grid-rows-[auto_1fr]", "aria-[invalid=true]:border-rust", "data-[open=true]:block", "[&::-webkit-details-marker]:hidden", "[--hl-u-color:var(--hl-silver)]", "bg-ink/40", "text-body", "text-list", "rounded-card", "shadow-lift", "duration-feedback", "ease-site", "animate-none", "font-ui", "md:py-24", "split:flex", "pt-4.5", "text-green", "bg-green-deep", "text-white", "-mt-1.75", "outline-offset-3"]) {
+for (const cls of ["grid-cols-[5fr_7fr]", "grid-rows-[auto_1fr]", "aria-[invalid=true]:border-rust", "data-[open=true]:block", "[&::-webkit-details-marker]:hidden", "[--hl-u-color:var(--hl-silver)]", "bg-ink/40", "text-body", "text-list", "rounded-card", "shadow-lift", "duration-feedback", "ease-site", "animate-none", "font-ui", "font-medium", "font-bold", "md:py-24", "split:flex", "pt-4.5", "text-green", "bg-green-deep", "text-white", "-mt-1.75", "outline-offset-3"]) {
   test(`allows ${cls}`, () => {
     assert.deepEqual(bad(cls), []);
   });
@@ -96,4 +96,9 @@ test("motion declarations: a signature must name keyframes in the css", () => {
   const registry = [{ type: "video", motion: { entrance: "default", signature: { keyframes: "pulse", reason: "x" } } }];
   assert.match(motionDeclarationProblems(registry, "@keyframes other { }").join("\n"), /hl-signature-pulse/);
   assert.deepEqual(motionDeclarationProblems(registry, "@keyframes hl-signature-pulse { from { opacity: 0; } }"), []);
+});
+
+test("css: font weights outside the loaded faces fail", () => {
+  assert.deepEqual(cssWeightProblems("h1 { font-weight: 700; } b { font-weight: bold } p { font-weight: var(--w) }"), []);
+  assert.equal(cssWeightProblems("h1 { font-weight: 300; } h2 { font-weight: 800 }").length, 2);
 });

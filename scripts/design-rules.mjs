@@ -51,6 +51,7 @@ function classProblem(token) {
   if (PALETTE_CLASS.test(base)) return "Tailwind default palette color; use a site color token (ink, silver, green, rust, tint, ...)";
   if (BLACK_CLASS.test(base)) return "Tailwind black; use the ink token";
   if (/^font-(?:sans|serif|mono)$/.test(base)) return "default font family; use font-ui, font-text or font-voice";
+  if (/^font-(?:thin|extralight|light|extrabold|black)$/.test(base)) return "font weight the design does not load; use 400 to 700 (DESIGN_FACES in src/brand/fonts.ts)";
   if (/^text-(?:xs|sm|base|lg|xl|[2-9]xl)$/.test(base)) return "Tailwind default font size; use a type step from hl.css";
   if (/^duration-\d+$/.test(base)) return "raw duration; use a motion token (--duration-*)";
   if (/^delay-\d+$/.test(base)) return "raw delay; motion timing comes from tokens";
@@ -105,6 +106,16 @@ export function designProblems(path, text) {
     }
   }
   return out;
+}
+
+const LOADED_WEIGHTS = new Set(["400", "500", "600", "700", "normal", "bold", "inherit"]);
+
+/** font-weight values in a stylesheet that the loaded fonts do not carry (DESIGN_FACES in src/brand/fonts.ts). */
+export function cssWeightProblems(css) {
+  return [...css.matchAll(/font-weight\s*:\s*([^;}!]+)/g)]
+    .map((m) => m[1].trim())
+    .filter((value) => !LOADED_WEIGHTS.has(value) && !value.startsWith("var("))
+    .map((value) => `font-weight ${value} is not a weight the design loads (400 to 700, DESIGN_FACES in src/brand/fonts.ts)`);
 }
 
 /** Index just past the `}` that closes the `{` at `open`. */
