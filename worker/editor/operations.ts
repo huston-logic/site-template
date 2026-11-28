@@ -416,7 +416,9 @@ function applyDocumentPointerOp(op: string, raw: Json, scope: Scope, target: "it
     }
     if (tokens[0] === "") refuse(`${pointer} is not allowed; name a setting, such as /phone.`);
   };
-  applyPointerOp(op, raw, doc, guard, (parent, key) => parent === doc && (NULLABLE_SETTINGS.includes(key) || parent[key] === null));
+  // A booking service's price and between mean "none" as null, and the file must keep the key.
+  const bookingNull = (parent: Json, key: string) => name === "booking" && parent !== doc && (key === "price" || key === "between") && "id" in parent;
+  applyPointerOp(op, raw, doc, guard, (parent, key) => bookingNull(parent, key) || (parent === doc && (NULLABLE_SETTINGS.includes(key) || parent[key] === null)));
 }
 
 function applyItemOp(op: string, raw: Json, scope: Scope): void {

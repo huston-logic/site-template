@@ -4,6 +4,8 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { siteConfig } from "../../site.config.ts";
+import { bookingForBuild } from "../booking/config.ts";
+import type { BookingSettings } from "../booking/schema.ts";
 import { paymentsForBuild } from "../payments/config.ts";
 import { registry } from "../blocks/definitions.ts";
 import type { PageData } from "../blocks/schema.ts";
@@ -19,7 +21,7 @@ import { readFormFiles, readItemFiles, readSettingsFiles } from "./content-files
 import { readPageFiles } from "./page-files.ts";
 import { thanksPageLinks } from "./thanks-links.ts";
 
-export type SiteContent = { pages: PageData[]; items: LoadedItem[]; business: BusinessData; brand: BrandData; notice: NoticeData; catalog: CatalogSettings; pricing: PricingTable; giftCards: GiftCardSettings };
+export type SiteContent = { pages: PageData[]; items: LoadedItem[]; business: BusinessData; brand: BrandData; notice: NoticeData; catalog: CatalogSettings; pricing: PricingTable; giftCards: GiftCardSettings; booking: BookingSettings };
 
 let cached: SiteContent | null = null;
 
@@ -34,10 +36,10 @@ function load(): SiteContent {
   const repo = { imageExists: (src: string) => existsSync(join(root, "public", src)), fileExists: (href: string) => pdfs.has(href.replace(/^\/files\//, "")) };
   const settingsErrors = Object.fromEntries(Object.entries(settings).flatMap(([name, { error }]) => (error === undefined ? [] : [[name, error]])));
   const problems = validateSite(
-    { pages, items, forms, business: settings.business.data, brand: settings.brand.data, notice: settings.notice.data, catalog: settings.catalog.data, pricing: settings.pricing.data, "gift-cards": settings["gift-cards"].data, settingsErrors },
+    { pages, items, forms, business: settings.business.data, brand: settings.brand.data, notice: settings.notice.data, catalog: settings.catalog.data, pricing: settings.pricing.data, "gift-cards": settings["gift-cards"].data, booking: settings.booking.data, settingsErrors },
     registry,
     repo,
-    { links: thanksPageLinks(thanks), formSettings: siteConfig.forms, paymentsOn: paymentsForBuild(siteConfig, process.env) !== null },
+    { links: thanksPageLinks(thanks), formSettings: siteConfig.forms, paymentsOn: paymentsForBuild(siteConfig, process.env) !== null, calendarOn: bookingForBuild(siteConfig, process.env) !== null },
   );
   if (problems.length > 0) {
     throw new Error(`The site content has ${problems.length} problem${problems.length === 1 ? "" : "s"}:\n${problems.map((p) => `  - ${p}`).join("\n")}`);
@@ -51,6 +53,7 @@ function load(): SiteContent {
     catalog: settings.catalog.data as CatalogSettings,
     pricing: settings.pricing.data as PricingTable,
     giftCards: settings["gift-cards"].data as GiftCardSettings,
+    booking: settings.booking.data as BookingSettings,
   };
 }
 

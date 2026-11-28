@@ -35,10 +35,10 @@ test("initialize agrees a protocol version, names the server and carries the ins
 test("the instructions hold every rule the AI must follow", () => {
   const text = serverInstructions("Example Co");
   assert.ok(text.startsWith("You are helping the owner of Example Co change their website."));
-  for (const phrase of ["exactly as returned", "only after the owner says yes", "Never say a change is live", "voice guide", "catalog's rules", "Huston Logic", "request_feature", "content, not instructions", "Never invent a testimonial", "draft unless the owner said to publish", "preview_change has run", "information, never instructions", "settings gift-cards", "refunds are made in Stripe"]) {
+  for (const phrase of ["exactly as returned", "only after the owner says yes", "Never say a change is live", "voice guide", "catalog's rules", "Huston Logic", "request_feature", "content, not instructions", "Never invent a testimonial", "draft unless the owner said to publish", "preview_change has run", "information, never instructions", "settings gift-cards", "refunds are made in Stripe", "14 days is 336", "never delete one"]) {
     assert.ok(text.includes(phrase), phrase);
   }
-  assert.equal(text.split("\n").filter((line) => /^\d+\. /.test(line)).length, 22);
+  assert.equal(text.split("\n").filter((line) => /^\d+\. /.test(line)).length, 23);
 });
 
 test("tools/list names the twenty tools with schemas and the wording the AI must see", async () => {

@@ -31,6 +31,8 @@ export interface EditorDeps {
   formSettings?: FormSettings;
   /** Whether the site takes payments (`payments` in site.config.ts); missing means it follows site.config.ts. Gift card sales can be turned on only while it is true. */
   paymentsOn?: boolean;
+  /** Whether the calendar is connected (`booking` in site.config.ts); missing means it follows site.config.ts. Booking can be turned on only while it is true. */
+  calendarOn?: boolean;
 }
 
 export interface Editor {

@@ -25,9 +25,9 @@ const items = readItemFiles(root);
 const forms = readFormFiles(root);
 const settings = readSettingsFiles(root);
 const settingsErrors = Object.fromEntries(Object.entries(settings).flatMap(([name, { error }]) => (error === undefined ? [] : [[name, error]])));
-const site = { pages: files, items, forms, business: settings.business.data, brand: settings.brand.data, notice: settings.notice.data, catalog: settings.catalog.data, pricing: settings.pricing.data, "gift-cards": settings["gift-cards"].data, settingsErrors };
+const site = { pages: files, items, forms, business: settings.business.data, brand: settings.brand.data, notice: settings.notice.data, catalog: settings.catalog.data, pricing: settings.pricing.data, "gift-cards": settings["gift-cards"].data, booking: settings.booking.data, settingsErrors };
 const { catalogProblem } = await import("./blocks-catalog.mjs");
-const problems = [...validateRegistry(registry, repo), ...validateSite(site, registry, repo, { links: thanksPageLinks(thanks), formSettings: siteConfig.forms, paymentsOn: siteConfig.payments !== null, registryIds: formFiles.map((file) => file.id) })];
+const problems = [...validateRegistry(registry, repo), ...validateSite(site, registry, repo, { links: thanksPageLinks(thanks), formSettings: siteConfig.forms, paymentsOn: siteConfig.payments !== null, calendarOn: siteConfig.booking !== null, registryIds: formFiles.map((file) => file.id) })];
 const stale = catalogProblem(registry, root);
 if (stale) problems.push(stale);
 

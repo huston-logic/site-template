@@ -23,7 +23,7 @@ export const noArguments: InputSchema = { type: "object", properties: {}, requir
 
 const pagePath = { type: "string", description: 'A page path such as "/hours".' };
 const itemKey = { type: "string", description: 'An item as "<collection>/<slug>", such as "posts/new-inspection-service".' };
-const settingsName = { enum: ["business", "brand", "notice", "catalog", "pricing", "gift-cards"], description: "One of the settings files." };
+const settingsName = { enum: ["business", "brand", "notice", "catalog", "pricing", "gift-cards", "booking"], description: "One of the settings files." };
 const collectionName = { enum: ["posts", "videos", "episodes", "testimonials", "team", "catalog"], description: "One of the collections." };
 const formId = { type: "string", description: 'A form as its id, such as "quote-request". The contact form ("contact") is Huston Logic\'s and cannot be changed.' };
 const slug = { type: "string", description: "Lowercase words and digits joined by hyphens, 1 to 60 characters." };
@@ -139,7 +139,7 @@ export const schemas = {
     additionalProperties: false,
   },
   getForm: { type: "object", properties: { form: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 60, description: "A form's id from list_forms." } }, required: ["form"], additionalProperties: false },
-  getSettings: { type: "object", properties: { name: { type: "string", pattern: "^(business|brand|notice|catalog|pricing|gift-cards)$", description: "business, brand, notice, catalog, pricing or gift-cards." } }, required: ["name"], additionalProperties: false },
+  getSettings: { type: "object", properties: { name: { type: "string", pattern: "^(business|brand|notice|catalog|pricing|gift-cards|booking)$", description: "business, brand, notice, catalog, pricing, gift-cards or booking." } }, required: ["name"], additionalProperties: false },
   upload: { type: "object", properties: { upload_id: uploadId }, required: ["upload_id"], additionalProperties: false },
   preview: { type: "object", properties: { proposal_id: proposalId }, required: ["proposal_id"], additionalProperties: false },
   publish: {

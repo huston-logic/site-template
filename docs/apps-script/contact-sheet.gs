@@ -2,7 +2,7 @@
  * Contact form -> Google Sheet writer (a Google Apps Script web app).
  *
  * The site's contact Worker (worker/apps-script.ts) POSTs JSON { secret, tab, row } to this script's web-app URL. The
- * script checks the shared secret, accepts only the six configured tab names, and writes the row as plain text.
+ * script checks the shared secret, accepts only the eight configured tab names, and writes the row as plain text.
  * Setup steps: README, "Contact form", "Apps Script setup". Secret names: docs/SECRETS.md.
  *
  * Script Properties (Project Settings > Script properties). No value lives in this file.
@@ -13,6 +13,8 @@
  *   TAB_FORMS_PREVIEW optional  Tab for branch previews of the other forms. Default "Forms preview" (contact.sheetTabs.formsPreview).
  *   TAB_GIFT_CARDS         optional  Tab for live gift card sales. Default "Gift cards" (contact.sheetTabs.giftCards).
  *   TAB_GIFT_CARDS_PREVIEW optional  Tab for branch previews of gift card sales. Default "Gift cards preview" (contact.sheetTabs.giftCardsPreview).
+ *   TAB_BOOKINGS         optional  Tab for live bookings. Default "Bookings" (contact.sheetTabs.bookings).
+ *   TAB_BOOKINGS_PREVIEW optional  Tab for branch previews of bookings. Default "Bookings preview" (contact.sheetTabs.bookingsPreview).
  *
  * Header row of each tab (row 1), the same order the Worker sends (worker/messages.ts, sheetRow):
  *   Received (UTC) | Need | Topic | Name | Email | Business | Message | Tools | Website | Source | Mode | Came from | Campaign | Click ID | First seen (UTC) | Days to note
@@ -23,6 +25,11 @@
  * already in column B of its tab is not added again, so a repeated payment notice never lists a sale twice:
  *   Sold (UTC) | Code | Amount | Buyer | Buyer email | Recipient | Message | Stripe payment | Came from | Campaign | Click ID | First seen (UTC) | Days to note | Used | Balance | Notes
  * Used, Balance and Notes stay empty for the owner to fill in.
+ * Header row of the two bookings tabs (worker/booking/ledger.ts). The Stripe reference is in column J (the 10th column),
+ * and a row whose reference is already in column J of its tab is not added again, so a repeated payment notice never lists
+ * a booking twice:
+ *   Booked (UTC) | Service | Sessions | Party size | Name | Email | Phone | Paid | Due later | Stripe reference | Catalog item | Came from | Campaign | Click ID | First seen (UTC) | Days to note | Status | Notes
+ * Status and Notes stay empty for the owner to fill in.
  *
  * Deploy as: Web app, Execute as "Me", Who has access "Anyone". The secret is what keeps the URL private.
  * Every failure returns {"ok":false} with no details.
@@ -41,12 +48,15 @@ function doPost(e) {
     var formsPreview = props.getProperty("TAB_FORMS_PREVIEW") || "Forms preview";
     var giftCards = props.getProperty("TAB_GIFT_CARDS") || "Gift cards";
     var giftCardsPreview = props.getProperty("TAB_GIFT_CARDS_PREVIEW") || "Gift cards preview";
+    var bookings = props.getProperty("TAB_BOOKINGS") || "Bookings";
+    var bookingsPreview = props.getProperty("TAB_BOOKINGS_PREVIEW") || "Bookings preview";
 
     var data = JSON.parse(e.postData.contents);
     // Refuse everything while the secret is unset, so a half-finished setup never accepts rows.
     if (!expected || typeof data.secret !== "string" || !sameText(data.secret, expected)) return reply(false);
-    if (data.tab !== production && data.tab !== preview && data.tab !== forms && data.tab !== formsPreview && data.tab !== giftCards && data.tab !== giftCardsPreview) return reply(false);
+    if (data.tab !== production && data.tab !== preview && data.tab !== forms && data.tab !== formsPreview && data.tab !== giftCards && data.tab !== giftCardsPreview && data.tab !== bookings && data.tab !== bookingsPreview) return reply(false);
     var isGiftCardTab = data.tab === giftCards || data.tab === giftCardsPreview;
+    var isBookingsTab = data.tab === bookings || data.tab === bookingsPreview;
 
     var row = data.row;
     if (!Array.isArray(row) || row.length === 0 || row.length > MAX_COLUMNS) return reply(false);
@@ -60,7 +70,9 @@ function doPost(e) {
       var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(data.tab);
       if (!sheet) return reply(false);
       // A gift card is sold once: a row whose code (column B) is already in the tab counts as saved, and is not added again.
-      if (isGiftCardTab && row.length > 1 && codeIsListed(sheet, row[1])) return reply(true);
+      if (isGiftCardTab && row.length > 1 && valueIsListed(sheet, 2, row[1])) return reply(true);
+      // A booking is saved once: a row whose Stripe reference (column J) is already in the tab counts as saved.
+      if (isBookingsTab && row.length > 9 && valueIsListed(sheet, 10, row[9])) return reply(true);
       var target = sheet.getRange(sheet.getLastRow() + 1, 1, 1, row.length);
       // Plain text first ("@"), then the values: nothing the visitor typed can turn into a formula or a date.
       target.setNumberFormat("@");
@@ -74,12 +86,12 @@ function doPost(e) {
   }
 }
 
-/** True when `code` is already in column B of the sheet. Runs under the script lock. */
-function codeIsListed(sheet, code) {
+/** True when `value` is already in the given column (1 is A) of the sheet. Runs under the script lock. */
+function valueIsListed(sheet, column, value) {
   var last = sheet.getLastRow();
-  if (last < 1 || !code) return false;
-  var values = sheet.getRange(1, 2, last, 1).getValues();
-  for (var i = 0; i < values.length; i++) if (String(values[i][0]) === code) return true;
+  if (last < 1 || !value) return false;
+  var values = sheet.getRange(1, column, last, 1).getValues();
+  for (var i = 0; i < values.length; i++) if (String(values[i][0]) === value) return true;
   return false;
 }
 

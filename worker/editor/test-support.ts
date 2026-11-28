@@ -85,7 +85,7 @@ const template = (path: string): string => readFileSync(new URL(path, REPO), "ut
 /** The template's own settings files and example items, so the seeded site tracks the real template. Posts are left out (see blogFiles). */
 function templateDocuments(): Record<string, string> {
   const files: Record<string, string> = {};
-  for (const name of ["business", "brand", "notice", "catalog", "pricing", "gift-cards"]) files[`src/content/${name}.json`] = template(`src/content/${name}.json`);
+  for (const name of ["business", "brand", "notice", "catalog", "pricing", "gift-cards", "booking"]) files[`src/content/${name}.json`] = template(`src/content/${name}.json`);
   files["src/content/forms/contact.json"] = template("src/content/forms/contact.json");
   files["src/content/forms/quote.json"] = template("src/content/forms/quote.json");
   files["src/content/forms/booking.json"] = template("src/content/forms/booking.json");

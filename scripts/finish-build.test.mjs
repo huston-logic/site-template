@@ -70,7 +70,7 @@ test("nothing is removed when neither variable is set, or when productionBranch 
 test("a CI build (GITHUB_SHA, no Workers Builds branch) keeps the showcase", () => {
   const outDir = fakeOut();
   const result = finishBuild({ outDir, env: { GITHUB_SHA: "ccc" }, productionBranch: "main" });
-  assert.deepEqual(result, { commit: "ccc", showcaseRemoved: false, drafts: true, giftCardsRemoved: true });
+  assert.deepEqual(result, { commit: "ccc", showcaseRemoved: false, drafts: true, giftCardsRemoved: true, bookingRemoved: true });
   assert.equal(existsSync(join(outDir, "blocks", "index.txt")), true);
 });
 
@@ -196,4 +196,59 @@ test("with payments off, no certificate fonts are copied", () => {
 
 test("a missing certificate font stops the build", () => {
   assert.throws(() => copyCertificateFonts(fakeOut(), { display: "nope", accent: "newsreader" }), /Missing certificate font display-nope-400\.ttf/);
+});
+
+function withBooking(outDir) {
+  mkdirSync(join(outDir, "booking"));
+  writeFileSync(join(outDir, "booking", "thanks.html"), "thanks");
+  writeFileSync(join(outDir, "booking.html"), "keep: not the thank-you folder");
+  return outDir;
+}
+
+const calendar = { calendarId: "bookings@calendar.example.test", busyCalendarIds: [], previewCalendarId: null };
+
+test("with booking off (the template), out/booking is removed and nothing else is", () => {
+  const outDir = withBooking(fakeOut());
+  const result = finishBuild({ outDir, env: {}, productionBranch: "main", siteConfig });
+  assert.equal(result.bookingRemoved, true);
+  assert.equal(existsSync(join(outDir, "booking")), false);
+  assert.equal(existsSync(join(outDir, "booking.html")), true);
+  assert.equal(existsSync(join(outDir, "index.html")), true);
+});
+
+test("with booking off only the thank-you page's files go: a site page under /booking/ stays, and the folder with it", () => {
+  const outDir = withBooking(fakeOut());
+  writeFileSync(join(outDir, "booking", "thanks.txt"), "rsc");
+  mkdirSync(join(outDir, "booking", "thanks"));
+  writeFileSync(join(outDir, "booking", "thanks", "__next.txt"), "segment");
+  writeFileSync(join(outDir, "booking", "services.html"), "a site page");
+  finishBuild({ outDir, env: {}, productionBranch: "main", siteConfig });
+  assert.deepEqual(readdirSync(join(outDir, "booking")), ["services.html"]);
+});
+
+test("a build without a booking folder and without siteConfig still succeeds with booking off", () => {
+  assert.equal(finishBuild({ outDir: fakeOut(), env: {}, productionBranch: "main" }).bookingRemoved, true);
+});
+
+test("with booking set, or BOOKING_FIXTURE=1 on a local build, out/booking stays", () => {
+  const set = withBooking(fakeOut());
+  const result = finishBuild({ outDir: set, env: {}, productionBranch: "main", siteConfig: { ...siteConfig, booking: calendar } });
+  assert.equal(result.bookingRemoved, false);
+  assert.equal(readFileSync(join(set, "booking", "thanks.html"), "utf8"), "thanks");
+
+  const fixture = withBooking(fakeOut());
+  assert.equal(finishBuild({ outDir: fixture, env: { BOOKING_FIXTURE: "1" }, productionBranch: "main", siteConfig }).bookingRemoved, false);
+  assert.equal(existsSync(join(fixture, "booking", "thanks.html")), true);
+});
+
+test("BOOKING_FIXTURE=1 on a production build throws", () => {
+  const outDir = withBooking(fakeOut());
+  assert.throws(() => finishBuild({ outDir, env: { BOOKING_FIXTURE: "1", WORKERS_CI: "1", WORKERS_CI_BRANCH: "main" }, productionBranch: "main", siteConfig }), /BOOKING_FIXTURE/);
+});
+
+test("a production build with booking set keeps the page", () => {
+  const outDir = withBooking(fakeOut());
+  const result = finishBuild({ outDir, env: { WORKERS_CI: "1", WORKERS_CI_BRANCH: "main" }, productionBranch: "main", siteConfig: { ...siteConfig, booking: calendar } });
+  assert.equal(result.bookingRemoved, false);
+  assert.equal(existsSync(join(outDir, "booking", "thanks.html")), true);
 });

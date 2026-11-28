@@ -4,12 +4,14 @@
 import { CATALOG_BLOCK, CATALOG_FORBIDDEN_PATHS, QUOTE_FORM_ID, cardPathFor } from "../catalog/schema.ts";
 import type { CatalogSettings, PricingTable } from "../catalog/schema.ts";
 import { validateCatalogLinks, validateCatalogSettings, validatePricing } from "../catalog/validate.ts";
+import { BOOKING_BLOCK, BOOKING_FORM_ANSWER_CHARS, BOOKING_FORM_ID } from "../booking/schema.ts";
+import { validateBooking } from "../booking/validate.ts";
 import { buildPageIndex, validatePages } from "../blocks/validate.ts";
 import type { Context, PageFile, Repo } from "../blocks/validate.ts";
 import type { AnyBlockDefinition } from "../blocks/schema.ts";
 import { DEFAULT_FORM_SETTINGS } from "../forms/schema.ts";
 import type { FormFile, FormSettings, FormStatus } from "../forms/schema.ts";
-import { formWarnings, validateForms } from "../forms/validate.ts";
+import { formAnswerChars, formWarnings, validateForms } from "../forms/validate.ts";
 import { GIFT_CARD_BLOCK } from "../gift-cards/schema.ts";
 import { validateGiftCards } from "../gift-cards/validate.ts";
 import { validateBrand } from "../settings/brand.ts";
@@ -39,6 +41,7 @@ export type SiteInput = {
   catalog: unknown;
   pricing: unknown;
   "gift-cards": unknown;
+  booking: unknown;
   /** Why a settings file could not be read (bad JSON), by name. */
   settingsErrors?: Partial<Record<SettingsName, string>>;
 };
@@ -52,6 +55,8 @@ export type SiteExtra = {
   registryIds?: readonly string[];
   /** Whether site.config.ts has `payments` set. Missing means off: gift card sales cannot be on and no gift-card block may be live. */
   paymentsOn?: boolean;
+  /** Whether site.config.ts has `booking` set (the calendar is connected). Missing means off: booking cannot be turned on, no service can be offered and no booking block may be live. */
+  calendarOn?: boolean;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -124,6 +129,34 @@ function giftCardPageProblems(pages: readonly PageFile[], paymentsOn: boolean): 
   });
 }
 
+/** The rules that join the booking block, the booking form and the calendar (design R1, R3): one live page, a form that can carry a booking. */
+function bookingPageProblems(input: SiteInput, forms: ReadonlyMap<string, FormStatus>, calendarOn: boolean): string[] {
+  const holders = input.pages.flatMap(({ file, data, error }) => {
+    if (error !== undefined || !isRecord(data) || data["status"] !== "live" || !Array.isArray(data["blocks"])) return [];
+    return data["blocks"].some((block) => isRecord(block) && block["type"] === BOOKING_BLOCK) ? [`src/content/pages/${file}`] : [];
+  });
+  if (holders.length === 0) return [];
+  const out: string[] = [];
+  if (!calendarOn) {
+    for (const where of holders) out.push(`${where}: this page has a booking block, but the calendar is not connected on this site, so nobody could book. Take the block off, or archive the page.`);
+  }
+  if (holders.length > 1) out.push(`${holders.join(" and ")} both hold a booking block; a site has one booking page, so archive one of them.`);
+  const where = `src/content/forms/${BOOKING_FORM_ID}.json`;
+  const status = forms.get(BOOKING_FORM_ID);
+  if (status !== "live") {
+    out.push(`The booking page needs a live booking form (${where}); ${status === undefined ? "it is missing" : "it is archived"}.`);
+    return out;
+  }
+  const file = input.forms.find((form) => form.id === BOOKING_FORM_ID);
+  const fields = file !== undefined && isRecord(file.data) && Array.isArray(file.data["fields"]) ? file.data["fields"].filter(isRecord) : [];
+  if (!fields.some((field) => field["type"] === "short-text" && field["purpose"] === "name")) out.push(`${where} needs a short-text field whose purpose is "name", so the booking has a name to put on the calendar.`);
+  const emails = fields.filter((field) => field["type"] === "email").length;
+  if (emails !== 1) out.push(`${where} needs exactly one email field so the confirmation can be sent; it has ${emails}.`);
+  const chars = formAnswerChars(file?.data);
+  if (chars > BOOKING_FORM_ANSWER_CHARS) out.push(`${where}: its fields allow ${chars} characters of answers in all; the booking form takes at most ${BOOKING_FORM_ANSWER_CHARS}, because the answers travel with the payment. Shorten some limits or remove a field.`);
+  return out;
+}
+
 /** Warnings that do not stop a change: health words in forms. Printed by the content check and shown in the owner's change list. */
 export function siteWarnings(input: Pick<SiteInput, "forms">): string[] {
   return input.forms.flatMap(({ id, data, error }) => (error === undefined ? formWarnings(id, data) : []));
@@ -136,6 +169,7 @@ export function siteWarnings(input: Pick<SiteInput, "forms">): string[] {
 export function validateSite(input: SiteInput, registry: readonly AnyBlockDefinition[], repo: Repo, extra: SiteExtra = {}): string[] {
   const out: string[] = [];
   const paymentsOn = extra.paymentsOn === true;
+  const calendarOn = extra.calendarOn === true;
   const forms = formStatuses(input.forms);
   const catalogProblems = input.catalog === undefined ? [] : validateCatalogSettings(input.catalog);
   const pricingProblems = input.pricing === undefined ? [] : validatePricing(input.pricing);
@@ -160,6 +194,7 @@ export function validateSite(input: SiteInput, registry: readonly AnyBlockDefini
     else if (name === "catalog") out.push(...catalogProblems);
     else if (name === "pricing") out.push(...pricingProblems);
     else if (name === "gift-cards") out.push(...validateGiftCards(data, { paymentsOn }));
+    else if (name === "booking") out.push(...validateBooking(data, { calendarOn, paymentsOn }));
     else out.push(...validateNotice(data, ctx));
   }
 
@@ -169,6 +204,7 @@ export function validateSite(input: SiteInput, registry: readonly AnyBlockDefini
   out.push(...validateCatalogLinks({ settings: settingsOk, pricing: pricingOk, items: catalogItems, itemRefs: false }));
   out.push(...catalogPageProblems(input, catalogItems, forms, repo));
   out.push(...giftCardPageProblems(input.pages, paymentsOn));
+  out.push(...bookingPageProblems(input, forms, calendarOn));
 
   if (hasLivePost(input.items) && !blogHasPostIndex(input.pages)) {
     out.push(`A post is live, so ${BLOG_PATH} must be a live page with a "${POST_INDEX_BLOCK}" block (src/content/pages/blog.json); without it the posts have no list.`);

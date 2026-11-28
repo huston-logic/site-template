@@ -1,11 +1,12 @@
 // Runs after `next build` (see package.json `build`): stamps ./out with the commit it was built from
 // (out/site-version.json, with whether drafts were built) and, on a Workers Builds production build, removes the /blocks showcase from ./out.
-// While payments are off it also removes the gift card thank-you page (out/gift-cards).
+// While payments are off it also removes the gift card thank-you page (out/gift-cards), and while booking is off the booking thank-you page (out/booking).
 // CI and preview builds keep /blocks so the accessibility and Lighthouse checks still scan it.
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isProductionBuild } from "../src/lib/build-target.ts";
+import { bookingForBuild } from "../src/booking/config.ts";
 import { paymentsForBuild } from "../src/payments/config.ts";
 import { FIXTURE_ENV, FIXTURE_TRACKING } from "../src/tracking/config.ts";
 import { headersText } from "./headers-text.mjs";
@@ -38,6 +39,7 @@ export function copyCertificateFonts(outDir, brandFonts, sourceDir = CERTIFICATE
  * With TRACKING_FIXTURE=1 (local test builds) and a `siteConfig`, <outDir>/_headers is rewritten with the CSP the fixture
  * IDs need, so the page can load the fake tags in a browser; the committed public/_headers is never touched.
  * While payments (`siteConfig.payments`, or PAYMENTS_FIXTURE=1) are off, removes the gift card thank-you page's files from <outDir>/gift-cards (and the folder if that leaves it empty).
+ * While booking (`siteConfig.booking`, or BOOKING_FIXTURE=1) is off, removes the booking thank-you page's files from <outDir>/booking the same way.
  */
 export function finishBuild({ outDir, env, productionBranch, siteConfig, brandFonts }) {
   const commit = env.WORKERS_CI_COMMIT_SHA || env.GITHUB_SHA || null;
@@ -61,7 +63,14 @@ export function finishBuild({ outDir, env, productionBranch, siteConfig, brandFo
     if (existsSync(join(outDir, "gift-cards")) && readdirSync(join(outDir, "gift-cards")).length === 0) rmSync(join(outDir, "gift-cards"), { recursive: true });
   }
   else copyCertificateFonts(outDir, brandFonts);
-  return { commit, showcaseRemoved, drafts, giftCardsRemoved };
+  // With booking off the booking thank-you page does not ship either (design R1); only its own files go, so a site page under /booking/ stays.
+  const booking = bookingForBuild({ booking: siteConfig?.booking ?? null, domain: { productionBranch } }, env);
+  const bookingRemoved = booking === null;
+  if (bookingRemoved) {
+    for (const name of ["thanks.html", "thanks.txt", "thanks"]) rmSync(join(outDir, "booking", name), { recursive: true, force: true });
+    if (existsSync(join(outDir, "booking")) && readdirSync(join(outDir, "booking")).length === 0) rmSync(join(outDir, "booking"), { recursive: true });
+  }
+  return { commit, showcaseRemoved, drafts, giftCardsRemoved, bookingRemoved };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -69,6 +78,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const { siteConfig } = await import(pathToFileURL(join(root, "site.config.ts")).href);
   const { fonts: brandFonts } = JSON.parse(readFileSync(join(root, "src/content/brand.json"), "utf8"));
   const result = finishBuild({ outDir: join(root, "out"), env: process.env, productionBranch: siteConfig.domain.productionBranch, siteConfig, brandFonts });
-  console.log(`Build stamp: ${result.commit ?? "no commit known"}${result.showcaseRemoved ? "; /blocks removed (production build)" : ""}${result.giftCardsRemoved ? "; gift cards not shipped (payments off)" : ""}`);
+  console.log(`Build stamp: ${result.commit ?? "no commit known"}${result.showcaseRemoved ? "; /blocks removed (production build)" : ""}${result.giftCardsRemoved ? "; gift cards not shipped (payments off)" : ""}${result.bookingRemoved ? "; booking not shipped (calendar off)" : ""}`);
   if (result.drafts) console.log("Drafts included (not a production build)");
 }

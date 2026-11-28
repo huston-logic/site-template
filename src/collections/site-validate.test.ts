@@ -8,6 +8,8 @@ import notice from "../content/notice.json" with { type: "json" };
 import catalog from "../content/catalog.json" with { type: "json" };
 import pricing from "../content/pricing.json" with { type: "json" };
 import giftCards from "../content/gift-cards.json" with { type: "json" };
+import booking from "../content/booking.json" with { type: "json" };
+import bookingForm from "../content/forms/booking.json" with { type: "json" };
 import quote from "../content/forms/quote.json" with { type: "json" };
 import type { ItemFile } from "./schema.ts";
 import { toLoadedItems, validateSite } from "./site-validate.ts";
@@ -39,7 +41,7 @@ const post = (data: Record<string, unknown> = {}): ItemFile => ({
   slug: "hello",
   data: { status: "live", title: "T", description: "D", date: "2026-03-27", body: [{ type: "paragraph", text: "Hi" }], ...data },
 });
-const site = (over: Partial<SiteInput> = {}): SiteInput => ({ pages: [page("/"), page("/contact")], items: [], forms: [], business, brand, notice, catalog, pricing, "gift-cards": giftCards, ...over });
+const site = (over: Partial<SiteInput> = {}): SiteInput => ({ pages: [page("/"), page("/contact")], items: [], forms: [], business, brand, notice, catalog, pricing, "gift-cards": giftCards, booking, ...over });
 const has = (problems: string[], text: string) => assert.ok(problems.some((p) => p.includes(text)), `${text} in ${JSON.stringify(problems)}`);
 
 describe("validateSite", () => {
@@ -164,4 +166,51 @@ describe("catalog rules", () => {
     has(run({ ...good(), pricing: { ...pricing, exact: { ghost: { metal: { a: 1 } } } } }), 'prices for "ghost"');
   });
   it("names a missing settings file", () => has(run({ ...good(), catalog: undefined }), "src/content/catalog.json is missing"));
+});
+
+describe("booking rules", () => {
+  const bookingBlock: AnyBlockDefinition = { ...base, type: "booking", placement: { position: "any", maxPerPage: 1, rhythm: "section" } };
+  const reg = [base, postIndex, bookingBlock];
+  const block = { type: "booking", content: { heading: "x" } };
+  const formFile = (data: Record<string, unknown> = {}) => ({ id: "booking", data: { ...bookingForm, ...data } });
+  const withPage = (over: Partial<SiteInput> = {}) => site({ pages: [page("/"), page("/contact"), page("/book", [block])], forms: [formFile()], ...over });
+  const run = (input: SiteInput, calendarOn = true) => validateSite(input, reg, repo, { calendarOn });
+
+  it("passes a live booking page with the calendar connected", () => assert.deepEqual(run(withPage()), []));
+
+  it("fails a live page with a booking block while the calendar is not connected, and not an archived one", () => {
+    has(run(withPage(), false), "src/content/pages/book.json: this page has a booking block, but the calendar is not connected on this site, so nobody could book. Take the block off, or archive the page.");
+    const archived = site({ pages: [page("/"), page("/contact"), page("/book", [block], "archived")], forms: [formFile()] });
+    assert.deepEqual(run(archived, false), []);
+  });
+
+  it("allows one live booking page", () => {
+    has(run(site({ pages: [page("/"), page("/contact"), page("/book", [block]), page("/visit", [block])], forms: [formFile()] })), "both hold a booking block");
+  });
+
+  it("needs the booking form live, with a name and exactly one email", () => {
+    has(run(withPage({ forms: [] })), "needs a live booking form (src/content/forms/booking.json); it is missing");
+    has(run(withPage({ forms: [formFile({ status: "archived" })] })), "it is archived");
+    const fields = bookingForm.fields as Record<string, unknown>[];
+    has(run(withPage({ forms: [formFile({ fields: fields.filter((f) => f["type"] !== "email") })] })), "exactly one email field");
+    has(run(withPage({ forms: [formFile({ fields: fields.filter((f) => f["purpose"] !== "name") })] })), 'whose purpose is "name"');
+  });
+
+  it("limits the answers' text to what fits in the payment's notes", () => {
+    const fields = (bookingForm.fields as Record<string, unknown>[]).map((f) => (f["id"] === "notes" ? { ...f, max: 3000 } : f));
+    has(run(withPage({ forms: [formFile({ fields })] })), "the booking form takes at most 2000");
+  });
+
+  it("without a booking block, the form can be archived", () => {
+    assert.deepEqual(run(site({ forms: [formFile({ status: "archived" })] })), []);
+  });
+
+  it("judges the booking settings: taking cannot be on without the calendar, a paid service needs payments", () => {
+    const taking = { ...booking, taking: true };
+    has(run(site({ booking: taking }), false), "Booking cannot be turned on yet");
+    assert.deepEqual(run(site({ booking: taking })), []);
+    has(run(site({ booking: undefined })), "src/content/booking.json is missing");
+    const paid = { ...booking, services: [{ ...booking.services[0], price: { amount: 50, per: "person" }, payment: { kind: "full" } }] };
+    has(run(site({ booking: paid })), "payments are not set up");
+  });
 });
