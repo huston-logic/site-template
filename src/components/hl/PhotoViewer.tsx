@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type KeyboardEvent, type MouseEvent, type Ref } from "react";
 import { catalogWords } from "@/content/catalog";
 import type { ItemPhoto } from "./catalog-data";
+import { Container } from "./Container";
 import { PhotoStrip, usePhotoStrip } from "./PhotoStrip";
 
 export type PhotoViewerHandle = {
@@ -91,6 +92,8 @@ function ViewerBody({ photos, start, seen, close }: { photos: readonly ItemPhoto
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    // Alt+Left and Cmd+Left belong to the browser (back, line start), so they pass through.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     // The strip would also scroll by itself on an arrow key; the keys step one photo instead.
     event.preventDefault();
     step(event.key === "ArrowLeft" ? -1 : 1);
@@ -99,15 +102,15 @@ function ViewerBody({ photos, start, seen, close }: { photos: readonly ItemPhoto
   return (
     // The key handler only repeats what the Previous and Next buttons do.
     <div onKeyDown={onKeyDown} className="flex h-full w-full flex-col">
-      <div className="flex justify-end p-3">
+      <Container className="flex justify-end py-3">
         <button ref={closeButton} type="button" onClick={close} className={BUTTON}>
           {catalogWords.closeLarge}
         </button>
-      </div>
+      </Container>
       <div className="min-h-0 flex-1">
         <PhotoStrip photos={photos} strip={strip} sizes="100vw" className="h-full w-full" focusable={{ label: catalogWords.photos }} />
       </div>
-      <div className="flex items-center justify-between gap-3 p-3">
+      <Container className="flex items-center justify-between gap-3 py-3">
         <button type="button" aria-disabled={index === 0} onClick={() => step(-1)} className={BUTTON}>
           {catalogWords.previousPhoto}
         </button>
@@ -117,7 +120,7 @@ function ViewerBody({ photos, start, seen, close }: { photos: readonly ItemPhoto
         <button type="button" aria-disabled={index === lastIndex} onClick={() => step(1)} className={BUTTON}>
           {catalogWords.nextPhoto}
         </button>
-      </div>
+      </Container>
     </div>
   );
 }

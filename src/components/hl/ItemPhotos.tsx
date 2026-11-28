@@ -87,7 +87,7 @@ function SeveralPhotos({ photos, name }: { photos: readonly ItemPhoto[]; name: s
         </ul>
       </noscript>
       <div className="hl-js-only">
-        <ul role="list" aria-label={catalogWords.photos} className="mt-4 grid grid-cols-6 gap-2.5">
+        <ul role="list" aria-label={catalogWords.photos} className="mt-4 grid grid-cols-4 gap-2.5 sm:grid-cols-6">
           {photos.map((photo, position) => (
             <li key={`${photo.src}-${position}`}>
               <button

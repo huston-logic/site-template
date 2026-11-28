@@ -292,6 +292,8 @@
   /* The closer look on a piece's photos is a modal dialog; the page behind does not scroll. */
   html:has(dialog[open]) {
     overflow: hidden;
+    /* Keeps the space of a classic scrollbar, so the page behind does not shift sideways. */
+    scrollbar-gutter: stable;
   }
 
   /* The card's second photo (spec photo views P2): absent from layout until a rule below shows it, so the browser never

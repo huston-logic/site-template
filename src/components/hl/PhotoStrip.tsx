@@ -66,7 +66,11 @@ export function usePhotoStrip(initial = 0) {
     return () => observer.disconnect();
   }, [hydrated, initial, reveal]);
 
-  return { stripRef, index, loaded, hydrated, select };
+  const clearAim = useCallback(() => {
+    aim.current = null;
+  }, []);
+
+  return { stripRef, index, loaded, hydrated, select, clearAim };
 }
 
 export type PhotoStripState = ReturnType<typeof usePhotoStrip>;
@@ -90,12 +94,14 @@ type StripProps = {
  * single square frame; afterwards every slot exists, and a slot's full photo mounts when it first shows (or is chosen) and stays.
  */
 export function PhotoStrip({ photos, strip, sizes, className, preloadFirst = false, overlay, focusable }: StripProps) {
-  const { stripRef, index, loaded, hydrated } = strip;
+  const { stripRef, index, loaded, hydrated, clearAim } = strip;
   const shown = hydrated ? photos : photos.slice(0, 1);
   return (
     <div
       ref={stripRef}
-      className={`hl-strip flex snap-x snap-mandatory overflow-x-auto overflow-y-hidden ${className}`}
+      className={`hl-strip flex snap-x snap-mandatory overflow-x-auto overflow-y-hidden ${focusable ? "focus-visible:-outline-offset-4" : ""} ${className}`}
+      // A visitor's own touch on the strip ends a thumbnail's or an arrow's aim at once, so the strip's idea of the photo wins.
+      onPointerDown={clearAim}
       tabIndex={focusable ? 0 : undefined}
       role={focusable ? "group" : undefined}
       aria-label={focusable?.label}
