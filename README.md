@@ -301,6 +301,14 @@ npm run fixture:catalog -- <n> <dir>
 
 `import:catalog` loads a first set of pieces from a spreadsheet export. It is a dry run unless `--write` is given. The mapping file format and the steps are in [docs/EDITING.md](docs/EDITING.md), "Setting up a catalog on one site". `fixture:catalog` writes `<n>` generated pieces, the settings and a catalog page into a throwaway checkout (`<dir>`), to measure a build at size. Never run it in the real repo: its files are not content.
 
+## Payments and gift cards
+
+A site can sell gift cards. Money goes to the client's own Stripe account, and the site never sees card details. Setup, the
+test walk, the go-live list and refunds are in [docs/PAYMENTS.md](docs/PAYMENTS.md). The owner's gift card settings are in
+[docs/EDITING.md](docs/EDITING.md), "Gift cards". Payments are off unless `payments` is set in `site.config.ts`.
+
+`scripts/fetch-certificate-fonts.mjs` is run by Huston Logic only when the curated fonts change (`node scripts/fetch-certificate-fonts.mjs`). A normal build never fetches fonts.
+
 ## Deploy to Cloudflare Workers
 
 Merging a pull request into `main` deploys the site automatically through Cloudflare Workers Builds. Other branches get preview URLs (Cloudflare Worker Previews, configured by the `previews` block in `wrangler.jsonc`). Never run `wrangler deploy` by hand. The Worker config is `wrangler.jsonc`: static assets from `./out`, plus the Worker (entry `worker/index.ts`: the contact form, and the site editor when `editor.enabled` is on, see `docs/EDITING.md`), which wrangler bundles at deploy time. The build and deploy commands did not change when the Worker was added.

@@ -9,6 +9,9 @@ import { log, retryable, TIMEOUT_MS } from "./env.ts";
  */
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
+/** A tab as A1 notation wants it: always in single quotes, a quote inside doubled (a tab with a space is not valid unquoted). */
+export const a1Range = (tab: string, columns: string): string => `'${tab.replace(/'/g, "''")}'!${columns}`;
+
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
 type ServiceAccount = { client_email: string; private_key: string };
@@ -87,14 +90,49 @@ export function safeCell(value: string): string {
   return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
 
-/** Appends `row` to the given tab. Retries once on a rate limit, server error, expired token or network failure. */
-export async function appendRow(keyJson: string | undefined, sheetId: string | undefined, tab: string, row: string[]): Promise<boolean> {
+/**
+ * Whether `value` is already in the given column of the tab (0 is column A). True means it is; false means it is not;
+ * null means the Sheet could not be read, so the caller must not append blindly. Used to add a gift card row once.
+ */
+async function columnHas(token: string, sheetId: string, tab: string, column: number, value: string): Promise<boolean | null> {
+  const letter = String.fromCharCode(65 + column);
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(a1Range(tab, `${letter}:${letter}`))}?majorDimension=COLUMNS`;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (response.ok) {
+        const data = (await response.json().catch(() => null)) as { values?: unknown } | null;
+        const first = Array.isArray(data?.values) ? (data.values as unknown[])[0] : undefined;
+        return Array.isArray(first) && first.some((cell) => cell === value);
+      }
+      log("sheet_read_failed", { status: response.status, attempt });
+      if (!retryable(response.status)) return null;
+    } catch {
+      log("sheet_unreachable", { attempt });
+    }
+  }
+  return null;
+}
+
+/**
+ * Appends `row` to the given tab. Retries once on a rate limit, server error, expired token or network failure.
+ * With `onceColumn` (a 0-based column index) the row is added only if its value in that column is not already there, so a
+ * gift card sold once is never listed twice; "already there" counts as saved.
+ */
+export async function appendRow(keyJson: string | undefined, sheetId: string | undefined, tab: string, row: string[], onceColumn?: number): Promise<boolean> {
   const account = keyJson ? parseServiceAccount(keyJson) : null;
   if (!account || !sheetId) {
     log("sheet_config_missing");
     return false;
   }
-  const range = encodeURIComponent(`${tab}!A:T`);
+  if (onceColumn !== undefined) {
+    const token = await accessToken(account);
+    if (!token) return false;
+    const present = await columnHas(token, sheetId, tab, onceColumn, row[onceColumn] ?? "");
+    if (present === null) return false;
+    if (present) return true;
+  }
+  const range = encodeURIComponent(a1Range(tab, "A:T"));
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
   const body = JSON.stringify({ values: [row.map(safeCell)] });
   for (let attempt = 1; attempt <= 2; attempt++) {

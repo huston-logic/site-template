@@ -323,6 +323,7 @@ function loadSiteParts(root) {
     notice: settingsFiles.notice.data,
     catalog: settingsFiles.catalog.data,
     pricing: settingsFiles.pricing.data,
+    "gift-cards": settingsFiles["gift-cards"].data,
     settingsErrors,
   };
 }
@@ -356,6 +357,7 @@ export function judgeEntries({ entries, site, root }) {
     const problems = validateSite({ ...site, items, catalog: settings, pricing }, registry, repo, {
       links: thanksPageLinks(thanks),
       formSettings: siteConfig.forms,
+      paymentsOn: siteConfig.payments !== null,
       registryIds: formFiles.map((file) => file.id),
     });
     if (pass === 0) for (const problem of validateSiteBaseline(site, repo)) baseline.add(problem);
@@ -381,7 +383,7 @@ export function judgeEntries({ entries, site, root }) {
 
 /** The problems the site already has before any row is added (so they are not blamed on the import). */
 function validateSiteBaseline(site, repo) {
-  return validateSite({ ...site, items: site.items }, registry, repo, { links: thanksPageLinks(thanks), formSettings: siteConfig.forms, registryIds: formFiles.map((file) => file.id) });
+  return validateSite({ ...site, items: site.items }, registry, repo, { links: thanksPageLinks(thanks), formSettings: siteConfig.forms, paymentsOn: siteConfig.payments !== null, registryIds: formFiles.map((file) => file.id) });
 }
 
 export function parseArgs(argv) {

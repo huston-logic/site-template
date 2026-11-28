@@ -6,7 +6,9 @@ import { registry } from "@/blocks/definitions";
 import type { AnyBlockDefinition, BlockInstance } from "@/blocks/schema";
 import { Container } from "@/components/hl/Container";
 import { FadingDivider } from "@/components/hl/FadingDivider";
+import { GIFT_CARD_BLOCK } from "@/gift-cards/schema";
 import { getShowcaseCatalog } from "@/lib/catalog";
+import { getShowcaseGiftCards } from "@/lib/gift-cards";
 import { showcaseRoute } from "@/lib/routes";
 import { pageMetadata } from "@/lib/metadata";
 import { exampleBusiness, showcase } from "@/content/showcase";
@@ -31,6 +33,7 @@ function exampleFor(def: AnyBlockDefinition, variantName: string, seen: Set<stri
 export default function ShowcasePage() {
   const seenHeadings = new Set<string>();
   const showcaseCatalog = getShowcaseCatalog();
+  const showcaseGiftCards = getShowcaseGiftCards();
   return (
     <div className="relative overflow-x-clip">
       <BlockView block={heroBlock} index={0} primary />
@@ -57,6 +60,7 @@ export default function ShowcasePage() {
                 items={def.collection === undefined ? [] : (collectionFor(def.collection)?.example ?? [])}
                 business={exampleBusiness}
                 catalog={def.collection === "catalog" ? showcaseCatalog : undefined}
+                giftCards={def.type === GIFT_CARD_BLOCK ? showcaseGiftCards : undefined}
               />
             </div>
           );

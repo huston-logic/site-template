@@ -523,7 +523,7 @@ function makeRepo(setup) {
   write("src/content/pages/home.json", pageText("/"));
   write("src/content/pages/contact.json", pageText("/contact"));
   write("src/content/pages/about.json", pageText("/about", { menu: { label: "About", order: 20, places: ["header"] } }));
-  for (const name of ["business", "brand", "notice", "catalog", "pricing"]) write(`src/content/${name}.json`, readFileSync(new URL(`../src/content/${name}.json`, import.meta.url)));
+  for (const name of ["business", "brand", "notice", "catalog", "pricing", "gift-cards"]) write(`src/content/${name}.json`, readFileSync(new URL(`../src/content/${name}.json`, import.meta.url)));
   git(["add", "-A"]);
   commit("base");
   git(["checkout", "-q", "-b", "change/test"]);
@@ -761,7 +761,7 @@ test("gatherChange reads every page file and the image list at the head commit w
     "ls-tree -r --name-only -z HEAD -- public/images/": "public/images/a.jpg\0public/images/team/b.png\0",
     "ls-tree -r --name-only -z HEAD -- public/files/": "public/files/menu.pdf\0",
     "ls-tree -r --name-only -z HEAD -- src/content/collections/": "",
-    "ls-tree --name-only -z HEAD -- src/content/business.json src/content/brand.json src/content/notice.json src/content/catalog.json src/content/pricing.json": "",
+    "ls-tree --name-only -z HEAD -- src/content/business.json src/content/brand.json src/content/notice.json src/content/catalog.json src/content/pricing.json src/content/gift-cards.json": "",
     "ls-tree --name-only -z HEAD -- src/content/forms/": "src/content/forms/contact.json\0",
     "show HEAD:src/content/forms/contact.json": "{}",
     "ls-tree --name-only -z HEAD -- src/forms/registry.generated.ts": "",

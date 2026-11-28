@@ -399,6 +399,28 @@ const PRICING_FIELDS: Field = {
   },
 };
 
+const GIFT_CARD_FIELDS: Field = {
+  kind: "object",
+  label: "",
+  fields: {
+    selling: text("Selling gift cards"),
+    amounts: { kind: "list", label: "Amounts", min: 1, max: 8, of: { kind: "object", label: "Amount", fields: { amount: text("Amount"), label: text("Label") } } },
+    custom: { kind: "object", label: "Other amount", fields: { min: text("Smallest"), max: text("Largest") } },
+    redeemWording: text("How to redeem"),
+    termsLine: text("Terms line"),
+    validForMonths: text("Valid for (months)"),
+  },
+};
+
+const giftCardsSection = (old: Record<string, unknown>, now: Record<string, unknown>, ctx: Ctx): string => {
+  const entries: Entry[] = [];
+  diffValue(old, now, GIFT_CARD_FIELDS, [], entries, ctx);
+  const lines = ["Gift card settings:", ...render(entries)];
+  if (old.selling !== true && now.selling === true) lines.push("  Gift cards go on sale on the live site when this is published.");
+  if (old.selling === true && now.selling !== true) lines.push("  Gift cards stop being sold on the live site when this is published. Cards already bought still work.");
+  return lines.join("\n");
+};
+
 const catalogSection = (old: Record<string, unknown>, now: Record<string, unknown>, ctx: Ctx): string => {
   const entries: Entry[] = [];
   diffValue(old, now, CATALOG_FIELDS, [], entries, ctx);
@@ -514,6 +536,7 @@ export function documentSections(change: DocumentChange, ctx: Ctx, registry: rea
     else if (name === "brand") sections.push(brandSection(old, now, ctx));
     else if (name === "catalog") sections.push(catalogSection(old, now, ctx));
     else if (name === "pricing") sections.push(pricingSection(old, now, ctx));
+    else if (name === "gift-cards") sections.push(giftCardsSection(old, now, ctx));
     else sections.push(noticeSection(old, now, change.today, ctx));
   }
   const notes = [...emptyListNotes(change, registry), ...formNotes(change)];

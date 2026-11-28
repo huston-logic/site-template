@@ -65,8 +65,8 @@ export const siteConfig = {
      * which names wrangler.jsonc lists under secrets.required (see docs/SECRETS.md).
      */
     sheetWriter: "apps-script" as "apps-script" | "service-account",
-    /** The tab names in the Sheet: the contact form's two, then the two every other form shares. Generic names; the Apps Script reads the same names from its Script Properties. */
-    sheetTabs: { production: "Submissions", preview: "Preview", forms: "Forms", formsPreview: "Forms preview" },
+    /** The tab names in the Sheet: the contact form's two, the two every other form shares, then the gift card ledger's two. Generic names; the Apps Script reads the same names from its Script Properties. */
+    sheetTabs: { production: "Submissions", preview: "Preview", forms: "Forms", formsPreview: "Forms preview", giftCards: "Gift cards", giftCardsPreview: "Gift cards preview" },
     /**
      * Where each submission is saved. "sheet" (the default) is the Google Sheet above, the fallback. "pipeline" posts it
      * server to server to the client's Pipeline app copy (`pipelineUrl` + "/intake", secret INTAKE_SECRET). The notification
@@ -148,6 +148,13 @@ export const siteConfig = {
       types: ["jpeg", "png", "webp", "heic", "pdf"] as ("jpeg" | "png" | "webp" | "heic" | "pdf")[],
     },
   },
+  /**
+   * Taking payments (docs/PAYMENTS.md; design: docs/superpowers/specs/2026-11-27-payments-and-gift-cards-design.md, R1 and R2).
+   * null means nothing ships: no payments route answers, no Stripe secret is listed, the gift card thank-you page is not
+   * built and a live gift-card block fails the content check. Owner-only file: no chat tool can turn payments on. Two-decimal
+   * currencies only (src/payments/config.ts keeps the same list). After a change run `npm run sync:config`.
+   */
+  payments: null as null | { provider: "stripe"; currency: "usd" | "cad" | "gbp" | "eur" | "aud" | "nzd" },
   /** Published price text. Empty means none is published (not a launch blocker). */
   prices: { website: "" },
   /** Extra origins appended to the CSP in public/_headers. */

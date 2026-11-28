@@ -59,7 +59,7 @@ export function readSettingsFiles(root: string = process.cwd()): Record<Settings
     const path = join(root, "src", "content", `${name}.json`);
     return existsSync(path) ? readJson(path) : { data: undefined };
   };
-  return { business: read("business"), brand: read("brand"), notice: read("notice"), catalog: read("catalog"), pricing: read("pricing") };
+  return { business: read("business"), brand: read("brand"), notice: read("notice"), catalog: read("catalog"), pricing: read("pricing"), "gift-cards": read("gift-cards") };
 }
 
 /** Every form file (src/content/forms/<id>.json), sorted by id. A missing folder gives []. A bad file carries an `error`. */

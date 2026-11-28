@@ -4,12 +4,14 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { siteConfig } from "../../site.config.ts";
+import { paymentsForBuild } from "../payments/config.ts";
 import { registry } from "../blocks/definitions.ts";
 import type { PageData } from "../blocks/schema.ts";
 import { toLoadedItems, validateSite } from "../collections/site-validate.ts";
 import type { LoadedItem } from "../collections/schema.ts";
 import { thanks } from "../content/contact.ts";
 import type { CatalogSettings, PricingTable } from "../catalog/schema.ts";
+import type { GiftCardSettings } from "../gift-cards/schema.ts";
 import type { BrandData } from "../settings/brand.ts";
 import type { BusinessData } from "../settings/business.ts";
 import type { NoticeData } from "../settings/notice.ts";
@@ -17,7 +19,7 @@ import { readFormFiles, readItemFiles, readSettingsFiles } from "./content-files
 import { readPageFiles } from "./page-files.ts";
 import { thanksPageLinks } from "./thanks-links.ts";
 
-export type SiteContent = { pages: PageData[]; items: LoadedItem[]; business: BusinessData; brand: BrandData; notice: NoticeData; catalog: CatalogSettings; pricing: PricingTable };
+export type SiteContent = { pages: PageData[]; items: LoadedItem[]; business: BusinessData; brand: BrandData; notice: NoticeData; catalog: CatalogSettings; pricing: PricingTable; giftCards: GiftCardSettings };
 
 let cached: SiteContent | null = null;
 
@@ -32,10 +34,10 @@ function load(): SiteContent {
   const repo = { imageExists: (src: string) => existsSync(join(root, "public", src)), fileExists: (href: string) => pdfs.has(href.replace(/^\/files\//, "")) };
   const settingsErrors = Object.fromEntries(Object.entries(settings).flatMap(([name, { error }]) => (error === undefined ? [] : [[name, error]])));
   const problems = validateSite(
-    { pages, items, forms, business: settings.business.data, brand: settings.brand.data, notice: settings.notice.data, catalog: settings.catalog.data, pricing: settings.pricing.data, settingsErrors },
+    { pages, items, forms, business: settings.business.data, brand: settings.brand.data, notice: settings.notice.data, catalog: settings.catalog.data, pricing: settings.pricing.data, "gift-cards": settings["gift-cards"].data, settingsErrors },
     registry,
     repo,
-    { links: thanksPageLinks(thanks), formSettings: siteConfig.forms },
+    { links: thanksPageLinks(thanks), formSettings: siteConfig.forms, paymentsOn: paymentsForBuild(siteConfig, process.env) !== null },
   );
   if (problems.length > 0) {
     throw new Error(`The site content has ${problems.length} problem${problems.length === 1 ? "" : "s"}:\n${problems.map((p) => `  - ${p}`).join("\n")}`);
@@ -48,6 +50,7 @@ function load(): SiteContent {
     notice: settings.notice.data as NoticeData,
     catalog: settings.catalog.data as CatalogSettings,
     pricing: settings.pricing.data as PricingTable,
+    giftCards: settings["gift-cards"].data as GiftCardSettings,
   };
 }
 

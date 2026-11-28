@@ -42,6 +42,66 @@ describe("secretsFor", () => {
   });
 });
 
+describe("secretsFor: payments", () => {
+  const stripe = { provider: "stripe", currency: "usd" };
+  test("payments set appends the two Stripe secrets after the contact ones", () => {
+    assert.deepEqual(secretsFor({ destination: "pipeline", sheetWriter: "apps-script" }, stripe), ["RESEND_API_KEY", "TURNSTILE_SECRET_KEY", "INTAKE_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]);
+    assert.deepEqual(secretsFor({ destination: "sheet", sheetWriter: "apps-script" }, stripe).slice(-2), ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]);
+  });
+  test("payments null or missing lists no Stripe secret", () => {
+    for (const payments of [null, undefined]) assert.ok(!secretsFor({ destination: "sheet", sheetWriter: "apps-script" }, payments).some((name) => name.startsWith("STRIPE")));
+  });
+});
+
+describe("configProblems: sheet tabs", () => {
+  const tabs = { production: "Submissions", preview: "Preview", forms: "Forms", formsPreview: "Forms preview", giftCards: "Gift cards", giftCardsPreview: "Gift cards preview" };
+  test("three different pairs pass", () => assert.deepEqual(configProblems(config({ sheetTabs: tabs })), []));
+  test("a production tab and its preview tab with the same name are refused, each pair on its own", () => {
+    assert.match(configProblems(config({ sheetTabs: { ...tabs, preview: "Submissions" } }))[0], /sheetTabs\.production and \.preview are both "Submissions"/);
+    assert.match(configProblems(config({ sheetTabs: { ...tabs, formsPreview: "Forms" } }))[0], /sheetTabs\.forms and \.formsPreview/);
+    assert.match(configProblems(config({ sheetTabs: { ...tabs, giftCardsPreview: "Gift cards" } }))[0], /sheetTabs\.giftCards and \.giftCardsPreview/);
+  });
+});
+
+describe("configProblems: payments", () => {
+  const withPayments = (payments) => ({ ...config(), payments });
+  test("null, missing and good values have no problems", () => {
+    assert.deepEqual(configProblems(withPayments(null)), []);
+    assert.deepEqual(configProblems(config()), []);
+    for (const currency of ["usd", "cad", "gbp", "eur", "aud", "nzd"]) assert.deepEqual(configProblems(withPayments({ provider: "stripe", currency })), [], currency);
+  });
+  test("another provider, a zero-decimal or unknown currency, a missing key and extra keys are problems", () => {
+    assert.match(configProblems(withPayments({ provider: "square", currency: "usd" }))[0], /payments\.provider must be "stripe"/);
+    assert.match(configProblems(withPayments({ provider: "stripe", currency: "jpy" }))[0], /payments\.currency must be one of usd, cad, gbp, eur, aud, nzd/);
+    assert.match(configProblems(withPayments({ provider: "stripe", currency: "USD" }))[0], /payments\.currency/);
+    assert.match(configProblems(withPayments({ provider: "stripe" }))[0], /payments\.currency/);
+    assert.match(configProblems(withPayments({ provider: "stripe", currency: "usd", mode: "live" }))[0], /payments\.mode is not a payments setting/);
+    assert.match(configProblems(withPayments("stripe"))[0], /payments must be null or/);
+  });
+});
+
+describe("wranglerText: payments", () => {
+  const stripe = { provider: "stripe", currency: "usd" };
+  test("payments set lists the Stripe secrets and adds the Images binding, with a comment", () => {
+    const text = wranglerText({ ...config(), payments: stripe });
+    assert.match(text, /"STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"/);
+    assert.match(text, /"images": \{ "binding": "IMAGES" \}/);
+    const parsed = JSON.parse(text.replace(/^\s*\/\/.*$/gm, ""));
+    assert.deepEqual(parsed.images, { binding: "IMAGES" });
+    const before = text.slice(0, text.indexOf('"images"'));
+    assert.match(before.trimEnd().split("\n").at(-1), /^\s*\/\/ /);
+  });
+  test("payments with uploads on has one Images binding, not two", () => {
+    const text = wranglerText({ ...withUploads(), payments: stripe });
+    assert.equal(text.match(/"images"/g).length, 1);
+    assert.match(text, /UPLOADS/);
+  });
+  test("payments null generates the same text as no payments setting", () => {
+    assert.equal(wranglerText({ ...config(), payments: null }), wranglerText(config()));
+    assert.doesNotMatch(wranglerText({ ...config(), payments: null }), /STRIPE|IMAGES/);
+  });
+});
+
 describe("configProblems: destination", () => {
   test("a valid sheet config has no problems", () => {
     assert.deepEqual(configProblems(config()), []);

@@ -407,3 +407,41 @@ implementers in parallel worktrees; Haiku drafted the docs; the three reviewers 
 | Commits | 14 plus 3 merge commits |
 | Time in checks | about 25 minutes (`check:fast` per commit in four places, 4 full checks, 10 builds, 2 local Lighthouse runs, 5 browser test runs, 2 change reports) |
 | Time waiting on CI | 0 (auto-merge queued; the next run does not depend on it) |
+
+## Record: For the master lines from the catalog, price ranges and quotes run (moved from STATUS.md unchanged, 2026-11-27)
+
+Earlier lines were copied to the master and moved to `docs/history/STATUS-history.md`.
+
+- Sites can now sell from a portfolio: a filterable gallery, a page per piece and an instant price estimate.
+- Every price shown is an estimate (a range or "About"), never a firm price, and comes only from the owner's table.
+- A visitor can request a quote; it reaches the owner the usual way and emails the visitor their estimate.
+- Owners add pieces, change filters and change prices by chat; a price change shows which pieces it moves.
+- A first load of many pieces is Huston Logic's job: an import from a spreadsheet and a folder of photos.
+- Catalog photos stay in each site's repo; past about 1,500 pieces a site would need photo storage (a later build).
+
+## Record: Catalog, price ranges and quotes (2026-11-27) run, moved from STATUS.md unchanged (2026-11-27)
+
+Process run, unattended. Design (23 rulings, measured numbers): `docs/superpowers/specs/2026-11-27-catalog-and-quotes-design.md`;
+plan beside it in `plans/`. Opus designed, integrated and verified; Sonnet built the core, then four parts in parallel
+worktrees, then two fix waves; Haiku drafted the docs; the three reviewers ran once. One PR: #37.
+
+- **Checks:** full `npm run check` passes (1,027 Worker and shared-module tests, 580 script tests, content and design
+  checks, build); `npm run test:a11y` 139 passed; `npm run test:tracking` 8 passed, including the acceptance walk (ad
+  landing, two filters, a piece, options, a quote through the real Worker code: Sheet row, owner email and visitor
+  email carry the page's estimate and the source); local Lighthouse 100 on every audited page (`/blocks` SEO 69 as a
+  noindex page, as on `main`); the 500-piece fixture builds (578 pages in under 2 s of page generation).
+- **Owner sayings** pass as editor tests (add a piece with a photo, raise 18k gold 5 percent, add a Style filter, hide
+  a price, archive). A forged range is refused (400); a stale selection answers 409.
+- **Reviews and critique, all fixed:** utm and click IDs stripped from the address on landing; every exact price sent
+  to the browser and listed in `/catalog.json` for drafts; the catalog read before the cheap layers; focus, stepper,
+  live-region and no-JS photo issues; a duplicate Estimate label, an empty people box and a letterboxed photo frame.
+- **Judgment calls (all in the design):** exact prices in `pricing.json`; server-rendered cards with a small filter
+  island; pieces at `<catalog page>/<slug>`; the Worker reads `/catalog.json` through ASSETS; photos in the repo.
+- **New dependencies:** none.
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | about 1 hour 20 minutes (13:55 to about 15:15, PR open, reviewed and fixed) |
+| Commits | 30 plus 5 merge commits |
+| Time in checks | about 35 minutes (`check:fast` per commit and in 7 worktrees, 5 full checks, 6 builds, 3 a11y runs, 4 tracking runs, 1 Lighthouse CI run and 12 single Lighthouse runs, 3 fixture builds) |
+| Time waiting on CI | 0 (auto-merge queued) |

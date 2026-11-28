@@ -5,6 +5,7 @@ import { isHttpsOrigin } from "../worker/pipeline-url.ts"; // the same rule the 
 import { fontsModule } from "../src/brand/fonts.ts";
 import { FONTS_PATH, PALETTE_PATH } from "../src/brand/generated.ts";
 import { paletteCss } from "../src/brand/palette.ts";
+import { PAYMENT_CURRENCIES } from "../src/payments/config.ts";
 import { trackingProblems } from "../src/tracking/config.ts";
 
 const DESTINATIONS = ["sheet", "pipeline"];
@@ -18,8 +19,14 @@ const PLACEHOLDER = /\[\[[^\]]*\]\]/;
 /**
  * Secret names for `secrets.required` in wrangler.jsonc. Always RESEND_API_KEY and TURNSTILE_SECRET_KEY; then
  * INTAKE_SECRET for the "pipeline" destination, or the Sheet writer's pair for "sheet" (a missing destination is "sheet").
+ * A set `payments` (site.config.ts) appends the two Stripe secrets.
  */
-export function secretsFor(contact) {
+export function secretsFor(contact, payments = null) {
+  const contactSecrets = contactSecretsFor(contact);
+  return payments ? [...contactSecrets, "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] : contactSecrets;
+}
+
+function contactSecretsFor(contact) {
   const destination = contact.destination ?? "sheet";
   if (!DESTINATIONS.includes(destination)) {
     throw new Error(`site.config.ts contact.destination must be "sheet" or "pipeline", not ${JSON.stringify(destination)}`);
@@ -170,7 +177,8 @@ export function wranglerText(c) {
   const ids = c.contact.rateLimitIds;
   const editor = c.editor?.enabled === true ? c.editor : null;
   const uploads = editor && editor.uploads?.enabled === true ? editor.uploads : null;
-  const secrets = [...secretsFor(c.contact), ...(editor ? ["GITHUB_APP_PRIVATE_KEY"] : [])];
+  const payments = c.payments ? c.payments : null;
+  const secrets = [...secretsFor(c.contact, payments), ...(editor ? ["GITHUB_APP_PRIVATE_KEY"] : [])];
   const rate = (name, id, lim, period) => `{ "name": "${name}", "namespace_id": "${id}", "simple": { "limit": ${lim}, "period": ${period} } }`;
   const contactRate = (id) => rate("CONTACT_RATE_LIMIT", id, limit, periodSeconds);
   const paths = ["/api/*", ...(editor ? EDITOR_PATHS : [])].map((p) => `"${p}"`).join(", ");
@@ -189,6 +197,13 @@ export function wranglerText(c) {
   "images": { "binding": "IMAGES" },
 `
     : "";
+  // Uploads already add the Images binding; payments need it only to turn the logo into a PNG for the certificate.
+  const paymentsImages =
+    payments && !uploads
+      ? `  // Turns the uploaded logo into a PNG for the gift card certificate (docs/PAYMENTS.md).
+  "images": { "binding": "IMAGES" },
+`
+      : "";
   const ratelimits = editor
     ? `[
     ${contactRate(ids.production)},
@@ -212,7 +227,7 @@ export function wranglerText(c) {
   "secrets": {
     "required": [${secrets.map((name) => `"${name}"`).join(", ")}]
   },
-${kv}${uploadBindings}  "ratelimits": ${ratelimits},
+${kv}${uploadBindings}${paymentsImages}  "ratelimits": ${ratelimits},
   // Invocation logs would store request metadata; the Worker's own log lines hold no personal data.
   "observability": { "enabled": true, "logs": { "invocation_logs": false } },
   // Worker Previews (branch previews) do not inherit the settings above, so they are repeated here.
@@ -225,9 +240,24 @@ ${kv}${uploadBindings}  "ratelimits": ${ratelimits},
 `;
 }
 
+/** Problems with the `payments` setting. null or missing means payments are off. */
+function paymentsProblems(c) {
+  const p = c.payments;
+  if (p === undefined || p === null) return [];
+  const need = (path, message) => `site.config.ts  payments${path} ${message}`;
+  if (typeof p !== "object" || Array.isArray(p)) return [need("", `must be null or { provider: "stripe", currency }, not ${JSON.stringify(p)}`)];
+  const problems = [];
+  if (p.provider !== "stripe") problems.push(need(".provider", `must be "stripe", not ${JSON.stringify(p.provider)}`));
+  if (!PAYMENT_CURRENCIES.includes(p.currency)) {
+    problems.push(need(".currency", `must be one of ${PAYMENT_CURRENCIES.join(", ")} (lowercase, two-decimal currencies only), not ${JSON.stringify(p.currency)}`));
+  }
+  for (const key of Object.keys(p)) if (key !== "provider" && key !== "currency") problems.push(need(`.${key}`, "is not a payments setting. The settings are: provider, currency"));
+  return problems;
+}
+
 /** One plain line per problem; an empty array means the config passes. */
 export function configProblems(c) {
-  return [...siteProblems(c), ...trackingProblems(c.tracking)];
+  return [...siteProblems(c), ...paymentsProblems(c), ...trackingProblems(c.tracking)];
 }
 
 function siteProblems(c) {
@@ -245,6 +275,16 @@ function siteProblems(c) {
     problems.push(
       `site.config.ts  contact.pipelineUrl must be the Pipeline app copy's https origin, like "https://pipeline.example.com" (lowercase, no path, no trailing slash, no ":443"), not ${JSON.stringify(contact.pipelineUrl)}`,
     );
+  }
+
+  // A preview must never write into the production tab: each production tab and its preview tab need different names.
+  const tabs = contact.sheetTabs;
+  if (tabs && typeof tabs === "object") {
+    for (const [live, preview] of [["production", "preview"], ["forms", "formsPreview"], ["giftCards", "giftCardsPreview"]]) {
+      if (typeof tabs[live] === "string" && tabs[live] !== "" && tabs[live] === tabs[preview]) {
+        problems.push(`site.config.ts  contact.sheetTabs.${live} and .${preview} are both ${JSON.stringify(tabs[live])}. Give them different names, or a preview would write into the production tab`);
+      }
+    }
   }
 
   const ids = contact.rateLimitIds;

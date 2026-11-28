@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import type { CatalogSettings, PricingTable } from "../catalog/schema.ts";
 import type { LoadedItem } from "../collections/schema.ts";
 import type { PublicForm } from "../forms/schema.ts";
+import type { GiftCardSettings } from "../gift-cards/schema.ts";
+import type { PaymentCurrency } from "../payments/config.ts";
 import type { BusinessData } from "../settings/business.ts";
 
 /**
@@ -17,6 +19,9 @@ export type CatalogView = {
   pagePath: string | null;
   quote: { id: string; form: PublicForm } | null;
 };
+
+/** What the gift card block needs: the owner's settings and the currency the build charges in. The showcase passes the example settings. */
+export type GiftCardView = { settings: GiftCardSettings; currency: PaymentCurrency };
 
 /** What the renderer hands every block component. `content` is already checked against the block's fields. */
 export type BlockProps<C> = {
@@ -35,6 +40,8 @@ export type BlockProps<C> = {
   business?: BusinessData;
   /** The catalog the two catalog blocks read. Passed only to blocks whose collection is the catalog. */
   catalog?: CatalogView;
+  /** The gift card settings the gift card block reads. Passed only to that block. */
+  giftCards?: GiftCardView;
   /** The page of a paged list this view shows (1 and up), for the post index on /blog/page/<n>. */
   page?: number;
 };

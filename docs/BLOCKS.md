@@ -16,7 +16,7 @@ type, optionally a variant, and fill in its content.
 - **Menu.** `label`: The words in the menu, 1 to 24 characters. `order`: A number; lower numbers come first. `places`: Any of "header", "footer", "legal". A page appears in the menu only if it has a menu entry. At most 6 live pages may be in the header.
 - **Block keys.** `type`: The name of a block in this catalog. `variant` (optional): One of the block's variants; the first is used when it is left out. `anchor` (optional): A lowercase name (letters, digits, hyphens; starts with a letter; at most 40 characters) that links can point to as /page#name. Unique on the page. `content`: The block's fields, as listed in its entry.
 - **Status.** `live`: the page is built, listed in the menu places it asks for, and in the sitemap. `archived`: the page leaves the build, the menu and the sitemap. The file and its content stay, and setting it back to live restores it. A link to an archived page fails the check.
-- **Required pages.** `/` and `/contact` must exist and stay live. Reserved paths no page may take: `/blocks`, `/api`, `/contact/thanks`, `/og.png`, `/icon.svg`, `/sitemap.xml`, `/robots.txt`, `/404`, `/index`, `/_not-found`, `/_next`.
+- **Required pages.** `/` and `/contact` must exist and stay live. Reserved paths no page may take: `/blocks`, `/api`, `/contact/thanks`, `/gift-cards/thanks`, `/og.png`, `/icon.svg`, `/sitemap.xml`, `/robots.txt`, `/404`, `/index`, `/_not-found`, `/_next`.
 - **The first block.** The first block must be a block whose position is "first" (the hero). It carries the page's one H1, so a page has exactly one.
 - **Focal animation.** At most one block per page may carry a signature (focal) animation.
 - **Length.** At most 20 blocks on a page.
@@ -1157,5 +1157,36 @@ A panel where the visitor picks a piece, chooses its options, sees the price est
   "heading": "A short heading that invites a quote request",
   "intro": "A sentence that says what the visitor can choose and what happens after they ask.",
   "item": "everyday-dinner-set-ash-glaze"
+}
+```
+
+## Gift cards (`gift-card`)
+
+Sells gift cards: the visitor chooses one of the amounts you list (or an amount of their own, if you allow one), says who it is for and pays on Stripe's own page. The amounts, the redeem wording and the terms come from the gift card settings, not from this block. While selling is off it shows a plain note that gift cards are not on sale. It can only be on a live page once the site's payments are set up.
+
+**Where it can go:** anywhere, once.
+
+**Needs JavaScript:** Choosing an amount, the form checks and the payment all need JavaScript. Without it the panel says so and gives the contact route.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `panel` (default): One centred column: the heading and introduction above the form panel, the redeem wording and terms below it.
+- `beside`: The heading, introduction, redeem wording and terms on the left, the form panel on the right (stacked on phones).
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `intro` | Introduction | no | up to 280 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that invites someone to give a gift card",
+  "intro": "A sentence that says what the card is for and what happens after the buyer pays."
 }
 ```

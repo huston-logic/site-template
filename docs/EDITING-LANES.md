@@ -69,6 +69,10 @@ Ask for any of these in plain words.
 - **Pricing table.** Change the option groups and their choices, the per-person fee, the note and the rounding, or raise
   or lower one choice by a percent. The prices are estimates, and a price change lists every piece it changes before
   you say yes. Works once the catalog is set up.
+- **Gift cards.** Change the amounts a buyer can pick (for example, "Add a $500 gift card"), let people pick any amount in a
+  range, change the redeem wording and the terms line, and stop or start selling. The certificate shows your business name
+  and logo. Works once Huston Logic has set up payments on your site. Turning sales on is refused until then. See the
+  Gift cards section in [EDITING.md](EDITING.md).
 
 ### The check on every change
 
@@ -109,6 +113,7 @@ Each section below is one block you can place on a page. The list says what each
 - **Team**: The people from your Team collection, in the order you set there, with a photo, name, role and short bio. (You can choose a look: **grid**, a card per person with a tall photo, a tinted panel with their initials when there is no photo, name, role and bio; **list**, names and roles in two columns, no photos.)
 - **Catalog**: Every piece in your catalog as a card with its photo, name and price estimate, with filters, a count and a Show more button. Each card opens the piece's own page, where the visitor chooses options and asks for a quote. Without JavaScript every piece is listed. It is left out of the page while no piece is visible. (You can choose a look: **grid**, four cards across on wide screens and two on phones: a tall photo, the name and a price estimate; **showcase**, three larger cards across on wide screens and one on phones, with the name set larger and a quiet line of facts under it.)
 - **Quote builder**: A panel where the visitor picks a piece, chooses its options, sees the price estimate change and asks for a quote. Name a piece to preselect it; otherwise the visitor chooses from every visible piece. It is left out of the page while no piece is visible. (You can choose a look: **panel**, one centred panel with the heading and introduction above the builder; **beside**, the heading and introduction on the left, the builder panel on the right, stacked on phones.)
+- **Gift cards**: Sells gift cards: the visitor chooses one of the amounts you list (or an amount of their own, if you allow one), says who it is for and pays on Stripe's own page. The amounts, the redeem wording and the terms come from the gift card settings, not from this block. While selling is off it shows a plain note that gift cards are not on sale. It can only be on a live page once the site's payments are set up. (You can choose a look: **panel**, one centred column: the heading and introduction above the form panel, the redeem wording and terms below it; **beside**, the heading, introduction, redeem wording and terms on the left, the form panel on the right, stacked on phones.)
 <!-- blocks:end -->
 
 ## Lane 2: Do it yourself once it is built
@@ -121,7 +126,9 @@ These need Huston Logic. Ask, and Huston Logic will tell you what it takes.
 
 - **A section design that does not exist yet.** Huston Logic designs it for your site. Once it is built, it joins your
   list in Lane 1. Huston Logic builds it.
-- **Payments.** Huston Logic builds it.
+- **Payments setup.** Huston Logic sets up your payment account (your own Stripe account, in your name), the keys and the
+  webhook, and makes any refund in Stripe. Booking payments come later and are also Huston Logic's. See
+  [PAYMENTS.md](PAYMENTS.md).
 - **Logins and members areas.** Huston Logic builds it.
 - **A store.** Huston Logic builds it.
 - **Domain and email setup.** Huston Logic builds it.

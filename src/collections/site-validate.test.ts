@@ -7,6 +7,7 @@ import business from "../content/business.json" with { type: "json" };
 import notice from "../content/notice.json" with { type: "json" };
 import catalog from "../content/catalog.json" with { type: "json" };
 import pricing from "../content/pricing.json" with { type: "json" };
+import giftCards from "../content/gift-cards.json" with { type: "json" };
 import quote from "../content/forms/quote.json" with { type: "json" };
 import type { ItemFile } from "./schema.ts";
 import { toLoadedItems, validateSite } from "./site-validate.ts";
@@ -38,10 +39,26 @@ const post = (data: Record<string, unknown> = {}): ItemFile => ({
   slug: "hello",
   data: { status: "live", title: "T", description: "D", date: "2026-03-27", body: [{ type: "paragraph", text: "Hi" }], ...data },
 });
-const site = (over: Partial<SiteInput> = {}): SiteInput => ({ pages: [page("/"), page("/contact")], items: [], forms: [], business, brand, notice, catalog, pricing, ...over });
+const site = (over: Partial<SiteInput> = {}): SiteInput => ({ pages: [page("/"), page("/contact")], items: [], forms: [], business, brand, notice, catalog, pricing, "gift-cards": giftCards, ...over });
 const has = (problems: string[], text: string) => assert.ok(problems.some((p) => p.includes(text)), `${text} in ${JSON.stringify(problems)}`);
 
 describe("validateSite", () => {
+  it("judges the gift card settings: selling cannot be on while payments is off", () => {
+    const selling = { ...giftCards, selling: true };
+    has(validateSite(site({ "gift-cards": selling }), registry, repo), "Gift card sales cannot be turned on yet");
+    assert.deepEqual(validateSite(site({ "gift-cards": selling }), registry, repo, { paymentsOn: true }), []);
+    has(validateSite(site({ "gift-cards": undefined }), registry, repo), "src/content/gift-cards.json is missing");
+  });
+
+  it("a live page with a gift-card block fails while payments is off, and an archived one does not", () => {
+    const giftBlock = { type: "gift-card", content: {} };
+    const live = validateSite(site({ pages: [page("/"), page("/gifts", [giftBlock])] }), registry, repo);
+    has(live, "src/content/pages/gifts.json: this page has a gift card block, but payments are not set up");
+    assert.equal(validateSite(site({ pages: [page("/"), page("/gifts", [giftBlock], "archived")] }), registry, repo).filter((p) => p.includes("payments are not set up")).length, 0);
+    const withPayments = validateSite(site({ pages: [page("/"), page("/gifts", [giftBlock])] }), registry, repo, { paymentsOn: true });
+    assert.equal(withPayments.filter((p) => p.includes("payments are not set up")).length, 0);
+  });
+
   it("passes a good site", () => {
     assert.deepEqual(validateSite(site(), registry, repo), []);
   });

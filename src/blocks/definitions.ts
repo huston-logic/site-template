@@ -8,6 +8,7 @@ import { contactFormDefinition } from "./library/contact-form/definition.ts";
 import { episodeListDefinition } from "./library/episode-list/definition.ts";
 import { faqDefinition } from "./library/faq/definition.ts";
 import { formDefinition } from "./library/form/definition.ts";
+import { giftCardDefinition } from "./library/gift-card/definition.ts";
 import { galleryDefinition } from "./library/gallery/definition.ts";
 import { heroDefinition } from "./library/hero/definition.ts";
 import { highlightsDefinition } from "./library/highlights/definition.ts";
@@ -48,6 +49,7 @@ export const libraryBlocks: AnyBlockDefinition[] = [
   teamDefinition,
   catalogDefinition,
   quoteBuilderDefinition,
+  giftCardDefinition,
 ];
 
 export const registry: AnyBlockDefinition[] = [...libraryBlocks, ...siteBlocks];
