@@ -12,12 +12,12 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 - **Live:** not checked from the repo; client sites deploy from their own repos.
 - **Merged:** PRs #1 to #38, all merged except #3 (Dependabot, closed unmerged). #37 (catalog) and #38 (font loading) merged
   on 2026-11-27.
-- **Open:** PR_GIFT, payments base and gift cards (`feat/gift-cards`), queued for auto-merge behind the required checks.
+- **Open:** #39, payments base and gift cards (`feat/gift-cards`), queued for auto-merge behind the required checks.
 - **In `main`:** the site editor, uploads, collections, brand, forms and ad tracking (owners change pages, photos,
   PDFs, posts, videos, episodes, testimonials, team, business details, brand, a notice and forms by chatting; editor and
   uploads off by default, mocks only; tags off until IDs are set); catalog and quotes (#37; `/blocks` shows a 60-piece
   example); fonts loading only the faces the design uses (#38: photo-led pages 89 to 92, every page pixel-identical).
-- **Payments and gift cards (in PR_GIFT):** off by default (`payments: null`; a production build ships none of it). Set
+- **Payments and gift cards (in #39):** off by default (`payments: null`; a production build ships none of it). Set
   up: Stripe hosted Checkout, Worker-computed amounts, a PDF certificate by email, a ledger row, an owner email, owner
   tools by chat. Tested against a mocked Stripe only (`docs/PAYMENTS.md`).
 - **Still open per `docs/TEMPLATE.md`:** README polish; which Huston content rules in AGENTS.md stay as defaults.
@@ -26,7 +26,7 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 
 In order:
 
-1. Check that PR_GIFT merged (auto-merge queued). "Needs your eyes": AGENTS.md (a Payments and gift cards paragraph, the
+1. Check that #39 merged (auto-merge queued). "Needs your eyes": AGENTS.md (a Payments and gift cards paragraph, the
    Worker's import list, the Stripe secrets, `PAYMENTS_FIXTURE`), README (a "Payments and gift cards" section),
    package.json (test globs only; no dependency). Copy for you: `src/content/gift-cards.ts` (block and thank-you page),
    `src/content/gift-card-emails.ts`, `src/content/gift-certificate.ts` and the placeholders in `src/content/gift-cards.json`.
@@ -133,7 +133,7 @@ designed, built PR 1 and integrated; Sonnet built PR 2's parts in parallel workt
 
 - **#38, fonts (merged):** median of 5 Lighthouse runs on the 500-piece fixture: gallery 89 to 92, piece page 89 to 92;
   142 of 142 page screenshots identical, and every accent font checked; thresholds unchanged.
-- **PR_GIFT, payments and gift cards:** `npm run check` passes (1,217 Worker and shared-module tests, 614 script tests);
+- **#39, payments and gift cards:** `npm run check` passes (1,217 Worker and shared-module tests, 614 script tests);
   `test:a11y` 183 passed; `test:tracking` 10 passed, including the walk against the real Worker code (begin_checkout and
   purchase once, a reload fires nothing, the webhook three times gives one email, one row and one owner email with the
   same code, amount and source); Lighthouse 100 on every audited page. Payments off: production pages pixel-identical,
@@ -145,6 +145,6 @@ designed, built PR 1 and integrated; Sonnet built PR 2's parts in parallel workt
 | Measure | This run |
 |---|---|
 | Wall-clock time | about 1 hour 55 minutes (16:23 to about 18:18, both PRs open, reviewed and fixed) |
-| Commits | 5 on #38; 20 plus 4 merge commits on PR_GIFT |
+| Commits | 5 on #38; 20 plus 4 merge commits on #39 |
 | Time in checks | about 45 minutes (Lighthouse 4 x 10 fixture runs and 2 suites, 9 pixel comparisons, about 25 builds, a11y twice, tracking 3 times, `check:fast` per commit) |
 | Time waiting on CI | 0 (auto-merge queued on both) |
