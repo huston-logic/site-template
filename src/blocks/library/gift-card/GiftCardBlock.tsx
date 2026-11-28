@@ -1,5 +1,4 @@
 import { Container } from "@/components/hl/Container";
-import { GiftCardForm } from "@/components/hl/GiftCardForm";
 import { TextLink } from "@/components/hl/TextLink";
 import { Text } from "@/components/ui/Text";
 import { giftCardWords } from "@/content/gift-cards";
@@ -7,6 +6,7 @@ import { providers } from "@/content/providers";
 import type { BlockProps } from "@/blocks/types";
 import type { ContentOf } from "@/blocks/schema";
 import type { giftCardDefinition } from "./definition";
+import { GiftCardFormSlot } from "@/blocks/library/gift-card/form-slot";
 
 /**
  * The gift card form in a panel with its heading, the owner's redeem wording and terms line beside or under it. Settings come
@@ -59,7 +59,7 @@ export function GiftCardBlock({ content, variant, anchor, headingId, giftCards }
   );
   const form = (
     <>
-      <GiftCardForm settings={settings} currency={currency} />
+      <GiftCardFormSlot settings={settings} currency={currency} />
       <noscript>
         <div className="rounded-panel bg-white p-6 shadow-card md:p-9">
           <p className="text-body">
