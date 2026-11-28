@@ -9,6 +9,9 @@ import { log, retryable, TIMEOUT_MS } from "./env.ts";
  */
 
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
+/** A tab as A1 notation wants it: always in single quotes, a quote inside doubled (a tab with a space is not valid unquoted). */
+export const a1Range = (tab: string, columns: string): string => `'${tab.replace(/'/g, "''")}'!${columns}`;
+
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
 
 type ServiceAccount = { client_email: string; private_key: string };
@@ -93,7 +96,7 @@ export function safeCell(value: string): string {
  */
 async function columnHas(token: string, sheetId: string, tab: string, column: number, value: string): Promise<boolean | null> {
   const letter = String.fromCharCode(65 + column);
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(`${tab}!${letter}:${letter}`)}?majorDimension=COLUMNS`;
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${encodeURIComponent(a1Range(tab, `${letter}:${letter}`))}?majorDimension=COLUMNS`;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const response = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -129,7 +132,7 @@ export async function appendRow(keyJson: string | undefined, sheetId: string | u
     if (present === null) return false;
     if (present) return true;
   }
-  const range = encodeURIComponent(`${tab}!A:T`);
+  const range = encodeURIComponent(a1Range(tab, "A:T"));
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
   const body = JSON.stringify({ values: [row.map(safeCell)] });
   for (let attempt = 1; attempt <= 2; attempt++) {

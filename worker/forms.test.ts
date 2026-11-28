@@ -144,7 +144,7 @@ async function bodyOf(response: Response): Promise<Record<string, unknown>> {
 function rowOf(): { tab: string; row: string[] } {
   const sheets = called("sheets")[0];
   if (sheets) {
-    const tab = decodeURIComponent(new URL(sheets.url).pathname.split("/values/")[1] ?? "").split("!")[0] ?? "";
+    const tab = decodeURIComponent(new URL(sheets.url).pathname.split("/values/")[1] ?? "").split("!")[0]?.replace(/^'(.*)'$/, "$1") ?? "";
     return { tab, row: (sheets.json?.values as string[][])[0] ?? [] };
   }
   const webhook = called("webhook")[0];

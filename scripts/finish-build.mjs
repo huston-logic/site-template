@@ -2,7 +2,7 @@
 // (out/site-version.json, with whether drafts were built) and, on a Workers Builds production build, removes the /blocks showcase from ./out.
 // While payments are off it also removes the gift card thank-you page (out/gift-cards).
 // CI and preview builds keep /blocks so the accessibility and Lighthouse checks still scan it.
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isProductionBuild } from "../src/lib/build-target.ts";
@@ -37,7 +37,7 @@ export function copyCertificateFonts(outDir, brandFonts, sourceDir = CERTIFICATE
  * Writes <outDir>/site-version.json and, when env.WORKERS_CI_BRANCH is the production branch, removes the showcase.
  * With TRACKING_FIXTURE=1 (local test builds) and a `siteConfig`, <outDir>/_headers is rewritten with the CSP the fixture
  * IDs need, so the page can load the fake tags in a browser; the committed public/_headers is never touched.
- * While payments (`siteConfig.payments`, or PAYMENTS_FIXTURE=1) are off, removes <outDir>/gift-cards, the gift card thank-you page.
+ * While payments (`siteConfig.payments`, or PAYMENTS_FIXTURE=1) are off, removes the gift card thank-you page's files from <outDir>/gift-cards (and the folder if that leaves it empty).
  */
 export function finishBuild({ outDir, env, productionBranch, siteConfig, brandFonts }) {
   const commit = env.WORKERS_CI_COMMIT_SHA || env.GITHUB_SHA || null;
@@ -55,7 +55,11 @@ export function finishBuild({ outDir, env, productionBranch, siteConfig, brandFo
   // With payments off the gift card thank-you page does not ship (design R1). `siteConfig` is optional so old callers and tests still work; without it payments count as off.
   const payments = paymentsForBuild({ payments: siteConfig?.payments ?? null, domain: { productionBranch } }, env);
   const giftCardsRemoved = payments === null;
-  if (giftCardsRemoved) rmSync(join(outDir, "gift-cards"), { recursive: true, force: true });
+  if (giftCardsRemoved) {
+    // Only the thank-you page's own files, so a site page the owner put under /gift-cards/ is never removed with them.
+    for (const name of ["thanks.html", "thanks.txt", "thanks"]) rmSync(join(outDir, "gift-cards", name), { recursive: true, force: true });
+    if (existsSync(join(outDir, "gift-cards")) && readdirSync(join(outDir, "gift-cards")).length === 0) rmSync(join(outDir, "gift-cards"), { recursive: true });
+  }
   else copyCertificateFonts(outDir, brandFonts);
   return { commit, showcaseRemoved, drafts, giftCardsRemoved };
 }

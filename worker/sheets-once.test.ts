@@ -40,7 +40,7 @@ test("a new code is read for, then appended", async () => {
   column = ["Code", "WXYZ-2345-6789"];
   assert.equal(await appendRow(key, "sheet-1", "Gift cards", ROW, 1), true);
   const read = calls.find((call) => call.method === "GET");
-  assert.ok(read?.url.includes("Gift%20cards!B%3AB") && read.url.includes("majorDimension=COLUMNS"), read?.url);
+  assert.ok(read?.url.includes("'Gift%20cards'!B%3AB") && read.url.includes("majorDimension=COLUMNS"), read?.url);
   assert.equal(appends(), 1);
 });
 
@@ -59,4 +59,13 @@ test("if the column cannot be read nothing is appended blindly", async () => {
 test("without a unique column nothing is read first (the forms and the contact form)", async () => {
   assert.equal(await appendRow(key, "sheet-1", "Forms", ROW), true);
   assert.equal(calls.filter((call) => call.method === "GET").length, 0);
+});
+
+test("a tab name is quoted in A1 notation, an apostrophe doubled, for the read and the append", async () => {
+  column = [];
+  await appendRow(key, "sheet-1", "Owner's gift cards", ROW, 1);
+  const read = calls.find((call) => call.method === "GET");
+  assert.ok(read?.url.includes("'Owner''s%20gift%20cards'!B%3AB"), read?.url);
+  const append = calls.find((call) => call.url.includes(":append"));
+  assert.ok(append?.url.includes("/values/'Owner''s%20gift%20cards'!A%3AT:append"), append?.url);
 });

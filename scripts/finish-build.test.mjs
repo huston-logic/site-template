@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -133,6 +133,16 @@ test("with payments off (the template), out/gift-cards is removed and nothing el
   assert.equal(existsSync(join(outDir, "gift-cards.html")), true);
   assert.equal(existsSync(join(outDir, "index.html")), true);
   assert.equal(existsSync(join(outDir, "blocks.html")), true);
+});
+
+test("with payments off only the thank-you page's files go: a site page under /gift-cards/ stays, and the folder with it", () => {
+  const outDir = withGiftCards(fakeOut());
+  writeFileSync(join(outDir, "gift-cards", "thanks.txt"), "rsc");
+  mkdirSync(join(outDir, "gift-cards", "thanks"));
+  writeFileSync(join(outDir, "gift-cards", "thanks", "__next.txt"), "segment");
+  writeFileSync(join(outDir, "gift-cards", "faq.html"), "a site page");
+  finishBuild({ outDir, env: {}, productionBranch: "main", siteConfig });
+  assert.deepEqual(readdirSync(join(outDir, "gift-cards")), ["faq.html"]);
 });
 
 test("a build without a gift-cards folder and without siteConfig still succeeds with payments off", () => {

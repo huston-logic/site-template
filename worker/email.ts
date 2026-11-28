@@ -34,6 +34,12 @@ export async function sendEmail(apiKey: string | undefined, email: OutgoingEmail
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (response.ok) return true;
+      // Resend answers 409 when this idempotency key was already used (a different body, as the owner's note can be, or a
+      // request still in flight): the email was accepted before, so it is not sent again and not retried.
+      if (response.status === 409) {
+        log("email_duplicate", { kind });
+        return true;
+      }
       log("email_failed", { kind, status: response.status, attempt });
       if (!retryable(response.status)) return false;
     } catch {

@@ -53,6 +53,16 @@ describe("secretsFor: payments", () => {
   });
 });
 
+describe("configProblems: sheet tabs", () => {
+  const tabs = { production: "Submissions", preview: "Preview", forms: "Forms", formsPreview: "Forms preview", giftCards: "Gift cards", giftCardsPreview: "Gift cards preview" };
+  test("three different pairs pass", () => assert.deepEqual(configProblems(config({ sheetTabs: tabs })), []));
+  test("a production tab and its preview tab with the same name are refused, each pair on its own", () => {
+    assert.match(configProblems(config({ sheetTabs: { ...tabs, preview: "Submissions" } }))[0], /sheetTabs\.production and \.preview are both "Submissions"/);
+    assert.match(configProblems(config({ sheetTabs: { ...tabs, formsPreview: "Forms" } }))[0], /sheetTabs\.forms and \.formsPreview/);
+    assert.match(configProblems(config({ sheetTabs: { ...tabs, giftCardsPreview: "Gift cards" } }))[0], /sheetTabs\.giftCards and \.giftCardsPreview/);
+  });
+});
+
 describe("configProblems: payments", () => {
   const withPayments = (payments) => ({ ...config(), payments });
   test("null, missing and good values have no problems", () => {
