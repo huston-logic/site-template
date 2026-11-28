@@ -1,5 +1,4 @@
-"use client";
-
+// Client code without its own "use client": only ItemPhotos and PhotoViewer (client code) import it.
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { ItemPhoto } from "./catalog-data";

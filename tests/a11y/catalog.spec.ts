@@ -258,6 +258,12 @@ test.describe("photo views", () => {
     await opener.click();
     await expect(dialog).toBeVisible();
     await expect(counter(1)).toBeVisible();
+    // Focus starts inside the view, so the arrow keys work straight away.
+    await expect(dialog.getByRole("button", { name: catalogWords.closeLarge })).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(counter(2)).toBeVisible();
+    await page.keyboard.press("ArrowLeft");
+    await expect(counter(1)).toBeVisible();
     await expect(dialog.getByRole("button", { name: catalogWords.previousPhoto })).toHaveAttribute("aria-disabled", "true");
     await dialog.getByRole("button", { name: catalogWords.nextPhoto }).click();
     await expect(counter(2)).toBeVisible();

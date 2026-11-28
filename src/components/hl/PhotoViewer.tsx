@@ -1,5 +1,4 @@
-"use client";
-
+// Client code without its own "use client": only ItemPhotos (a client component) imports it.
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type KeyboardEvent, type MouseEvent, type Ref } from "react";
 import { catalogWords } from "@/content/catalog";
 import type { ItemPhoto } from "./catalog-data";
@@ -79,7 +78,10 @@ function ViewerBody({ photos, start, seen, close }: { photos: readonly ItemPhoto
   const strip = usePhotoStrip(start);
   const { index, select } = strip;
   const lastIndex = photos.length - 1;
+  const closeButton = useRef<HTMLButtonElement>(null);
 
+  // showModal() ran before this body existed, so the dialog itself holds focus; move it to the first control, inside the key handler.
+  useEffect(() => closeButton.current?.focus(), []);
   useEffect(() => seen(index), [index, seen]);
 
   const step = (by: number) => {
@@ -98,7 +100,7 @@ function ViewerBody({ photos, start, seen, close }: { photos: readonly ItemPhoto
     // The key handler only repeats what the Previous and Next buttons do.
     <div onKeyDown={onKeyDown} className="flex h-full w-full flex-col">
       <div className="flex justify-end p-3">
-        <button type="button" onClick={close} className={BUTTON}>
+        <button ref={closeButton} type="button" onClick={close} className={BUTTON}>
           {catalogWords.closeLarge}
         </button>
       </div>
