@@ -123,6 +123,7 @@ test("pick an amount, pay, land on the thank-you page: begin_checkout once, purc
   await page.goto(`${thanks.pathname}${thanks.search}`);
   await expect(page.getByRole("heading", { name: giftCardWords.thanks.paid.heading })).toBeVisible();
   await expect.poll(() => recorded.filter((event) => event.name === "purchase").length).toBe(1);
+  expect(page.url(), "the session id is taken out of the address before any tag can send it").not.toContain("session_id");
   const purchase = recorded.find((event) => event.name === "purchase");
   expect(purchase?.params).toMatchObject({ value: 50, currency: "USD" });
   expect(String(purchase?.params["transaction_id"])).toMatch(/^pi_walk\d+$/);
@@ -157,6 +158,7 @@ test("pick an amount, pay, land on the thank-you page: begin_checkout once, purc
   expect(String(owner[0]?.["text"])).toMatch(/Came from: .*newsletter/);
   // The code never reaches analytics.
   expect(JSON.stringify(recorded)).not.toContain(code);
+  expect(JSON.stringify(recorded)).not.toContain(sessionId);
 });
 
 test("cancelling at Stripe brings the visitor back with their choices kept and nothing charged", async ({ page, context }) => {

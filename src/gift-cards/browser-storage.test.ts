@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { clearFields, firstReport, loadFields, REPORTED_KEEP, REPORTED_KEY, saveFields, SAVED_FIELDS_KEY, type StorageLike } from "./browser-storage.ts";
+import { clearFields, firstReport, loadFields, recalledSessionId, rememberSessionId, REPORTED_KEEP, REPORTED_KEY, saveFields, SAVED_FIELDS_KEY, type StorageLike } from "./browser-storage.ts";
 import { emptyValues, type GiftCardValues } from "./form-check.ts";
 
 const memory = (): StorageLike & { map: Map<string, string> } => {
@@ -80,5 +80,20 @@ describe("firstReport", () => {
     const storage = memory();
     storage.map.set(REPORTED_KEY, "{oops");
     assert.equal(firstReport(storage, "pi_1"), true);
+  });
+});
+
+describe("the checkout session id kept for this tab", () => {
+  test("what is remembered comes back; nothing, junk, no storage or broken storage give null", () => {
+    const storage = memory();
+    assert.equal(recalledSessionId(storage), null);
+    rememberSessionId(storage, "cs_test_a1B2");
+    assert.equal(recalledSessionId(storage), "cs_test_a1B2");
+    storage.setItem("hl-gift-card-session", "<script>");
+    assert.equal(recalledSessionId(storage), null);
+    assert.equal(recalledSessionId(null), null);
+    assert.equal(recalledSessionId(broken), null);
+    assert.doesNotThrow(() => rememberSessionId(broken, "cs_test_a"));
+    assert.doesNotThrow(() => rememberSessionId(null, "cs_test_a"));
   });
 });

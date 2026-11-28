@@ -2,11 +2,13 @@
 // cancel brings them back), and which purchases have been reported to analytics (localStorage, so a reload or a second tab
 // does not report one again). Every read and write is wrapped, because storage can be off or full. The caller passes the
 // storage, so the rules can be tested without a browser. Import-free apart from sibling shared modules.
+import { isSessionId } from "./confirm.ts";
 import { emptyValues, MESSAGE_MAX, type GiftCardValues } from "./form-check.ts";
 
 export type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 export const SAVED_FIELDS_KEY = "hl-gift-card-fields";
+export const SESSION_ID_KEY = "hl-gift-card-session";
 export const REPORTED_KEY = "hl-gift-card-reported";
 /** How many reported purchases are remembered; older ones fall off. */
 export const REPORTED_KEEP = 20;
@@ -65,5 +67,27 @@ export function firstReport(storage: StorageLike | null, transactionId: string):
     return true;
   } catch {
     return true;
+  }
+}
+
+/**
+ * Keeps the checkout session id for this tab (sessionStorage) once the page has read it from the address and taken it out
+ * of the address bar, so the Meta Pixel (which sends the full address) never gets it, and a reload still finds it.
+ */
+export function rememberSessionId(storage: StorageLike | null, id: string): void {
+  try {
+    storage?.setItem(SESSION_ID_KEY, id);
+  } catch {
+    // The id then lives only as long as the page does.
+  }
+}
+
+/** The id kept by `rememberSessionId`, or null when there is none, storage is off or the value is not shaped like one. */
+export function recalledSessionId(storage: StorageLike | null): string | null {
+  try {
+    const id = storage?.getItem(SESSION_ID_KEY);
+    return isSessionId(id) ? id : null;
+  } catch {
+    return null;
   }
 }

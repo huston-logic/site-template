@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { formatMoney } from "@/catalog/price";
-import { clearFields, firstReport, type StorageLike } from "@/gift-cards/browser-storage";
-import { readConfirmation, RECHECK_AT_SECONDS, sessionIdFrom, shouldRecheck, type Confirmation } from "@/gift-cards/confirm";
+import { clearFields, firstReport, recalledSessionId, rememberSessionId, type StorageLike } from "@/gift-cards/browser-storage";
+import { readConfirmation, RECHECK_AT_SECONDS, searchWithoutSessionId, sessionIdFrom, shouldRecheck, type Confirmation } from "@/gift-cards/confirm";
 import { giftCardWords } from "@/content/gift-cards";
 import { track } from "@/tracking/track";
 import { Glow } from "./Glow";
@@ -39,7 +39,7 @@ function viewFor(confirmation: Confirmation | null): View {
 /**
  * The gift card thank-you page (spec R8). It asks the Worker whether the session was paid and shows what Stripe says, never
  * what the address says. On `paid` it reports the purchase once per transaction, then says where the certificate went. While
- * the card is not delivered it asks again at 30 and 100 seconds. Without JavaScript the server page shows a plain message
+ * the card is not delivered it asks again at 30 and 100 seconds. The session id is read once, kept in sessionStorage and taken out of the address bar at once, because the Meta Pixel sends the full address. Without JavaScript the server page shows a plain message
  * instead. The live region announces each state as it changes.
  */
 export function GiftCardThanks({ backHref }: { backHref: string }) {
@@ -48,7 +48,16 @@ export function GiftCardThanks({ backHref }: { backHref: string }) {
   const reported = useRef(false);
 
   useEffect(() => {
-    const sessionId = sessionIdFrom(window.location.search);
+    // First thing: the id goes into this tab's sessionStorage and out of the address, before any tag can read the address.
+    // Reloads and the later checks use the stored copy.
+    let sessionId = sessionIdFrom(window.location.search);
+    if (sessionId !== null) {
+      rememberSessionId(storage("session"), sessionId);
+      const { pathname, search, hash } = window.location;
+      window.history.replaceState(window.history.state, "", `${pathname}${searchWithoutSessionId(search)}${hash}`);
+    } else {
+      sessionId = recalledSessionId(storage("session"));
+    }
     let stopped = false;
     let timer: number | undefined;
 

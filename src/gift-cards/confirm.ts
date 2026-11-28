@@ -22,10 +22,21 @@ export const RECHECK_AT_SECONDS = [30, 100] as const;
 
 const SESSION_ID = /^[A-Za-z0-9_]{1,200}$/;
 
+/** True when `id` is shaped like a checkout session id. */
+export const isSessionId = (id: unknown): id is string => typeof id === "string" && SESSION_ID.test(id);
+
+/** The query string without `session_id`, other parameters kept ("" when none are left). */
+export function searchWithoutSessionId(search: string): string {
+  const params = new URLSearchParams(search);
+  params.delete("session_id");
+  const rest = params.toString();
+  return rest === "" ? "" : `?${rest}`;
+}
+
 /** The checkout session id from the page's query string, or null when it is missing or not shaped like one. */
 export function sessionIdFrom(search: string): string | null {
   const id = new URLSearchParams(search).get("session_id");
-  return id !== null && SESSION_ID.test(id) ? id : null;
+  return isSessionId(id) ? id : null;
 }
 
 /** The answer as a Confirmation, or null when it is not one. A "paid" answer must carry its figures. */

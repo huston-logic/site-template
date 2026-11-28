@@ -279,6 +279,7 @@ test.describe("the thank-you page", () => {
     await expect(page.getByText(giftCardWords.thanks.paid.body("$50"))).toBeVisible();
     await expect(page.getByText(giftCardWords.thanks.paid.keepIt)).toBeVisible();
     expect(asked[0]).toContain("session_id=cs_test_abc123");
+    expect(page.url(), "the session id is out of the address bar").not.toContain("session_id");
     expect(events).toEqual([["purchase", { value: 50, currency: "USD", transaction_id: "pi_test_1" }]]);
     await expectClean(page, "/gift-cards/thanks (paid)");
 

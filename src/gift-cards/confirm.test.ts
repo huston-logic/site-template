@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { readConfirmation, sessionIdFrom, shouldRecheck } from "./confirm.ts";
+import { readConfirmation, searchWithoutSessionId, sessionIdFrom, shouldRecheck } from "./confirm.ts";
 
 const paid = { status: "paid", value: 50, currency: "usd", transactionId: "pi_123", delivered: true, recipientCopy: true };
 
@@ -51,5 +51,13 @@ describe("shouldRecheck", () => {
     assert.equal(shouldRecheck(readConfirmation({ status: "error" })), true);
     assert.equal(shouldRecheck(readConfirmation(paid)), false);
     assert.equal(shouldRecheck(readConfirmation({ status: "unpaid" })), false);
+  });
+});
+
+describe("searchWithoutSessionId", () => {
+  test("drops only session_id", () => {
+    assert.equal(searchWithoutSessionId("?session_id=cs_test_a"), "");
+    assert.equal(searchWithoutSessionId("?a=1&session_id=cs_test_a&b=2"), "?a=1&b=2");
+    assert.equal(searchWithoutSessionId(""), "");
   });
 });
