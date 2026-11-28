@@ -24,6 +24,7 @@ Where items run: A1–A8 and D5 on the onboarding call. C7, D6–D8 and the D9 w
 | A6 | The form destination follows the routing rule (`docs/PROCESS.md` rule 15): the client's Pipeline app copy if they use it (`contact.destination` "pipeline", `INTAKE_SECRET` set on the copy and on the site); another tool they name (not built yet: queue it for Grant and use the Sheet meanwhile); otherwise the Google Sheet with the Apps Script writer, Grant as editor. The notification email goes to the client's inbox in every case | C + G | A test lead appears in the app or a test row appears in the Sheet, and the test email arrives |
 | A7 | Uptime monitoring in Huston Logic's account, with the client as a second alert contact | G | Monitor green; test alert received |
 | A8 | The client keeps only the registrar and email logins; every other login (GitHub, Cloudflare, Resend, Turnstile, monitoring) is Huston Logic's | C + G | Client confirms on the call; the list of the client's logins is in the handoff guide |
+| A9 | Gift cards only: the Stripe account is in the client's name (the client owns it and its bank details) | C + G | Stripe account shows the client's business name; see [docs/PAYMENTS.md](PAYMENTS.md), setup step 1 |
 
 ### B. Email you can trust
 
@@ -44,6 +45,10 @@ Where items run: A1–A8 and D5 on the onboarding call. C7, D6–D8 and the D9 w
 | C5 | HTTPS everywhere; `www` → apex (or the reverse) redirects once | G | Both URLs land on the canonical one |
 | C6 | Old host's DNS records all copied into the zone in Huston Logic's Cloudflare before the nameservers change (MX, TXT, CNAME), including any `google-site-verification` TXT | G | Record-by-record check against the screenshot |
 | C7 | **Old URLs redirect.** Every URL in the old site's sitemap 301s to its new page (Wix paths like `/about-us`, `/services-1`, `/post/...` change). Without this, Google drops the old pages and the client loses whatever ranking they had | Bot + G | Script run over the old URL list: every one returns 301 → 200 |
+| C8 | Gift cards only: the live restricted key (`rk_live_...`, two permissions) is set as `STRIPE_SECRET_KEY`, and the live webhook for `/api/payments/stripe` (two events) is set with its signing secret as `STRIPE_WEBHOOK_SECRET` | G | Stripe shows the endpoint; production secret names listed by `npx wrangler secret list`; see [PAYMENTS.md](PAYMENTS.md) |
+| C9 | Gift cards only: the ledger is ready, the two Sheet tabs with their header rows and the updated Apps Script, or the Pipeline app | C + G | Test row seen in `Gift cards` tab or the app, then deleted |
+| C10 | Gift cards only: the privacy page says Stripe is the payment processor and takes the card details | C + G | Privacy page text checked on the live site |
+| C11 | Gift cards only: one real low-value purchase, checked like the test walk, then refunded in Stripe; Stripe's failing-webhook email alerts are on | G | Refund shown in Stripe; note in the ledger's Notes; date logged |
 
 ### D. Search and discovery
 

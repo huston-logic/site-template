@@ -231,7 +231,7 @@ export function GiftCardForm({ settings, currency }: { settings: GiftCardSetting
             {cards.map((card, index) => {
               const on = values.choice === card.value;
               return (
-                <label key={card.value} className="relative block">
+                <label key={card.value} className="relative flex">
                   <input
                     id={`${idFor("amount")}-${index}`}
                     type="radio"
@@ -243,7 +243,7 @@ export function GiftCardForm({ settings, currency }: { settings: GiftCardSetting
                     className="peer sr-only"
                   />
                   <span
-                    className={`flex min-h-20 cursor-pointer flex-col justify-center rounded-card border px-4 py-3 font-ui peer-focus-visible:outline-2 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-rust ${
+                    className={`flex min-h-20 w-full cursor-pointer flex-col justify-center rounded-card border px-4 py-3 font-ui peer-focus-visible:outline-2 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-rust ${
                       on ? "border-ink bg-ink text-silver" : errors.amount ? "border-rust text-ink" : "border-ink-2 text-ink"
                     }`}
                   >
@@ -273,6 +273,7 @@ export function GiftCardForm({ settings, currency }: { settings: GiftCardSetting
                   maxLength={7}
                   value={values.custom}
                   onChange={onText("custom")}
+                  aria-required="true"
                   aria-invalid={errors.custom ? "true" : undefined}
                   aria-describedby={[`${idFor("custom")}-hint`, errors.custom ? `${idFor("custom")}-error` : undefined].filter(Boolean).join(" ")}
                   className={`${inputClass} pl-8`}

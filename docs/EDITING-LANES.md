@@ -69,6 +69,10 @@ Ask for any of these in plain words.
 - **Pricing table.** Change the option groups and their choices, the per-person fee, the note and the rounding, or raise
   or lower one choice by a percent. The prices are estimates, and a price change lists every piece it changes before
   you say yes. Works once the catalog is set up.
+- **Gift cards.** Change the amounts a buyer can pick (for example, "Add a $500 gift card"), let people pick any amount in a
+  range, change the redeem wording and the terms line, and stop or start selling. The certificate shows your business name
+  and logo. Works once Huston Logic has set up payments on your site. Turning sales on is refused until then. See the
+  Gift cards section in [EDITING.md](EDITING.md).
 
 ### The check on every change
 
@@ -122,7 +126,9 @@ These need Huston Logic. Ask, and Huston Logic will tell you what it takes.
 
 - **A section design that does not exist yet.** Huston Logic designs it for your site. Once it is built, it joins your
   list in Lane 1. Huston Logic builds it.
-- **Payments.** Huston Logic builds it.
+- **Payments setup.** Huston Logic sets up your payment account (your own Stripe account, in your name), the keys and the
+  webhook, and makes any refund in Stripe. Booking payments come later and are also Huston Logic's. See
+  [PAYMENTS.md](PAYMENTS.md).
 - **Logins and members areas.** Huston Logic builds it.
 - **A store.** Huston Logic builds it.
 - **Domain and email setup.** Huston Logic builds it.

@@ -230,6 +230,50 @@ The template ships an empty catalog: no filters, no option groups and the defaul
 
 A visitor builds an estimate from the piece's options and guest count, then asks for a quote through the quote form. The Worker works out the estimate again from the site's own prices, so a browser cannot post a different figure. A quote request goes to the same place as the other forms: the Sheet's Forms tab or the Pipeline app, and the owner's notification email. The visitor gets the estimate by email only after you have the request.
 
+## Gift cards
+
+A site can sell gift cards. A buyer picks an amount, pays on Stripe's own page and gets a printable certificate by email. The
+buyer's money goes to your Stripe account, not to Huston Logic. Huston Logic sets up payments on your site first (see
+[PAYMENTS.md](PAYMENTS.md)). After that you change the gift card settings by chat, like the rest of the site.
+
+The settings are one file, `src/content/gift-cards.json`. It holds whether gift cards are on sale (`selling`), the amounts
+a buyer can pick (`amounts`), the any-amount range (`custom`), the redeem wording (`redeemWording`), the terms line
+(`termsLine`) and how long a card is valid (`validForMonths`). The gift card block on your page reads these. The block
+itself does not change by chat.
+
+### What you can change by chat
+
+- **Add an amount.** For example, "Add a $500 gift card". It joins the list in the order you give.
+- **Let people pick any amount.** For example, "Let people pick any amount from $50 to $1,000". The "Other amount" choice
+  appears with that range.
+- **Change the redeem wording or the terms line.** For example, "Change the redeem wording to ...". The sentence is saved as you
+  write it.
+- **Stop selling.** "Stop selling gift cards". Selling stops when the change is published. Cards already bought still work,
+  and the amounts stay for when you start again.
+- **Start selling.** Ask for it. The change is refused until payments are set up on the site, and the refusal says so.
+
+Every change shows in a change list before you say yes. Read it, then say yes only if it is right.
+
+### What the certificate shows
+
+The certificate shows your business name and logo (from your brand settings; without a logo, the name set in the site's
+display font), the amount, the code, the redeem wording and the terms line. The code is made for each sale and is
+unique. The buyer's message and the recipient's name are in the ledger, not on the certificate.
+
+### Limits
+
+- Preset amounts: 1 to 8 amounts, each a whole number of dollars from 5 to 10,000, with no repeats. A label on an amount is
+  up to 40 characters.
+- Any-amount range: a lowest and highest whole-dollar amount, from 5 to 10,000, with the lowest below the highest. Turn it
+  off with "stop letting people pick any amount".
+- Redeem wording: up to 300 characters. Terms line: up to 200 characters.
+- Validity: no expiry date (the default), or 60 to 240 months. A card cannot expire in under 5 years, so a shorter time is
+  refused.
+- The buyer's message is up to 300 characters.
+
+Every sale is also a row in your ledger (your Sheet's "Gift cards" tab, or your Pipeline app), with the code, amount,
+buyer, recipient and where the sale came from. The chat does not see sales, check a balance or redeem a card.
+
 ## What is protected
 
 - **Owners only.** Only the emails in `editor.ownerEmails` in `site.config.ts` can sign in or connect an AI app. Cloudflare Access (a sign-in gate that emails a one-time code) and the Worker both check this on every visit to `/owner`.
