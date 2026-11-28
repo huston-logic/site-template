@@ -12,7 +12,7 @@ Contrast pairs: every foreground and background pair the design uses is listed i
 
 ## 3. Typography
 [[TYPE: fonts (loaded through next/font only), scale, weights, line heights]]
-Fonts come from the curated list in src/brand/fonts.ts; the chosen fonts are in src/content/brand.json.
+Fonts come from the curated list in src/brand/fonts.ts; the chosen fonts are in src/content/brand.json. The design uses weights 400 to 700 for display and body and italic 400 for the accent, and only those faces load (DESIGN_FACES in src/brand/fonts.ts).
 
 ## 4. Space, shape, depth, grid
 [[SPACING_SHAPE_DEPTH_GRID: container width, gutters, radii, shadows]]

@@ -57,8 +57,11 @@ function resolveFile(outDir, pathname) {
   return null;
 }
 
-/** Starts the server. `port: 0` picks a free port. Resolves to { port, close() } once it is listening. */
-export function startPreviewServer({ outDir = defaultOutDir, port = defaultPort } = {}) {
+/**
+ * Starts the server. `port: 0` picks a free port. `host` defaults to every address; tests pass "127.0.0.1" so the port
+ * they connect to cannot be one another process holds on 127.0.0.1 only. Resolves to { port, close() } once listening.
+ */
+export function startPreviewServer({ outDir = defaultOutDir, port = defaultPort, host = undefined } = {}) {
   const headerBlocks = loadHeaderBlocks(outDir);
   const server = createServer((req, res) => {
     const { pathname } = new URL(req.url ?? "/", "http://localhost");
@@ -85,7 +88,7 @@ export function startPreviewServer({ outDir = defaultOutDir, port = defaultPort 
   });
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(port, () => {
+    server.listen(port, host, () => {
       resolve({ port: server.address().port, close: () => new Promise((done) => server.close(done)) });
     });
   });

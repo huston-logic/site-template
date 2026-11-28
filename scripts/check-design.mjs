@@ -2,7 +2,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { cssMotionProblems, designProblems, motionDeclarationProblems } from "./design-rules.mjs";
+import { cssMotionProblems, cssWeightProblems, designProblems, motionDeclarationProblems } from "./design-rules.mjs";
 
 const root = process.cwd();
 const SCAN_DIRS = ["src/components/hl", "src/blocks", "src/site-blocks"];
@@ -29,6 +29,7 @@ for (const file of CSS_FILES) {
   const css = readFileSync(join(root, file), "utf8");
   allCss += `${css}\n`;
   problems.push(...cssMotionProblems(css).filter((p) => !p.startsWith("the prefers-reduced-motion")).map((p) => `${file}: ${p}`));
+  problems.push(...cssWeightProblems(css).map((p) => `${file}: ${p}`));
 }
 // The reduced-motion switch lives in hl.css; globals.css only has to leave it alone.
 if (cssMotionProblems(readFileSync(join(root, "src/app/hl.css"), "utf8")).some((p) => p.startsWith("the prefers-reduced-motion"))) {
