@@ -24,7 +24,7 @@
     "import:catalog": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-catalog.mjs",
     "fixture:catalog": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/catalog-fixture.mjs",
     "test:scripts": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"scripts/*.test.mjs\"",
-    "test:worker": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"worker/*.test.ts\" \"worker/payments/*.test.ts\" \"worker/gift-cards/*.test.ts\" \"worker/editor/*.test.ts\" \"worker/uploads/*.test.ts\" \"src/lib/*.test.ts\" \"src/blocks/*.test.ts\" \"src/collections/*.test.ts\" \"src/forms/*.test.ts\" \"src/catalog/*.test.ts\" \"src/brand/*.test.ts\" \"src/settings/*.test.ts\" \"src/tracking/*.test.ts\" \"src/gift-cards/*.test.ts\" \"src/payments/*.test.ts\"",
+    "test:worker": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"worker/*.test.ts\" \"worker/payments/*.test.ts\" \"worker/gift-cards/*.test.ts\" \"worker/booking/*.test.ts\"\"worker/editor/*.test.ts\" \"worker/uploads/*.test.ts\" \"src/lib/*.test.ts\" \"src/blocks/*.test.ts\" \"src/collections/*.test.ts\" \"src/forms/*.test.ts\" \"src/catalog/*.test.ts\" \"src/brand/*.test.ts\" \"src/settings/*.test.ts\" \"src/tracking/*.test.ts\" \"src/gift-cards/*.test.ts\" \"src/payments/*.test.ts\"",
     "test:a11y": "playwright test",
     "test:lighthouse": "lhci autorun",
     "test:tracking": "playwright test -c playwright.tracking.config.ts",
