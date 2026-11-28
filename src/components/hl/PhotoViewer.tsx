@@ -103,7 +103,7 @@ function ViewerBody({ photos, start, seen, close }: { photos: readonly ItemPhoto
         </button>
       </div>
       <div className="min-h-0 flex-1">
-        <PhotoStrip photos={photos} strip={strip} sizes="100vw" className="h-full w-full" />
+        <PhotoStrip photos={photos} strip={strip} sizes="100vw" className="h-full w-full" focusable={{ label: catalogWords.photos }} />
       </div>
       <div className="flex items-center justify-between gap-3 p-3">
         <button type="button" aria-disabled={index === 0} onClick={() => step(-1)} className={BUTTON}>
