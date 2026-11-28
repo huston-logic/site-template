@@ -1,0 +1,81 @@
+import { log } from "../env.ts";
+import { readBody } from "../read-body.ts";
+import { paymentProvider, verifyPaymentWebhook } from "../payments/provider.ts";
+import { handleCheckout } from "./checkout.ts";
+import { handleConfirm } from "./confirm.ts";
+import type { GiftCardDeps } from "./deps.ts";
+import { fulfil, judgeSession } from "./fulfil.ts";
+import { json } from "./respond.ts";
+
+/**
+ * The payments routes, answered only while `payments` is set in site.config.ts (the caller returns 404 before this
+ * otherwise, design R1):
+ *   POST /api/gift-cards/checkout   the block starts a payment (worker/gift-cards/checkout.ts)
+ *   GET  /api/gift-cards/confirm    the thank-you page asks what happened (confirm.ts)
+ *   POST /api/payments/stripe       Stripe's signed webhook (below)
+ */
+
+export const CHECKOUT_PATH = "/api/gift-cards/checkout";
+export const CONFIRM_PATH = "/api/gift-cards/confirm";
+export const WEBHOOK_PATH = "/api/payments/stripe";
+export const WEBHOOK_BODY_BYTES = 262_144;
+const SESSION_ID = /^cs_(?:test|live)_[A-Za-z0-9]{1,200}$/;
+const HANDLED_EVENTS = new Set(["checkout.session.completed", "checkout.session.async_payment_succeeded"]);
+
+export const isPaymentsPath = (pathname: string): boolean => pathname === CHECKOUT_PATH || pathname === CONFIRM_PATH || pathname === WEBHOOK_PATH;
+
+/**
+ * Stripe's webhook (design R6, R7). The signature is checked first, over the raw body; then only the two payment events act.
+ * The session is read again from Stripe (the event body is not trusted), must be a paid gift card of this site whose amount
+ * and currency match what the Worker sent, and then fulfilment runs. 200 means done or nothing to do; 500 asks Stripe to retry.
+ */
+async function handleWebhook(request: Request, deps: GiftCardDeps): Promise<Response> {
+  const { env, mode, payments } = deps;
+  if (Number(request.headers.get("content-length") ?? "0") > WEBHOOK_BODY_BYTES) return json(413, { received: false });
+  const body = await readBody(request, WEBHOOK_BODY_BYTES);
+  if (body === null) return json(413, { received: false });
+
+  const verdict = await verifyPaymentWebhook(payments, env, body, request.headers.get("stripe-signature"), Math.floor(deps.now() / 1000));
+  if (!verdict.ok) {
+    log("webhook_refused", { reason: verdict.reason });
+    return json(verdict.reason === "unconfigured" ? 500 : 400, { received: false });
+  }
+  const { event } = verdict;
+  if (!HANDLED_EVENTS.has(event.type)) return json(200, { received: true });
+  const id = event.data.object["id"];
+  if (typeof id !== "string" || !SESSION_ID.test(id)) return json(200, { received: true });
+
+  const made = paymentProvider(payments, env, mode);
+  if (!made.ok) {
+    log("payments_misconfigured", { reason: made.reason });
+    return json(500, { received: false });
+  }
+  const read = await made.provider.readSession(id);
+  if (!read.ok) return json(500, { received: false });
+  if (read.value === null) {
+    log("webhook_session_missing");
+    return json(200, { received: true });
+  }
+  const session = read.value;
+  const judged = judgeSession(deps, session);
+  if (judged.kind === "ignore" || judged.kind === "not_paid") {
+    log("webhook_nothing_to_do", { reason: judged.kind });
+    return json(200, { received: true });
+  }
+  if (judged.kind === "mismatch") {
+    log("payment_mismatch");
+    return json(200, { received: true });
+  }
+  const result = await fulfil(deps, made.provider, session, judged.sale, { webhookMissing: false });
+  return json(result.done ? 200 : 500, { received: result.done });
+}
+
+/** Routes one request. `deps.payments` is set: the caller already answered 404 for a site without payments. */
+export async function handlePaymentsRoute(pathname: string, request: Request, deps: GiftCardDeps): Promise<Response> {
+  const wantsGet = pathname === CONFIRM_PATH;
+  if (request.method !== (wantsGet ? "GET" : "POST")) return json(405, { error: "method_not_allowed" }, { allow: wantsGet ? "GET" : "POST" });
+  if (pathname === CHECKOUT_PATH) return handleCheckout(request, deps);
+  if (pathname === CONFIRM_PATH) return handleConfirm(request, deps);
+  if (deps.mode === "development") return json(404, { error: "not_found" });
+  return handleWebhook(request, deps);
+}

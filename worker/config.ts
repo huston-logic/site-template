@@ -115,6 +115,8 @@ export interface WorkerConfig {
   /** null when the destination is "sheet" or the owner has not set it. The Worker then saves nothing to the app. */
   pipelineUrl: string | null;
   autoReply: AutoReply;
+  /** `contact.emailColors`: the gift card certificate uses the same colors as the automatic reply. */
+  emailColors: { green: string; ink: string; ink2: string; rust: string; line: string };
   forms: FormSettings;
   /** null means payments are off: every payments route answers 404 (design R1). */
   payments: PaymentsConfig | null;
@@ -178,6 +180,7 @@ export function buildWorkerConfig(config: WorkerSiteConfig): WorkerConfig {
     destination: contact.destination ?? "sheet",
     pipelineUrl: contact.pipelineUrl ?? null,
     autoReply: buildAutoReply(config),
+    emailColors: { ...contact.emailColors },
     forms: { ...DEFAULT_FORM_SETTINGS, ...(config.forms ?? {}) },
     payments: config.payments ? { ...config.payments } : null,
     editor: buildEditorConfig(config),

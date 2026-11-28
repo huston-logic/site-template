@@ -11,6 +11,8 @@ export type OutgoingEmail = {
   /** Only the automatic reply sends HTML: a fixed template where the one visitor value (first name) is escaped. */
   html?: string;
   headers?: Record<string, string>;
+  /** Gift card emails only: the certificate PDF. `content` is base64. */
+  attachments?: { filename: string; content: string }[];
 };
 
 /**
@@ -22,7 +24,7 @@ export async function sendEmail(apiKey: string | undefined, email: OutgoingEmail
     log("email_config_missing", { kind });
     return false;
   }
-  const body = JSON.stringify({ from: email.from, to: [email.to], reply_to: email.replyTo, subject: email.subject, text: email.text, ...(email.html ? { html: email.html } : {}), ...(email.headers ? { headers: email.headers } : {}) });
+  const body = JSON.stringify({ from: email.from, to: [email.to], reply_to: email.replyTo, subject: email.subject, text: email.text, ...(email.html ? { html: email.html } : {}), ...(email.headers ? { headers: email.headers } : {}), ...(email.attachments ? { attachments: email.attachments } : {}) });
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const response = await fetch(RESEND, {
