@@ -134,7 +134,7 @@ Earlier lines were copied to the master and moved to `docs/history/STATUS-histor
 
 Process run, unattended, one PR. Design: `docs/superpowers/specs/2026-11-27-booking-design.md` (R1 to R19). Opus designed,
 wrote the contracts and integrated; Sonnet built seven parts in parallel worktrees and two fix waves; Haiku wrote docs.
-- `npm run check` passes (1,427 Worker and shared tests, 635 script tests); `test:a11y` 177 passed, booking and gift card
+- `npm run check` passes (1,427 Worker and shared tests, 635 script tests); `test:a11y` 179 passed (incl. no-JavaScript), booking and gift card
   specs on a fixture build 70 passed; Lighthouse CI passes, unchanged thresholds. Booking off: 18 of 18 page
   screenshots identical to `main`, same `_headers` and sitemap, no booking script on any page (shared CSS 1.9 KB larger).
 - Reviews (all fixed): a clash a retry could call booked, an insert retry that orphaned an event, the times route open to

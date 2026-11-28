@@ -417,3 +417,18 @@ test.describe("the thank-you page", () => {
     await expect(page.getByRole("heading", { name: words.thanks.freeMissing.heading })).toBeVisible();
   });
 });
+
+test.describe("without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("the block lists the services and a way to get in touch, and shows no flow", async ({ page }) => {
+    await page.goto("/blocks", { waitUntil: "load" });
+    const fallback = page.getByRole("heading", { level: 3, name: words.noScript.heading });
+    await expect(fallback).toBeVisible();
+    const panel = fallback.locator("xpath=..");
+    await expect(panel.getByText("Consultation", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Workshop", { exact: true })).toBeVisible();
+    await expect(panel.getByRole("link", { name: words.contactLink })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: words.serviceLegend })).toHaveCount(0);
+  });
+});
