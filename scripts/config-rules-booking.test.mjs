@@ -7,6 +7,7 @@ import { configProblems, secretsFor, wranglerText } from "./config-rules.mjs";
 function config() {
   return {
     domain: { workerName: "example-site" },
+    business: { timeZone: "America/Chicago" },
     contact: { destination: "sheet", pipelineUrl: null, sheetWriter: "apps-script", rateLimitIds: { production: "2001", preview: "2002" }, rateLimit: { limit: 5, periodSeconds: 60 } },
   };
 }
@@ -84,6 +85,12 @@ describe("configProblems: booking", () => {
     assert.match(configProblems(withBooking({ ...good, previewCalendarId: good.calendarId }))[0], /previewCalendarId is the same as calendarId/);
     assert.match(configProblems(withBooking({ ...good, previewCalendarId: "has space" }))[0], /previewCalendarId must not contain spaces/);
     assert.match(configProblems(withBooking({ calendarId: good.calendarId, busyCalendarIds: [] }))[0], /previewCalendarId is missing/);
+  });
+  test("booking needs the business's own time zone: a real zone name, not UTC, not missing", () => {
+    const zoned = (timeZone) => ({ ...withBooking(good), business: timeZone === undefined ? {} : { timeZone } });
+    assert.deepEqual(configProblems(zoned("America/Chicago")), []);
+    for (const bad of ["UTC", "utc", "", "Mars/Olympus", 5, undefined]) assert.match(configProblems(zoned(bad))[0], /Booking needs the business's own time zone, like "America\/Chicago"/, String(bad));
+    assert.deepEqual(configProblems({ ...config(), business: { timeZone: "UTC" } }), [], "booking off: any zone is fine");
   });
   test("an unknown key or a non-object is refused", () => {
     assert.match(configProblems(withBooking({ ...good, color: "red" }))[0], /booking\.color is not a booking setting/);

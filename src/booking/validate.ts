@@ -169,6 +169,7 @@ function checkService(service: unknown, index: number, seen: Set<string>, out: s
   }
 
   let partyMax: number | null = null;
+  let partyMin: number | null = null;
   if ("party" in service) {
     const party = service["party"];
     if (!isRecord(party)) out.push(`${where}: ${label}: "party" must be {"min": 1, "max": 6}.`);
@@ -177,7 +178,10 @@ function checkService(service: unknown, index: number, seen: Set<string>, out: s
       const { min, max } = party;
       if (!isWhole(min, 1, PARTY_MAX) || !isWhole(max, 1, PARTY_MAX)) out.push(`${where}: ${label}: the party size ("min" and "max") must be whole numbers from 1 to ${PARTY_MAX}.`);
       else if (min > max) out.push(`${where}: ${label}: the smallest party (${min}) is more than the largest (${max}).`);
-      else partyMax = max;
+      else {
+        partyMax = max;
+        partyMin = min;
+      }
     }
   }
 
@@ -213,6 +217,10 @@ function checkService(service: unknown, index: number, seen: Set<string>, out: s
         if (hasAmount === hasPercent) out.push(`${where}: ${label}: a deposit is either a whole "amount" or a "percent" of the price, not both and not neither.`);
         if (!hasPrice) out.push(`${where}: ${label}: a deposit needs a price; give the service one, or make it free.`);
         if (hasPercent && !isWhole(payment["percent"], PERCENT.min, PERCENT.max)) out.push(`${where}: ${label}: the deposit percent must be a whole number from ${PERCENT.min} to ${PERCENT.max}.`);
+        else if (hasPercent && price && service["status"] === "live") {
+          const smallest = price.amount * (price.per === "person" ? (partyMin ?? 1) : 1) * (payment["percent"] as number) / 100;
+          if (smallest < 1) out.push(`${where}: ${label}: the deposit for the smallest party would be under 1.00 in the site's currency, which card payments do not allow. Raise the percent or the price.`);
+        }
         if (hasAmount) {
           const amount = payment["amount"];
           if (!isWhole(amount, 1, PRICE_MAX)) out.push(`${where}: ${label}: the deposit must be a whole number, at least 1.`);

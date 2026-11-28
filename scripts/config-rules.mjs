@@ -282,6 +282,17 @@ function calendarIdProblem(value) {
   return null;
 }
 
+/** A real zone name the runtime knows, and not "UTC" (a default nobody chose). */
+function zoneIsUsable(zone) {
+  if (typeof zone !== "string" || zone === "" || zone.toUpperCase() === "UTC") return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Problems with the `booking` setting (the calendar). null or missing means booking is off. */
 function bookingProblems(c) {
   const b = c.booking;
@@ -308,6 +319,7 @@ function bookingProblems(c) {
     else if (preview === b.calendarId) problems.push(need(".previewCalendarId", "is the same as calendarId. A preview must write to a test calendar, never the real one"));
   }
   for (const key of Object.keys(b)) if (!BOOKING_KEYS.includes(key)) problems.push(need(`.${key}`, `is not a booking setting. The settings are: ${BOOKING_KEYS.join(", ")}`));
+  if (!zoneIsUsable(c.business?.timeZone)) problems.push(`site.config.ts  business.timeZone is ${JSON.stringify(c.business?.timeZone)}. Booking needs the business's own time zone, like "America/Chicago": every opening time, booking and email uses it.`);
   return problems;
 }
 

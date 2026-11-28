@@ -126,6 +126,20 @@ test("price: null or a whole amount with who it is per", () => {
   assert.ok(has(problems(edit((d) => (d["services"][1]["price"] = "free"))), '"price" must be null'));
 });
 
+test("payment: a live service's percent deposit is at least 1.00 for the smallest party", () => {
+  const small = (d: Loose, percent: number, price: { amount: number; per: string }, min = 1) => {
+    d["services"][1]["price"] = price;
+    d["services"][1]["party"] = { min, max: 6 };
+    d["services"][1]["payment"] = { kind: "deposit", percent };
+    d["services"][1]["status"] = "live";
+  };
+  assert.ok(has(problems(edit((d) => small(d, 1, { amount: 50, per: "booking" }))), "under 1.00 in the site's currency"));
+  assert.ok(has(problems(edit((d) => small(d, 1, { amount: 50, per: "person" }))), "Raise the percent or the price"));
+  assert.deepEqual(problems(edit((d) => small(d, 1, { amount: 50, per: "person" }, 2))), [], "two people at 50 is exactly 1.00");
+  assert.deepEqual(problems(edit((d) => small(d, 2, { amount: 50, per: "booking" }))), []);
+  assert.deepEqual(problems(edit((d) => { small(d, 1, { amount: 50, per: "booking" }); d["services"][1]["status"] = "archived"; })), [], "an archived service is not judged");
+});
+
 test("payment: full and deposit need a price, a deposit stays under it", () => {
   assert.ok(has(problems(edit((d) => (d["services"][1]["price"] = null))), "needs a price"));
   assert.ok(has(problems(edit((d) => { d["services"][0]["payment"] = { kind: "full" }; })), "full payment needs a price"));
