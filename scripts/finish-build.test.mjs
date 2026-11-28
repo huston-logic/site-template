@@ -70,7 +70,7 @@ test("nothing is removed when neither variable is set, or when productionBranch 
 test("a CI build (GITHUB_SHA, no Workers Builds branch) keeps the showcase", () => {
   const outDir = fakeOut();
   const result = finishBuild({ outDir, env: { GITHUB_SHA: "ccc" }, productionBranch: "main" });
-  assert.deepEqual(result, { commit: "ccc", showcaseRemoved: false, drafts: true });
+  assert.deepEqual(result, { commit: "ccc", showcaseRemoved: false, drafts: true, giftCardsRemoved: true });
   assert.equal(existsSync(join(outDir, "blocks", "index.txt")), true);
 });
 
@@ -116,4 +116,49 @@ test("TRACKING_FIXTURE=1 on a production build throws and leaves _headers alone"
   writeFileSync(join(outDir, "_headers"), "committed headers");
   assert.throws(() => finishBuild({ outDir, env: { TRACKING_FIXTURE: "1", WORKERS_CI: "1", WORKERS_CI_BRANCH: "main" }, productionBranch: "main", siteConfig }), /local test builds only/);
   assert.equal(readFileSync(join(outDir, "_headers"), "utf8"), "committed headers");
+});
+
+function withGiftCards(outDir) {
+  mkdirSync(join(outDir, "gift-cards"));
+  writeFileSync(join(outDir, "gift-cards", "thanks.html"), "thanks");
+  writeFileSync(join(outDir, "gift-cards.html"), "keep: not the thank-you folder");
+  return outDir;
+}
+
+test("with payments off (the template), out/gift-cards is removed and nothing else is", () => {
+  const outDir = withGiftCards(fakeOut());
+  const result = finishBuild({ outDir, env: {}, productionBranch: "main", siteConfig });
+  assert.equal(result.giftCardsRemoved, true);
+  assert.equal(existsSync(join(outDir, "gift-cards")), false);
+  assert.equal(existsSync(join(outDir, "gift-cards.html")), true);
+  assert.equal(existsSync(join(outDir, "index.html")), true);
+  assert.equal(existsSync(join(outDir, "blocks.html")), true);
+});
+
+test("a build without a gift-cards folder and without siteConfig still succeeds with payments off", () => {
+  assert.equal(finishBuild({ outDir: fakeOut(), env: {}, productionBranch: "main" }).giftCardsRemoved, true);
+});
+
+test("with payments set, or PAYMENTS_FIXTURE=1 on a local build, out/gift-cards stays", () => {
+  const set = withGiftCards(fakeOut());
+  const result = finishBuild({ outDir: set, env: {}, productionBranch: "main", siteConfig: { ...siteConfig, payments: { provider: "stripe", currency: "usd" } } });
+  assert.equal(result.giftCardsRemoved, false);
+  assert.equal(readFileSync(join(set, "gift-cards", "thanks.html"), "utf8"), "thanks");
+
+  const fixture = withGiftCards(fakeOut());
+  assert.equal(finishBuild({ outDir: fixture, env: { PAYMENTS_FIXTURE: "1" }, productionBranch: "main", siteConfig }).giftCardsRemoved, false);
+  assert.equal(existsSync(join(fixture, "gift-cards", "thanks.html")), true);
+});
+
+test("PAYMENTS_FIXTURE=1 on a production build throws", () => {
+  const outDir = withGiftCards(fakeOut());
+  assert.throws(() => finishBuild({ outDir, env: { PAYMENTS_FIXTURE: "1", WORKERS_CI: "1", WORKERS_CI_BRANCH: "main" }, productionBranch: "main", siteConfig }), /PAYMENTS_FIXTURE/);
+});
+
+test("a production build with payments set keeps the page, and the certificate font step is called with the brand fonts", () => {
+  const outDir = withGiftCards(fakeOut());
+  const result = finishBuild({ outDir, env: { WORKERS_CI: "1", WORKERS_CI_BRANCH: "main" }, productionBranch: "main", siteConfig: { ...siteConfig, payments: { provider: "stripe", currency: "usd" } }, brandFonts: { display: "Outfit" } });
+  assert.equal(result.giftCardsRemoved, false);
+  assert.equal(existsSync(join(outDir, "gift-cards")), true);
+  assert.equal(existsSync(join(outDir, "_certificate")), false);
 });

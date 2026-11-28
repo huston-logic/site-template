@@ -1,19 +1,29 @@
 // Runs after `next build` (see package.json `build`): stamps ./out with the commit it was built from
 // (out/site-version.json, with whether drafts were built) and, on a Workers Builds production build, removes the /blocks showcase from ./out.
+// While payments are off it also removes the gift card thank-you page (out/gift-cards).
 // CI and preview builds keep /blocks so the accessibility and Lighthouse checks still scan it.
-import { rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isProductionBuild } from "../src/lib/build-target.ts";
+import { paymentsForBuild } from "../src/payments/config.ts";
 import { FIXTURE_ENV, FIXTURE_TRACKING } from "../src/tracking/config.ts";
 import { headersText } from "./headers-text.mjs";
+
+// CERTIFICATE FONTS: task F fills this in. While payments are on it will copy the gift card certificate's font files
+// (src/brand/certificate-fonts/) into <outDir>/_certificate/ for the Worker to read (design R10). It does nothing yet.
+export function copyCertificateFonts(outDir, brandFonts) {
+  void outDir;
+  void brandFonts;
+}
 
 /**
  * Writes <outDir>/site-version.json and, when env.WORKERS_CI_BRANCH is the production branch, removes the showcase.
  * With TRACKING_FIXTURE=1 (local test builds) and a `siteConfig`, <outDir>/_headers is rewritten with the CSP the fixture
  * IDs need, so the page can load the fake tags in a browser; the committed public/_headers is never touched.
+ * While payments (`siteConfig.payments`, or PAYMENTS_FIXTURE=1) are off, removes <outDir>/gift-cards, the gift card thank-you page.
  */
-export function finishBuild({ outDir, env, productionBranch, siteConfig }) {
+export function finishBuild({ outDir, env, productionBranch, siteConfig, brandFonts }) {
   const commit = env.WORKERS_CI_COMMIT_SHA || env.GITHUB_SHA || null;
   const showcaseRemoved = isProductionBuild(env, productionBranch);
   // Drafts are built everywhere except production (src/lib/drafts.ts uses the same rule), so a build that says drafts: true is not a production build.
@@ -26,13 +36,19 @@ export function finishBuild({ outDir, env, productionBranch, siteConfig }) {
   if (showcaseRemoved) {
     for (const name of ["blocks.html", "blocks.txt", "blocks"]) rmSync(join(outDir, name), { recursive: true, force: true });
   }
-  return { commit, showcaseRemoved, drafts };
+  // With payments off the gift card thank-you page does not ship (design R1). `siteConfig` is optional so old callers and tests still work; without it payments count as off.
+  const payments = paymentsForBuild({ payments: siteConfig?.payments ?? null, domain: { productionBranch } }, env);
+  const giftCardsRemoved = payments === null;
+  if (giftCardsRemoved) rmSync(join(outDir, "gift-cards"), { recursive: true, force: true });
+  else copyCertificateFonts(outDir, brandFonts);
+  return { commit, showcaseRemoved, drafts, giftCardsRemoved };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = fileURLToPath(new URL("..", import.meta.url));
   const { siteConfig } = await import(pathToFileURL(join(root, "site.config.ts")).href);
-  const result = finishBuild({ outDir: join(root, "out"), env: process.env, productionBranch: siteConfig.domain.productionBranch, siteConfig });
-  console.log(`Build stamp: ${result.commit ?? "no commit known"}${result.showcaseRemoved ? "; /blocks removed (production build)" : ""}`);
+  const { fonts: brandFonts } = JSON.parse(readFileSync(join(root, "src/content/brand.json"), "utf8"));
+  const result = finishBuild({ outDir: join(root, "out"), env: process.env, productionBranch: siteConfig.domain.productionBranch, siteConfig, brandFonts });
+  console.log(`Build stamp: ${result.commit ?? "no commit known"}${result.showcaseRemoved ? "; /blocks removed (production build)" : ""}${result.giftCardsRemoved ? "; gift cards not shipped (payments off)" : ""}`);
   if (result.drafts) console.log("Drafts included (not a production build)");
 }

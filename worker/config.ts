@@ -1,6 +1,7 @@
 import { siteConfig } from "../site.config.ts";
 import { buildAutoReply, type AutoReply, type AutoReplyConfig } from "../src/content/auto-reply.ts";
 import { DEFAULT_FORM_SETTINGS, type FormSettings } from "../src/forms/schema.ts";
+import type { PaymentsConfig } from "../src/payments/config.ts";
 import type { UploadsConfig } from "./uploads/types.ts";
 
 /** Which code appends the contact form's row to the Google Sheet. */
@@ -21,6 +22,8 @@ export interface WorkerSiteConfig extends AutoReplyConfig {
   editor?: EditorSiteConfig;
   /** Optional so an older fixture still compiles; missing means the defaults. */
   forms?: FormSettings;
+  /** Optional so an older fixture still compiles; missing means payments are off. */
+  payments?: PaymentsConfig | null;
   contact: {
     siteEmail: string | null;
     fromName: string;
@@ -29,8 +32,8 @@ export interface WorkerSiteConfig extends AutoReplyConfig {
     /** The colors the automatic reply uses inline (`contact.emailColors`); wiring, not read from brand.json. */
     emailColors: { green: string; ink: string; ink2: string; rust: string; line: string };
     sheetWriter: SheetWriter;
-    /** `forms` and `formsPreview` are optional so an older fixture still compiles; missing means "Forms" and "Forms preview". */
-    sheetTabs: { production: string; preview: string; forms?: string; formsPreview?: string };
+    /** The form and gift card tabs are optional so an older fixture still compiles; missing means "Forms", "Forms preview", "Gift cards" and "Gift cards preview". */
+    sheetTabs: { production: string; preview: string; forms?: string; formsPreview?: string; giftCards?: string; giftCardsPreview?: string };
     /** Optional so a config without it means "sheet". */
     destination?: Destination;
     /** The Pipeline app copy's https origin. Only read when destination is "pipeline". */
@@ -107,12 +110,14 @@ export interface WorkerConfig {
   workerName: string;
   previewHostSuffix: string;
   sheetWriter: SheetWriter;
-  sheetTabs: { production: string; preview: string; forms: string; formsPreview: string };
+  sheetTabs: { production: string; preview: string; forms: string; formsPreview: string; giftCards: string; giftCardsPreview: string };
   destination: Destination;
   /** null when the destination is "sheet" or the owner has not set it. The Worker then saves nothing to the app. */
   pipelineUrl: string | null;
   autoReply: AutoReply;
   forms: FormSettings;
+  /** null means payments are off: every payments route answers 404 (design R1). */
+  payments: PaymentsConfig | null;
   editor: EditorConfig;
 }
 
@@ -167,11 +172,14 @@ export function buildWorkerConfig(config: WorkerSiteConfig): WorkerConfig {
       preview: contact.sheetTabs.preview,
       forms: contact.sheetTabs.forms ?? "Forms",
       formsPreview: contact.sheetTabs.formsPreview ?? "Forms preview",
+      giftCards: contact.sheetTabs.giftCards ?? "Gift cards",
+      giftCardsPreview: contact.sheetTabs.giftCardsPreview ?? "Gift cards preview",
     },
     destination: contact.destination ?? "sheet",
     pipelineUrl: contact.pipelineUrl ?? null,
     autoReply: buildAutoReply(config),
     forms: { ...DEFAULT_FORM_SETTINGS, ...(config.forms ?? {}) },
+    payments: config.payments ? { ...config.payments } : null,
     editor: buildEditorConfig(config),
   };
 }

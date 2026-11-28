@@ -11,9 +11,14 @@ export interface ContactEnv {
   SHEET_WEBHOOK_SECRET?: string;
   /** Destination "pipeline" only: the shared secret the Pipeline app copy checks in the X-Intake-Secret header. */
   INTAKE_SECRET?: string;
+  /** Payments only (`payments` in site.config.ts): a restricted Stripe key and the webhook's signing secret. */
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
   CONTACT_RATE_LIMIT?: RateLimit;
   /** The site's own static assets: the quote form reads `/catalog.json` (its price source) through it. */
   ASSETS?: Fetcher;
+  /** Present while payments or editor uploads are on (wrangler.jsonc): the gift card certificate turns the logo into a PNG with it. */
+  IMAGES?: ImagesBinding;
 }
 
 /** Bindings the owner's chat tools add. All optional: they exist only when `editor.enabled` is true (wrangler.jsonc). */
@@ -23,9 +28,8 @@ export interface EditorEnv extends ContactEnv {
   EDITOR_RATE_LIMIT?: RateLimit;
   ASSETS?: Fetcher;
   GITHUB_APP_PRIVATE_KEY?: string;
-  /** Present only when `editor.uploads.enabled` is true: the private inbox bucket and the Images binding. */
+  /** Present only when `editor.uploads.enabled` is true: the private inbox bucket (the Images binding is in ContactEnv). */
   UPLOADS?: R2Bucket;
-  IMAGES?: ImagesBinding;
 }
 
 /** Whether the submission reached its destination. "skipped" means it was deliberately not sent (a preview never posts to the real app). */
