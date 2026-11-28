@@ -280,7 +280,7 @@ function siteProblems(c) {
   // A preview must never write into the production tab: each production tab and its preview tab need different names.
   const tabs = contact.sheetTabs;
   if (tabs && typeof tabs === "object") {
-    for (const [live, preview] of [["production", "preview"], ["forms", "formsPreview"], ["giftCards", "giftCardsPreview"]]) {
+    for (const [live, preview] of [["production", "preview"], ["forms", "formsPreview"], ["giftCards", "giftCardsPreview"], ["bookings", "bookingsPreview"]]) {
       if (typeof tabs[live] === "string" && tabs[live] !== "" && tabs[live] === tabs[preview]) {
         problems.push(`site.config.ts  contact.sheetTabs.${live} and .${preview} are both ${JSON.stringify(tabs[live])}. Give them different names, or a preview would write into the production tab`);
       }

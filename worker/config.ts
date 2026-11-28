@@ -1,6 +1,7 @@
 import { siteConfig } from "../site.config.ts";
 import { buildAutoReply, type AutoReply, type AutoReplyConfig } from "../src/content/auto-reply.ts";
 import { DEFAULT_FORM_SETTINGS, type FormSettings } from "../src/forms/schema.ts";
+import type { BookingConfig } from "../src/booking/schema.ts";
 import type { PaymentsConfig } from "../src/payments/config.ts";
 import type { UploadsConfig } from "./uploads/types.ts";
 
@@ -24,6 +25,8 @@ export interface WorkerSiteConfig extends AutoReplyConfig {
   forms?: FormSettings;
   /** Optional so an older fixture still compiles; missing means payments are off. */
   payments?: PaymentsConfig | null;
+  /** Optional so an older fixture still compiles; missing means booking is off. */
+  booking?: BookingConfig | null;
   contact: {
     siteEmail: string | null;
     fromName: string;
@@ -32,8 +35,8 @@ export interface WorkerSiteConfig extends AutoReplyConfig {
     /** The colors the automatic reply uses inline (`contact.emailColors`); wiring, not read from brand.json. */
     emailColors: { green: string; ink: string; ink2: string; rust: string; line: string };
     sheetWriter: SheetWriter;
-    /** The form and gift card tabs are optional so an older fixture still compiles; missing means "Forms", "Forms preview", "Gift cards" and "Gift cards preview". */
-    sheetTabs: { production: string; preview: string; forms?: string; formsPreview?: string; giftCards?: string; giftCardsPreview?: string };
+    /** The form, gift card and booking tabs are optional so an older fixture still compiles; missing means "Forms", "Forms preview", "Gift cards", "Gift cards preview", "Bookings" and "Bookings preview". */
+    sheetTabs: { production: string; preview: string; forms?: string; formsPreview?: string; giftCards?: string; giftCardsPreview?: string; bookings?: string; bookingsPreview?: string };
     /** Optional so a config without it means "sheet". */
     destination?: Destination;
     /** The Pipeline app copy's https origin. Only read when destination is "pipeline". */
@@ -110,7 +113,7 @@ export interface WorkerConfig {
   workerName: string;
   previewHostSuffix: string;
   sheetWriter: SheetWriter;
-  sheetTabs: { production: string; preview: string; forms: string; formsPreview: string; giftCards: string; giftCardsPreview: string };
+  sheetTabs: { production: string; preview: string; forms: string; formsPreview: string; giftCards: string; giftCardsPreview: string; bookings: string; bookingsPreview: string };
   destination: Destination;
   /** null when the destination is "sheet" or the owner has not set it. The Worker then saves nothing to the app. */
   pipelineUrl: string | null;
@@ -120,6 +123,10 @@ export interface WorkerConfig {
   forms: FormSettings;
   /** null means payments are off: every payments route answers 404 (design R1). */
   payments: PaymentsConfig | null;
+  /** null means booking is off: every booking route answers 404 (booking design R1). */
+  booking: BookingConfig | null;
+  /** `business.timeZone`: every booking rule is local to it. */
+  timeZone: string;
   editor: EditorConfig;
 }
 
@@ -176,6 +183,8 @@ export function buildWorkerConfig(config: WorkerSiteConfig): WorkerConfig {
       formsPreview: contact.sheetTabs.formsPreview ?? "Forms preview",
       giftCards: contact.sheetTabs.giftCards ?? "Gift cards",
       giftCardsPreview: contact.sheetTabs.giftCardsPreview ?? "Gift cards preview",
+      bookings: contact.sheetTabs.bookings ?? "Bookings",
+      bookingsPreview: contact.sheetTabs.bookingsPreview ?? "Bookings preview",
     },
     destination: contact.destination ?? "sheet",
     pipelineUrl: contact.pipelineUrl ?? null,
@@ -183,6 +192,8 @@ export function buildWorkerConfig(config: WorkerSiteConfig): WorkerConfig {
     emailColors: { ...contact.emailColors },
     forms: { ...DEFAULT_FORM_SETTINGS, ...(config.forms ?? {}) },
     payments: config.payments ? { ...config.payments } : null,
+    booking: config.booking ? { calendarId: config.booking.calendarId, busyCalendarIds: [...config.booking.busyCalendarIds] } : null,
+    timeZone: config.business.timeZone ?? "UTC",
     editor: buildEditorConfig(config),
   };
 }
