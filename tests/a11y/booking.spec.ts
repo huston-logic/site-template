@@ -84,7 +84,7 @@ async function setUp(page: Page, options: Setup = {}) {
     if (options.checkout) return route.fulfill({ status: options.checkout.status, contentType: "application/json", body: JSON.stringify(options.checkout.body) });
     const body =
       request.service === "workshop"
-        ? { ok: true, kind: "checkout", url: STRIPE, sessionId: "cs_test_abc123", dueNow: 112.5, currency: "usd" }
+        ? { ok: true, kind: "checkout", url: STRIPE, sessionId: "cs_test_abc123", releaseToken: "rt_test_1", dueNow: 112.5, currency: "usd" }
         : { ok: true, kind: "booked", summary: summaryFor(request) };
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   });
@@ -186,6 +186,7 @@ test.describe("the block on the showcase", () => {
     await expect(session(flow, 2, 2)).toBeVisible();
     await expect(session(flow, 2, 2).getByText(/2 to 10 days after the one before/)).toBeVisible();
     await pickTime(session(flow, 2, 2));
+    await expect(flow.getByRole("heading", { name: words.detailsHeading })).toBeFocused();
     await fillDetails(flow);
     await expect(flow.getByText("$450")).toBeVisible();
     await expect(flow.getByText("$112.50", { exact: true })).toBeVisible();
@@ -292,6 +293,28 @@ test.describe("the block on the showcase", () => {
     }
   });
 
+  for (const width of [390, 360]) {
+    test(`day buttons are at least 44 by 44 at ${width} wide, with no sideways scrolling`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await setUp(page);
+      await page.goto("/blocks", { waitUntil: "networkidle" });
+      const flow = block(page);
+      await chooseService(flow, "Workshop");
+      const days = session(flow, 1, 2).getByRole("group", { name: words.dayGroupLegend }).locator("button");
+      await expect(days).toHaveCount(7);
+      const boxes = await days.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON() as { width: number; height: number }));
+      for (const box of boxes) {
+        expect(box.width).toBeGreaterThanOrEqual(44);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+      console.log(`day buttons at ${width}: min ${Math.min(...boxes.map((b) => b.width))} x ${Math.min(...boxes.map((b) => b.height))}`);
+      // Each name starts with the weekday, day number and month that are drawn.
+      const names = await days.evaluateAll((els) => els.map((el) => ({ name: (el.querySelector(".sr-only")?.textContent ?? "").trim(), visible: Array.from(el.querySelectorAll("[aria-hidden]")).map((s) => s.textContent).join(" ") })));
+      for (const { name, visible } of names) expect(name.startsWith(visible)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    });
+  }
+
   test("back from Stripe: the choices return and the held times are released", async ({ page }) => {
     const { released } = await setUp(page);
     const first = zonedToUtc(addDays(today(), 5), "10:00", ZONE) ?? 0;
@@ -301,7 +324,7 @@ test.describe("the block on the showcase", () => {
     test.skip(["sat", "sun"].includes(weekday(first)) || ["sat", "sun"].includes(weekday(second)), "the stub offers no weekend times; try again tomorrow");
     await page.addInitScript(
       ([key, resume]) => window.sessionStorage.setItem(key as string, resume as string),
-      [RESUME_KEY, JSON.stringify({ service: "workshop", party: 3, starts: [first, second], answers: { name: "Ada Lovelace", email: "ada@example.org", phone: "555 0142", notes: "" }, sessionId: "cs_test_abc123", item: null })],
+      [RESUME_KEY, JSON.stringify({ service: "workshop", party: 3, starts: [first, second], answers: { name: "Ada Lovelace", email: "ada@example.org", phone: "555 0142", notes: "" }, sessionId: "cs_test_abc123", releaseToken: "rt_test_1", item: null })],
     );
     await page.goto("/blocks?checkout=cancelled", { waitUntil: "networkidle" });
     const flow = block(page);
@@ -309,7 +332,8 @@ test.describe("the block on the showcase", () => {
     await expect(flow.locator("output")).toHaveText(words.partyOutput(3));
     await expect(flow.getByRole("button", { name: words.payButton("$112.50") })).toBeVisible();
     await expect(flow.getByLabel("Your name", { exact: true })).toHaveValue("Ada Lovelace");
-    expect(released).toEqual([{ sessionId: "cs_test_abc123" }]);
+    expect(released).toEqual([{ sessionId: "cs_test_abc123", releaseToken: "rt_test_1" }]);
+    expect(await page.evaluate((key) => window.sessionStorage.getItem(key), RESUME_KEY)).toBeNull();
   });
 
   test("a times failure says so and offers the contact link", async ({ page }) => {
@@ -345,7 +369,7 @@ test.describe("the thank-you page", () => {
     await setUp(page, { confirm: paid("booked") });
     const events = await recordEvents(page);
     await page.goto("/booking/thanks?session_id=cs_test_abc123", { waitUntil: "networkidle" });
-    await expect(page.getByRole("heading", { name: words.thanks.booked.heading })).toBeVisible();
+    await expect(page.getByRole("heading", { name: words.thanks.booked.heading })).toBeFocused();
     await expect(page.getByText(words.thanks.booked.paid("$112.50"))).toBeVisible();
     await expect(page.getByText("$337.50 due later")).toBeVisible();
     await expect(page.getByText("Friday, December 4, 2026, 9:00 AM")).toBeVisible();

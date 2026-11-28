@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CONFIRM_PATH, FREE_SUMMARY_KEY, type BookingSummary, type ConfirmAnswer } from "@/booking/api";
+import { CONFIRM_PATH, FREE_SUMMARY_KEY, RESUME_KEY, type BookingSummary, type ConfirmAnswer } from "@/booking/api";
 import { bookingWords } from "@/content/booking";
 import { firstReport, type StorageLike } from "@/gift-cards/browser-storage";
 import { RECHECK_AT_SECONDS, searchWithoutSessionId, sessionIdFrom } from "@/gift-cards/confirm";
-import { readConfirm, readSummary, recalledBookingSession, rememberBookingSession } from "@/lib/booking-flow";
+import { clearResume, readConfirm, readSummary, recalledBookingSession, rememberBookingSession } from "@/lib/booking-flow";
 import { track } from "@/tracking/track";
 import { Glow } from "./Glow";
 import { HeroContent } from "./PageHero";
@@ -38,6 +38,7 @@ const storage = (kind: "session" | "local"): StorageLike | null => {
 export function BookingThanks({ backHref, ownerName }: { backHref: string; ownerName: string | null }) {
   const [view, setView] = useState<View>({ kind: "checking" });
   const reported = useRef(false);
+  const section = useRef<HTMLElement>(null);
 
   useEffect(() => {
     let stopped = false;
@@ -52,6 +53,7 @@ export function BookingThanks({ backHref, ownerName }: { backHref: string; owner
       } catch {
         summary = null;
       }
+      clearResume(storage("session"), RESUME_KEY);
       queueMicrotask(() => {
         if (stopped) return;
         setView({ kind: "free", summary });
@@ -69,6 +71,7 @@ export function BookingThanks({ backHref, ownerName }: { backHref: string; owner
     let sessionId = sessionIdFrom(search);
     if (sessionId !== null) {
       rememberBookingSession(storage("session"), sessionId);
+      clearResume(storage("session"), RESUME_KEY);
       const { pathname, search: current, hash } = window.location;
       window.history.replaceState(window.history.state, "", `${pathname}${searchWithoutSessionId(current)}${hash}`);
     } else {
@@ -152,12 +155,26 @@ export function BookingThanks({ backHref, ownerName }: { backHref: string; owner
     case "checking":
       break;
   }
+  const final = view.kind !== "checking" && !(view.kind === "paid" && view.answer.booked === "waiting");
+
+  // A final state moves focus to the h1, once per state, so a screen reader starts reading from the answer.
+  useEffect(() => {
+    if (!final) return;
+    const h1 = section.current?.querySelector("h1");
+    if (h1) {
+      h1.tabIndex = -1;
+      h1.focus({ preventScroll: true });
+    }
+  }, [final, view.kind]);
   const showTimes = summary !== null && !(view.kind === "paid" && view.answer.booked === "clash");
 
   return (
-    <section className="hl-js-only relative pb-24 pt-18">
+    <section ref={section} className="hl-js-only relative pb-24 pt-18">
       <Glow variant="green" className="hl-glow-hero" />
-      <div role="status" aria-live="polite" aria-atomic="true">
+      <p role="status" aria-live="polite" className="sr-only">
+        {heading}
+      </p>
+      <div>
         <HeroContent
           title={heading}
           intro={

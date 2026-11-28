@@ -83,6 +83,8 @@ export type Resume = {
   starts: number[];
   answers: Record<string, string | boolean>;
   sessionId: string | null;
+  /** Proves to the release route that this browser started the checkout. */
+  releaseToken: string | null;
   item: string | null;
 };
 
@@ -115,6 +117,7 @@ export function loadResume(storage: StorageLike | null, key: string): Resume | n
       starts: starts as number[],
       answers: kept,
       sessionId: typeof record["sessionId"] === "string" ? record["sessionId"] : null,
+      releaseToken: typeof record["releaseToken"] === "string" ? record["releaseToken"] : null,
       item: typeof record["item"] === "string" ? record["item"] : null,
     };
   } catch {

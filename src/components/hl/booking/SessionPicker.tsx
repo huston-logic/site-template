@@ -113,14 +113,14 @@ export function SessionPicker(props: Props) {
         {rule ? ` ${rule}` : ""}
       </p>
       <p className="mt-1 text-small text-ink-2">{words.zone(zone)}</p>
-      <div role="status" aria-live="polite">
+      <div role="status" aria-live="polite" aria-atomic="true">
         {notice ? <p className="mt-3 rounded-card bg-tint p-3 text-label text-ink">{notice}</p> : null}
         {loading ? <p className="mt-3 text-small text-ink-2">{words.loading}</p> : null}
+        {failed ? <p className="mt-4 text-label text-rust">{words.timesFailed}</p> : null}
       </div>
 
       {failed ? (
-        <div className="mt-4">
-          <p className="text-label text-rust">{words.timesFailed}</p>
+        <div className="mt-1">
           <TextLink href={contactHref}>{words.contactLink}</TextLink>
         </div>
       ) : (
@@ -135,7 +135,7 @@ export function SessionPicker(props: Props) {
               <span aria-hidden="true">&rsaquo;</span>
             </button>
           </div>
-          <div role="group" aria-label={words.dayGroupLegend} className="mt-3 grid grid-cols-7 gap-1.5">
+          <div role="group" aria-label={words.dayGroupLegend} className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-7">
             {days.map((date) => {
               const open = (timesByDay.get(date)?.length ?? 0) > 0;
               const on = shownDay === date;
@@ -147,11 +147,11 @@ export function SessionPicker(props: Props) {
                   disabled={!open}
                   aria-pressed={on}
                   onClick={() => setDay(date)}
-                  className={`flex min-h-16 min-w-0 flex-col items-center justify-center rounded-card border px-0.5 py-2 font-ui focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-rust disabled:cursor-default disabled:border-hairline disabled:text-ink-2 ${
+                  className={`flex min-h-16 min-w-11 flex-col items-center justify-center rounded-card border px-0.5 py-2 font-ui focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-rust disabled:cursor-default disabled:border-hairline disabled:text-ink-2 ${
                     on ? "border-ink bg-ink text-silver" : "border-ink-2 text-ink"
                   }`}
                 >
-                  <span className="sr-only">{open ? dayName(date) : `${dayName(date)}, ${words.noTimesDay}`}</span>
+                  <span className="sr-only">{`${tile.weekday} ${tile.day} ${tile.month}, ${dayName(date)}${open ? "" : `, ${words.noTimesDay}`}`}</span>
                   <span aria-hidden="true" className="text-small font-medium">
                     {tile.weekday}
                   </span>
@@ -159,7 +159,7 @@ export function SessionPicker(props: Props) {
                     {tile.day}
                   </span>
                   <span aria-hidden="true" className="text-tag">
-                    {open ? tile.month : "–"}
+                    {tile.month}
                   </span>
                 </button>
               );

@@ -54,7 +54,10 @@ export const bookingWords = {
   loading: "Loading times",
   timesFailed: "Times could not be loaded. Please get in touch.",
   contactLink: "Get in touch",
-  chosenAnnounce: (index: number, count: number) => (index < count ? `Time chosen. Session ${index + 1} of ${count} is next.` : "Time chosen. Your details come next."),
+  chosenAnnounce: (label: string, index: number, count: number) => (index < count ? `${label} chosen. Session ${index + 1} of ${count} is next.` : `${label} chosen. Your details come next.`),
+  /** Said and shown when a change clears the times already chosen. */
+  clearedByService: "Your times were cleared because the service changed.",
+  clearedByParty: "Your times were cleared because the party size changed.",
   taken: "That time was just taken. Please choose another.",
   /** The details step. */
   detailsHeading: "Your details",

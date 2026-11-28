@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type SyntheticEvent } from "react";
-import { CHECKOUT_PATH, FREE_SUMMARY_KEY, RELEASE_PATH, RESUME_KEY, type CheckoutAnswer, type CheckoutRequest } from "@/booking/api";
+import { CHECKOUT_PATH, FREE_SUMMARY_KEY, RELEASE_PATH, RESUME_KEY, type CheckoutAnswer, type CheckoutRequest, type ReleaseRequest } from "@/booking/api";
 import { findService } from "@/booking/validate";
 import { formatLocal } from "@/booking/zone";
 import type { BookingFlowProps } from "@/blocks/library/booking/flow-slot-props";
@@ -65,6 +65,9 @@ export function BookingFlow({ view, service: startService }: BookingFlowProps) {
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ index: number; text: string } | null>(null);
   const [announce, setAnnounce] = useState("");
+  const [cleared, setCleared] = useState<string | null>(null);
+  const detailsHeading = useRef<HTMLHeadingElement>(null);
+  const focusDetails = useRef(false);
   const [item, setItem] = useState<{ slug: string; name: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
@@ -97,7 +100,8 @@ export function BookingFlow({ view, service: startService }: BookingFlowProps) {
             if (!gone && name !== null) setItem({ slug: saved.item, name });
           }
           if (saved.sessionId !== null) {
-            void fetch(RELEASE_PATH, { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ sessionId: saved.sessionId }) }).catch(() => undefined);
+            const release: ReleaseRequest | null = saved.releaseToken === null ? null : { sessionId: saved.sessionId, releaseToken: saved.releaseToken };
+            if (release !== null) void fetch(RELEASE_PATH, { method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin", body: JSON.stringify(release) }).catch(() => undefined);
           }
           clearResume(storage, RESUME_KEY);
         }
@@ -134,6 +138,14 @@ export function BookingFlow({ view, service: startService }: BookingFlowProps) {
     }
   }, [complete]);
 
+  // The last session chosen: focus goes to the details heading, once the form is drawn.
+  useEffect(() => {
+    if (complete && focusDetails.current) {
+      focusDetails.current = false;
+      detailsHeading.current?.focus();
+    }
+  }, [complete]);
+
   // The browser's back button restores this page from its cache with the button still busy; a token is also used up.
   useEffect(() => {
     const onShow = (event: PageTransitionEvent) => {
@@ -145,6 +157,12 @@ export function BookingFlow({ view, service: startService }: BookingFlowProps) {
     return () => window.removeEventListener("pageshow", onShow);
   }, [resetTurnstile]);
 
+  /** Clears the live region first so the same words said twice are still read out twice. */
+  function say(text: string) {
+    setAnnounce("");
+    window.setTimeout(() => setAnnounce(text), 60);
+  }
+
   function chooseService(id: string) {
     const next = findService(settings, id);
     setServiceId(id);
@@ -153,6 +171,10 @@ export function BookingFlow({ view, service: startService }: BookingFlowProps) {
     setFocusIndex(null);
     setNotice(null);
     setSendError(null);
+    if (starts.length > 0 && id !== serviceId) {
+      setCleared(words.clearedByService);
+      say(words.clearedByService);
+    } else setCleared(null);
   }
 
   function setParty(value: number) {
@@ -160,6 +182,10 @@ export function BookingFlow({ view, service: startService }: BookingFlowProps) {
     setStarts([]);
     setFocusIndex(null);
     setNotice(null);
+    if (starts.length > 0) {
+      setCleared(words.clearedByParty);
+      say(words.clearedByParty);
+    } else setCleared(null);
   }
 
   function pick(index: number, start: number) {
@@ -167,7 +193,9 @@ export function BookingFlow({ view, service: startService }: BookingFlowProps) {
     setFocusIndex(null);
     setNotice(null);
     setSendError(null);
-    setAnnounce(words.chosenAnnounce(index + 1, count));
+    setCleared(null);
+    say(words.chosenAnnounce(formatLocal(start, timeZone), index + 1, count));
+    focusDetails.current = index + 1 === count;
   }
 
   const idsFor = (field: FormField): FieldIds => ({ input: `${prefix}-${field.id}`, help: `${prefix}-${field.id}-help`, error: `${prefix}-${field.id}-error` });
@@ -238,12 +266,13 @@ export function BookingFlow({ view, service: startService }: BookingFlowProps) {
     if (body.ok && body.kind === "checkout") {
       // Stripe's hosted page is the only place the visitor is sent; anything else in the answer is not trusted.
       if (!body.url.startsWith("https://")) return fail("unavailable");
-      saveResume(browserStorage("session"), RESUME_KEY, { service: service.id, party, starts, answers, sessionId: body.sessionId, item: item?.slug ?? null });
+      saveResume(browserStorage("session"), RESUME_KEY, { service: service.id, party, starts, answers, sessionId: body.sessionId, releaseToken: body.releaseToken ?? null, item: item?.slug ?? null });
       track("begin_checkout", { value: body.dueNow, currency: body.currency.toUpperCase() });
       window.location.assign(body.url);
       return;
     }
     if (body.ok) {
+      clearResume(browserStorage("session"), RESUME_KEY);
       try {
         window.sessionStorage.setItem(FREE_SUMMARY_KEY, JSON.stringify(body.summary));
       } catch {
@@ -307,13 +336,14 @@ export function BookingFlow({ view, service: startService }: BookingFlowProps) {
       <div role="status" aria-live="polite">
         {cancelled ? <p className="mb-7 rounded-card bg-tint p-4 text-list">{words.cancelled}</p> : null}
       </div>
-      <p role="status" className="sr-only">
+      <p role="status" aria-live="polite" className="sr-only">
         {announce}
       </p>
       <div className="space-y-8">
         <ServiceCards services={services} currency={currency ?? "usd"} selected={serviceId} onSelect={chooseService} />
 
         {service !== null && service.party.max > 1 ? <PartyStepper min={service.party.min} max={service.party.max} value={party} onChange={setParty} /> : null}
+        {cleared !== null ? <p className="rounded-card bg-tint p-3 text-label text-ink">{cleared}</p> : null}
 
         {service === null
           ? null
@@ -335,7 +365,7 @@ export function BookingFlow({ view, service: startService }: BookingFlowProps) {
 
         {complete && summary !== null ? (
           <form ref={formRef} method="post" noValidate onSubmit={submit} onFocus={startTurnstile} className="space-y-6 border-t border-hairline pt-8">
-            <h3 className="font-ui text-item font-bold">{words.detailsHeading}</h3>
+            <h3 ref={detailsHeading} tabIndex={-1} className="font-ui text-item font-bold focus:outline-none">{words.detailsHeading}</h3>
             {form.fields.map((field) => (
               <FieldView key={field.id} field={field} ids={idsFor(field)} label={labelFor(field, false)} error={errors[field.id]} rich={false} emptyChoice="" />
             ))}

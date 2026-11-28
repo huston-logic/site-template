@@ -57,10 +57,11 @@ test("a confirm answer is read only when it is whole", () => {
 
 test("resume data round-trips and bad data is ignored", () => {
   const storage = memory();
-  const resume = { service: "workshop", party: 3, starts: [1, 2], answers: { name: "Ada", box: true }, sessionId: "cs_1", item: null };
+  const resume = { service: "workshop", party: 3, starts: [1, 2], answers: { name: "Ada", box: true }, sessionId: "cs_1", releaseToken: "rt_1", item: null };
   saveResume(storage, "k", resume);
   assert.deepEqual(loadResume(storage, "k"), resume);
   clearResume(storage, "k");
+  assert.equal(storage.getItem("k"), null);
   assert.equal(loadResume(storage, "k"), null);
   storage.setItem("k", "{not json");
   assert.equal(loadResume(storage, "k"), null);
