@@ -4,7 +4,7 @@ export const catalogDefinition = defineBlock({
   type: "catalog",
   title: "Catalog",
   description:
-    "Every piece in your catalog as a card with its photo, name and price estimate, with filters, a count and a Show more button. Each card opens the piece's own page, where the visitor chooses options and asks for a quote. Without JavaScript every piece is listed. It is left out of the page while no piece is visible.",
+    "Every piece in your catalog as a card with its photo, name and price estimate, with filters, a count and a Show more button. A card with two or more photos shows its second photo when a mouse rests on it or the keyboard reaches it; that photo loads only then, and on a touch screen the card stays as it is. Each card opens the piece's own page, where the visitor swipes or steps through the photos, opens them larger, chooses options and asks for a quote. Without JavaScript every piece is listed. It is left out of the page while no piece is visible.",
   source: "library",
   collection: "catalog",
   interactive: "The filter bar, the count, the empty state and Show more need JavaScript; they show and hide the cards the server already drew, so the whole catalog still lists without it.",

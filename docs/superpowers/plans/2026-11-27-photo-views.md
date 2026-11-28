@@ -38,7 +38,7 @@ scroll hijacking. The piece page's frame becomes a horizontal scroll-snap strip 
 `snap-center snap-always`, scrollbar hidden): the browser's own swipe, momentum and edge bounce. An
 `IntersectionObserver` on the photos (root: the strip) keeps the index, so the pressed thumbnail follows the swipe; a
 thumbnail press scrolls the strip, smoothly only without reduced motion (CSS `scroll-behavior` on the strip; the global
-reduced-motion rule makes it instant). This amends R12's "no swipe handler". Cost if wrong: none for visitors; a trackpad
+reduced-motion rule makes it instant). A pointer press on the strip ends a thumbnail's aim at once (a pointerdown that only clears state; it never moves or stops the scroll). This amends R12's "no swipe handler". Cost if wrong: none for visitors; a trackpad
 on a laptop also scrolls the strip sideways, which is expected.
 
 **P5. Full photos still load one at a time, when they start to show.** Before hydration the strip holds only photo 1, so
@@ -50,7 +50,7 @@ afterwards. Cost if wrong: a fast swipe may show the mat for a moment before the
 hydration, named "Open photo 2 of 4 larger: <alt>") calls `showModal()`: the rest of the page is inert, focus is held
 inside and Escape closes. It shows the full photo as large as the screen allows (`object-contain`, the same file, already
 loaded), "Photo 2 of 4" in a polite live region, Previous and Next buttons (disabled at the ends, no wrap), Left and
-Right arrow keys, and a Close button. A press outside the photo and the controls closes it. Inside it the photos are the
+Right arrow keys, and a Close button. Its top and bottom controls sit on the page grid (the site's Container). A press outside the photo and the controls closes it. Inside it the photos are the
 same swipe strip (P4), so a phone swipes there too. Closing returns focus to the element that opened it and the page's
 strip and thumbnails show the photo last seen. The page does not scroll behind it (`html:has(dialog[open])`). Cost if
 wrong: none known; no pinch zoom (not in this run).
@@ -63,6 +63,8 @@ second image on its card. Cost if wrong: a one-photo piece has no closer look.
 covers them. Cost if wrong: a client wanting other wording edits the module.
 
 **P9. No new dependency, no CSP change, no new token.** Motion uses the existing tokens. Cost if wrong: none.
+
+**P10. Thumbnails are four across below 640 px wide**, six above (they were six everywhere). At 320 px six across gave 37 px buttons, under the 44 px rule. Cost if wrong: a six-photo piece shows two rows of thumbnails on a phone.
 
 ## Tasks (one commit each, `npm run check:fast` before each)
 
