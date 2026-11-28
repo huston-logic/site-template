@@ -36,10 +36,15 @@ the block and the Worker. Booking will be a second product folder that calls the
 `{ provider: "stripe", currency: "usd" }`. Owner-only file. With `null`: the Worker answers 404 on every payments
 route; `wrangler.jsonc` lists no Stripe secret; the thank-you page `/gift-cards/thanks` is not in the build (removed by
 `scripts/finish-build.mjs`); no CSP origin is added (Checkout is a top-level navigation, which the CSP does not
-govern); and `npm run check:content` fails a live page holding a `gift-card` block. Measured by comparing a build of
-this branch with `main`: every page's HTML, `_headers`, the sitemap and every file a page loads are byte-identical.
-The block's own script exists in `out/_next/static` for the showcase `/blocks` (not in production builds), as every
-block's does. Cost if wrong (Grant meant every byte of `out/`): hide the showcase entry behind the setting, an hour.
+govern); `npm run check:content` fails a live page holding a `gift-card` block; and a production build has no gift card
+script. That last one needed a module swap: every catch-all page loads every block's client code (the quote builder's
+already did on `main`), so the form alone added about 15 KB to every page. The block renders a form slot that
+`next.config.ts` points at the real form only when payments are on or the build is not production (previews, CI and
+the showcase keep it), the pattern the tracking tags use. Measured on production builds (Workers Builds on `main`) of
+this branch and `main`: every page pixel-identical at 1440 and 390, `_headers` and the sitemap byte-identical, no gift
+card script; the shared stylesheet is 1.1 KB larger (Tailwind scans the block's source) and two shared scripts
+reshuffle by 88 bytes net (the bot check learned the `gift_card` action). Cost if wrong (Grant meant every byte of
+`out/`): exclude the block's files from Tailwind's scan while payments are off, about an hour.
 
 **R2. One place chooses the provider.** `worker/payments/provider.ts` exports `paymentProvider(config, env)`, which
 returns the Stripe client for `"stripe"` and is marked `OTHER PROVIDER GOES HERE`. Products talk to a small
