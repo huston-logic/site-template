@@ -81,7 +81,7 @@ export const giftCardEmails = {
       `Certificate to the recipient: ${v.recipientState}`,
       ...v.ledger,
       ...(v.webhookMissing
-        ? ["", "Stripe's notice of this payment did not arrive within 90 seconds, so the thank-you page sent the certificate instead. Check the webhook address and events in Stripe (docs/PAYMENTS.md)."]
+        ? ["", "The certificate for this sale was sent by the thank-you page's check, not by Stripe's notice. A payment method that clears slowly can cause this. If this note appears often, check the webhook address and events in Stripe (docs/PAYMENTS.md)."]
         : []),
       ...(v.mode ? ["", `Mode: ${v.mode}`] : []),
     ];
@@ -117,6 +117,17 @@ export const giftCardEmails = {
       ...v.ledger,
     ];
     return { subject: `Action needed: gift card not delivered (${v.amount} from ${v.buyer})`, text: lines.join("\n") };
+  },
+
+  /** A payment Stripe reports as paid that does not match what the Worker asked for. No certificate is issued. */
+  mismatch(v: { amount: string; payment: string; expected: string }): { subject: string; text: string } {
+    const lines = [
+      `A payment of ${v.amount} was taken for a gift card, but it does not match the sale the site started (${v.expected}), so no certificate was issued and nothing was sent to the buyer.`,
+      "You may need to refund it in Stripe, or contact the buyer if the payment was meant to go through.",
+      "",
+      `Payment: ${v.payment}`,
+    ];
+    return { subject: `Action needed: gift card payment did not match (${v.amount})`, text: lines.join("\n") };
   },
 
   /** One ledger result for the owner's notes. `where` is "Sheet" or "Pipeline app"; `row` is the cells to add by hand, label first. */

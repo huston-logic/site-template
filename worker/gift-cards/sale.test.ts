@@ -13,6 +13,7 @@ const INPUT: SaleInput = {
   recipientEmail: "",
   message: "x".repeat(300),
   siteMode: "production",
+  site: "example-site",
 };
 const NOW = Math.floor(Date.UTC(2026, 10, 27) / 1000);
 

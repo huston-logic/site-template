@@ -11,8 +11,8 @@ import { json } from "./respond.ts";
  * (never trusted from the URL) and answered as `{ status, value, currency, transactionId, delivered, amountText,
  * recipientCopy }`. `status` is "paid", "pending" (a slow payment method has not cleared), "unpaid" (the buyer did not pay) or
  * "error". `transactionId` is the payment id, never the gift card code. When the money is in but the certificate has not gone out
- * and the payment is over 90 seconds old, the webhook did not arrive: the same fulfilment runs here (the marks make that
- * safe) and the owner is told so.
+ * and the payment is over 90 seconds old (the webhook is late, or a slow payment method has only just cleared): the same
+ * fulfilment runs here (the marks make that safe) and the owner's note says the thank-you page sent it.
  */
 
 export const REPAIR_AFTER_SECONDS = 90;

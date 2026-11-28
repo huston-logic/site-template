@@ -334,6 +334,7 @@ describe("the walk: checkout, payment, one signed webhook", () => {
     assert.ok(isGiftCode(code), `not a gift card code: ${code}`);
     assert.equal(session.metadata["kind"], "gift_card");
     assert.equal(session.metadata["site_mode"], "production");
+    assert.equal(session.metadata["site"], "example-site", "the sale is bound to this site's Worker name");
     assert.deepEqual(session.piMetadata, session.metadata, "the payment carries the same details, where the marks live");
     assert.equal(emails.length, 0, "nothing is sent before payment");
     assert.equal(rows.length, 0);
@@ -521,20 +522,58 @@ describe("refused with nothing created or sent", () => {
     assert.equal(emails.length, 3);
   });
 
-  test("a forged amount: the paid total is not what the Worker sent", async () => {
+  test("a forged amount: no code, one alert to the owner naming the payment and amount, never repeated", async () => {
     const w = worker();
     const session = await buy(w);
     pay(session);
     session.amount_total = 100;
     assert.equal((await deliver(w, session)).status, 200);
-    assert.equal(emails.length, 0);
+    assert.equal(emails.length, 1);
+    const [alert] = emailsOf("mismatch");
+    assert.equal(alert?.key, `gift-${session.pi}-mismatch`);
+    assert.equal(alert?.to, "hello@example.test");
+    assert.ok(alert?.text.includes(session.pi));
+    assert.ok(alert?.text.includes("$1.00"));
+    assert.ok(alert?.text.includes("no certificate was issued") && alert.text.includes("refund"));
+    assert.ok(!alert?.text.includes(session.metadata["code"] ?? "?"), "no code is ever given out for a mismatch");
+    assert.equal(alert?.attachments, undefined);
     assert.equal(rows.length, 0);
-    assert.deepEqual(Object.keys(session.piMetadata).filter((key) => key.startsWith("hl_")), []);
+    assert.deepEqual(Object.keys(session.piMetadata).filter((key) => key.startsWith("hl_")), ["hl_mismatch"]);
     assert.ok(logs.some((line) => line.includes("payment_mismatch")));
+    assert.equal((await deliver(w, session)).status, 200);
+    assert.equal(emailsOf("mismatch").length, 1, "the mark stops a second alert");
     session.amount_total = 5000;
     session.currency = "eur";
     assert.equal((await deliver(w, session)).status, 200);
-    assert.equal(emails.length, 0, "a different currency is a mismatch too");
+    assert.equal(emails.length, 1, "a different currency is a mismatch too, and the alert is still once");
+    assert.equal(madeCertificates.length, 0);
+  });
+
+  test("a mismatch alert that cannot be sent is a 500 so Stripe tries again", async () => {
+    const w = worker();
+    const session = await buy(w);
+    pay(session);
+    session.amount_total = 100;
+    resendFails = () => true;
+    assert.equal((await deliver(w, session)).status, 500);
+    resendFails = () => false;
+    assert.equal((await deliver(w, session)).status, 200);
+    assert.equal(emailsOf("mismatch").length, 1);
+  });
+
+  test("a sale bound to another site, or to none, is ignored in silence", async () => {
+    const w = worker();
+    const session = await buy(w);
+    pay(session);
+    session.metadata["site"] = "other-site";
+    assert.equal((await deliver(w, session)).status, 200);
+    session.amount_total = 100;
+    assert.equal((await deliver(w, session)).status, 200);
+    delete session.metadata["site"];
+    assert.equal((await deliver(w, session)).status, 200);
+    assert.equal(emails.length, 0, "not even a mismatch alert");
+    assert.equal(rows.length, 0);
+    assert.equal((await w.fetch(confirmRequest(session.id), env())).status, 404);
   });
 
   test("an amount outside the custom range, a custom amount with the range off, an amount nobody offered", async () => {
@@ -654,6 +693,17 @@ describe("key mode, development and payments off", () => {
     assert.equal(stripeCalls.length, 0);
     const confirm = await w.fetch(confirmRequest("cs_test_session1"), env({ STRIPE_SECRET_KEY: TEST_KEY }));
     assert.equal(confirm.status, 502);
+    assert.equal(stripeCalls.length, 0);
+  });
+
+  test("no webhook secret or no Resend key: 502 payments_misconfigured, nothing created in Stripe", async () => {
+    const w = worker();
+    for (const environment of [env({ STRIPE_WEBHOOK_SECRET: undefined }), env({ RESEND_API_KEY: undefined })]) {
+      const response = await w.fetch(checkoutRequest(valid), environment);
+      assert.equal(response.status, 502);
+      assert.deepEqual(await response.json(), { ok: false, error: "payments_misconfigured" });
+    }
+    assert.equal(sessions.length, 0);
     assert.equal(stripeCalls.length, 0);
   });
 
@@ -815,17 +865,38 @@ describe("failure after payment", () => {
     assert.equal(emailsOf("owner").length, 1);
   });
 
-  test("a mark that cannot be written is a 500, and the retry sends nothing twice", async () => {
+  test("a mark that cannot be written after a successful step is a 200 (Stripe stops retrying), the owner is told what really happened, nothing goes out twice", async () => {
     const w = worker();
     const session = await buy(w);
     pay(session);
     markFails = true;
-    assert.equal((await deliver(w, session)).status, 500);
+    assert.equal((await deliver(w, session)).status, 200);
+    assert.ok(logs.some((line) => line.includes("payment_marks_failed")));
+    assert.ok(emailsOf("owner")[0]?.text.includes("Sheet: saved"), "the note reports this run's result, not the missing mark");
     markFails = false;
     assert.equal((await deliver(w, session)).status, 200);
     assert.equal(emailsOf("buyer").length, 1);
     assert.equal(emailsOf("owner").length, 1);
     assert.equal(rows.length, 1);
+  });
+
+  test("a failed step is still a 500 even when marks also fail", async () => {
+    const w = worker();
+    const session = await buy(w);
+    pay(session);
+    markFails = true;
+    resendFails = (key) => key.endsWith("-owner");
+    assert.equal((await deliver(w, session)).status, 500);
+  });
+
+  test("the buyer's alert reports the ledger this run saved even when its mark could not be written", async () => {
+    const w = worker();
+    const session = await buy(w);
+    pay(session);
+    markFails = true;
+    resendFails = (key) => key.endsWith("-buyer");
+    assert.equal((await deliver(w, session)).status, 500);
+    assert.ok(emailsOf("alert")[0]?.text.includes("Sheet: saved"));
   });
 });
 
@@ -902,7 +973,7 @@ describe("the thank-you page's confirm route", () => {
     assert.equal(emailsOf("buyer").length, 1);
     assert.equal(emailsOf("owner").length, 1);
     assert.equal(rows.length, 1);
-    assert.ok(emailsOf("owner")[0]?.text.includes("did not arrive within 90 seconds"));
+    assert.ok(emailsOf("owner")[0]?.text.includes("sent by the thank-you page"));
 
     // The webhook turns up after all, and the page is reloaded: neither does anything more.
     assert.equal((await deliver(w, session)).status, 200);

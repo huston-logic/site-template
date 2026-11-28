@@ -29,6 +29,8 @@ export interface Sale {
   cameFrom: string;
   lead: { source?: string; attribution?: PipelineAttribution };
   siteMode: string;
+  /** The Worker name of the site that started this sale: two sites on one Stripe account never act on each other's sales. */
+  site: string;
 }
 
 export interface SaleInput {
@@ -41,6 +43,7 @@ export interface SaleInput {
   recipientEmail: string;
   message: string;
   siteMode: string;
+  site: string;
 }
 
 const cap = (text: string, max = VALUE_MAX): string => (text.length > max ? text.slice(0, max) : text);
@@ -72,6 +75,7 @@ export function saleMetadata(sale: SaleInput, attribution: Attribution | null, r
     recipient_email: cap(sale.recipientEmail),
     message: cap(sale.message),
     site_mode: sale.siteMode,
+    site: sale.site,
     ...sourceMetadata(attribution, receivedAtIso),
   };
 }
@@ -130,5 +134,6 @@ export function parseSale(metadata: Record<string, string>): Sale | null {
     cameFrom: metadata["src_line"] || "Came from: not known",
     lead: parseLead(metadata),
     siteMode: metadata["site_mode"] ?? "",
+    site: metadata["site"] ?? "",
   };
 }

@@ -4,7 +4,7 @@ import { paymentProvider, verifyPaymentWebhook } from "../payments/provider.ts";
 import { handleCheckout } from "./checkout.ts";
 import { handleConfirm } from "./confirm.ts";
 import type { GiftCardDeps } from "./deps.ts";
-import { fulfil, judgeSession } from "./fulfil.ts";
+import { alertMismatch, fulfil, judgeSession } from "./fulfil.ts";
 import { json } from "./respond.ts";
 
 /**
@@ -27,7 +27,7 @@ export const isPaymentsPath = (pathname: string): boolean => pathname === CHECKO
 /**
  * Stripe's webhook (design R6, R7). The signature is checked first, over the raw body; then only the two payment events act.
  * The session is read again from Stripe (the event body is not trusted), must be a paid gift card of this site whose amount
- * and currency match what the Worker sent, and then fulfilment runs. 200 means done or nothing to do; 500 asks Stripe to retry.
+ * and currency match what the Worker sent (a paid one that does not match is a log and one owner alert, never a certificate), and then fulfilment runs. 200 means done or nothing to do; 500 asks Stripe to retry.
  */
 async function handleWebhook(request: Request, deps: GiftCardDeps): Promise<Response> {
   const { env, mode, payments } = deps;
@@ -64,7 +64,9 @@ async function handleWebhook(request: Request, deps: GiftCardDeps): Promise<Resp
   }
   if (judged.kind === "mismatch") {
     log("payment_mismatch");
-    return json(200, { received: true });
+    // Never a code, never a retry for the amounts themselves; only an owner alert that could not be sent asks Stripe to try again.
+    const told = await alertMismatch(deps, made.provider, session, judged.sale);
+    return json(told ? 200 : 500, { received: told });
   }
   const result = await fulfil(deps, made.provider, session, judged.sale, { webhookMissing: false });
   return json(result.done ? 200 : 500, { received: result.done });

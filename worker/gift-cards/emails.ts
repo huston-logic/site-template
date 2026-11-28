@@ -4,6 +4,7 @@ import type { OutgoingEmail } from "../email.ts";
 import type { PaymentSession } from "../payments/types.ts";
 import type { GiftCardDeps } from "./deps.ts";
 import { formatMoney } from "../payments/money.ts";
+import { PAYMENT_CURRENCIES, type PaymentCurrency } from "../../src/payments/config.ts";
 import { ledgerCells, ledgerRow } from "./ledger.ts";
 import type { Sale } from "./sale.ts";
 
@@ -131,4 +132,17 @@ export function alertEmail(deps: GiftCardDeps, siteEmail: string, sale: Sale, se
     text,
     ...(pdf ? { attachments: [certificateAttachment(sale.code, pdf)] } : {}),
   };
+}
+
+/** What Stripe took, written plainly even when its currency is not one the site supports. */
+function takenText(session: PaymentSession): string {
+  if (session.amountTotal === null) return "an unknown amount";
+  const currency = session.currency ?? "";
+  return (PAYMENT_CURRENCIES as readonly string[]).includes(currency) ? formatMoney(session.amountTotal, currency as PaymentCurrency) : `${(session.amountTotal / 100).toFixed(2)} ${currency.toUpperCase()}`;
+}
+
+/** The note to the owner for a paid session that does not match its sale. It carries no code and no certificate. */
+export function mismatchEmail(deps: GiftCardDeps, siteEmail: string, sale: Sale, session: PaymentSession): OutgoingEmail {
+  const { subject, text } = giftCardEmails.mismatch({ amount: takenText(session), payment: session.payment?.id ?? session.id, expected: formatMoney(sale.amountMinor, sale.currency) });
+  return { from: fromSite(deps, siteEmail), to: siteEmail, replyTo: siteEmail, subject: `${deps.mode === "production" ? "" : "[Preview] "}${subject}`, text };
 }

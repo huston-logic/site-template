@@ -149,13 +149,18 @@ export async function handleCheckout(request: Request, deps: GiftCardDeps): Prom
     log("payments_misconfigured", { reason: made.reason });
     return json(502, { ok: false, error: "payments_misconfigured" });
   }
+  // Nobody pays into a site that could not deliver: without the webhook secret or the email key no sale could be fulfilled.
+  if (!env.STRIPE_WEBHOOK_SECRET || !env.RESEND_API_KEY) {
+    log("payments_misconfigured", { reason: !env.STRIPE_WEBHOOK_SECRET ? "no_webhook_secret" : "no_email_key" });
+    return json(502, { ok: false, error: "payments_misconfigured" });
+  }
 
   const received = new Date(deps.now());
   const receivedAt = received.toISOString();
   const attribution = readAttribution(request.headers.get("cookie"), Math.floor(received.getTime() / 1000));
   const code = newGiftCode();
   const metadata = saleMetadata(
-    { code, amountMinor: amount.minor, currency: payments.currency, buyerName: value.buyerName, buyerEmail: value.buyerEmail, recipientName: value.recipientName, recipientEmail: value.recipientEmail, message: value.message, siteMode: mode },
+    { code, amountMinor: amount.minor, currency: payments.currency, buyerName: value.buyerName, buyerEmail: value.buyerEmail, recipientName: value.recipientName, recipientEmail: value.recipientEmail, message: value.message, siteMode: mode, site: config.workerName },
     attribution,
     receivedAt,
   );

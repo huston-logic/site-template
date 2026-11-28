@@ -5,7 +5,7 @@ import { readMarks, writeMark, type MarkKey } from "../payments/marks.ts";
 import type { PaymentProvider, PaymentSession } from "../payments/types.ts";
 import type { CertificateInput } from "./certificate-types.ts";
 import type { GiftCardDeps } from "./deps.ts";
-import { alertEmail, buyerEmail, dateText, facts, ownerEmail, recipientEmail } from "./emails.ts";
+import { alertEmail, buyerEmail, dateText, facts, mismatchEmail, ownerEmail, recipientEmail } from "./emails.ts";
 import { saveLedger } from "./ledger.ts";
 import { parseSale, type Sale } from "./sale.ts";
 
@@ -21,20 +21,26 @@ import { parseSale, type Sale } from "./sale.ts";
  * - The ledger fails: the owner email says the row was NOT saved and gives it cell by cell; the mark `by-hand` stops a
  *   retry adding it a second time.
  * - The recipient copy or the owner email fails: "not done" so Stripe retries; the marked steps are skipped.
+ * - A mark that cannot be written after its step succeeded is NOT a failure: the run answers done (logged as
+ *   `payment_marks_failed`), because a retry after Resend's 24-hour idempotency window would send everything twice. The
+ *   emails always report this run's own results (local variables); the marks only say what an earlier run did.
+ * - A paid session of this site that does not match its sale gets no certificate and no code: one alert to the owner.
  */
 
 export type JudgedSession =
   | { kind: "paid"; sale: Sale }
   | { kind: "not_paid"; pending: boolean }
   | { kind: "ignore" }
-  | { kind: "mismatch" };
+  | { kind: "mismatch"; sale: Sale };
 
 /** Decides whether a session is a paid gift card of this site, by its own metadata. The amount and currency must match what the Worker sent. */
-export function judgeSession(deps: Pick<GiftCardDeps, "payments" | "mode">, session: PaymentSession): JudgedSession {
+export function judgeSession(deps: Pick<GiftCardDeps, "payments" | "mode" | "config">, session: PaymentSession): JudgedSession {
+  // Another site's sale (two sites on one Stripe account), or one with no site at all, is none of this Worker's business.
+  if (session.metadata["site"] !== deps.config.workerName) return { kind: "ignore" };
   const sale = parseSale(session.metadata);
   if (!sale || sale.siteMode !== deps.mode) return { kind: "ignore" };
   if (session.paymentStatus !== "paid") return { kind: "not_paid", pending: session.status === "complete" };
-  if (session.amountTotal !== sale.amountMinor || session.currency !== sale.currency || sale.currency !== deps.payments.currency || session.payment === null) return { kind: "mismatch" };
+  if (session.amountTotal !== sale.amountMinor || session.currency !== sale.currency || sale.currency !== deps.payments.currency || session.payment === null) return { kind: "mismatch", sale };
   return { kind: "paid", sale };
 }
 
@@ -59,12 +65,14 @@ export async function fulfil(deps: GiftCardDeps, provider: PaymentProvider, sess
   const paidMs = (payment.paidAt ?? session.created) * 1000;
   const soldAtIso = new Date(paidMs).toISOString();
   const issuedMs = session.created * 1000;
-  let done = true;
+  // `stepFailed` asks for a retry; `marksFailed` only means a later run may repeat a step whose email is idempotent.
+  let stepFailed = false;
+  let marksFailed = false;
 
   const mark = async (key: MarkKey, value: string): Promise<void> => {
     if (await writeMark(provider, payment.id, key, value)) marks[key] = value;
     else {
-      done = false;
+      marksFailed = true;
       log("mark_failed", { step: key });
     }
   };
@@ -106,11 +114,16 @@ export async function fulfil(deps: GiftCardDeps, provider: PaymentProvider, sess
   }
 
   // 2. The ledger row. Done now, even when the buyer's email failed, so the sale is on record whatever happens next.
-  if (marks.hl_ledger === undefined) await mark("hl_ledger", await saveLedger(deps, sale, payment.id, soldAtIso));
+  let ledger = marks.hl_ledger;
+  if (ledger === undefined) {
+    ledger = await saveLedger(deps, sale, payment.id, soldAtIso);
+    await mark("hl_ledger", ledger);
+  }
 
+  let alerted = marks.hl_alert !== undefined;
   if (!buyerSent) {
-    if (marks.hl_alert === undefined) {
-      const alerted = await sendEmail(env.RESEND_API_KEY, alertEmail(deps, siteEmail, sale, session, soldAtIso, marks.hl_ledger, await certificate()), idempotency(payment.id, "alert"), "gift_alert");
+    if (!alerted) {
+      alerted = await sendEmail(env.RESEND_API_KEY, alertEmail(deps, siteEmail, sale, session, soldAtIso, ledger, await certificate()), idempotency(payment.id, "alert"), "gift_alert");
       if (alerted) await mark("hl_alert", "sent");
     }
     return { done: false, delivered: false };
@@ -123,16 +136,35 @@ export async function fulfil(deps: GiftCardDeps, provider: PaymentProvider, sess
     if (bytes && (await sendEmail(env.RESEND_API_KEY, recipientEmail(deps, siteEmail, sale, issuedMs, bytes), idempotency(payment.id, "recipient"), "gift_recipient"))) await mark("hl_recipient", "sent");
     else {
       recipient = "not-sent";
-      done = false;
+      stepFailed = true;
     }
   }
 
   // 4. The note to the owner, once.
   if (marks.hl_owner === undefined) {
-    const email = ownerEmail(deps, siteEmail, sale, session, soldAtIso, { buyerLate: marks.hl_alert !== undefined, recipient, ledger: marks.hl_ledger, webhookMissing: options.webhookMissing });
+    const email = ownerEmail(deps, siteEmail, sale, session, soldAtIso, { buyerLate: alerted, recipient, ledger, webhookMissing: options.webhookMissing });
     if (await sendEmail(env.RESEND_API_KEY, email, idempotency(payment.id, "owner"), "gift_owner")) await mark("hl_owner", "sent");
-    else done = false;
+    else stepFailed = true;
   }
 
-  return { done, delivered: true };
+  if (marksFailed && !stepFailed) log("payment_marks_failed");
+  return { done: !stepFailed, delivered: true };
+}
+
+/**
+ * A paid session of this site that does not match its sale: money was taken and no certificate is issued, so the owner is told
+ * once (the mark `hl_mismatch` on the payment, and the same Resend idempotency key). True when the owner has been told, now or
+ * before; false asks the caller to answer 500 so Stripe tries the alert again.
+ */
+export async function alertMismatch(deps: GiftCardDeps, provider: PaymentProvider, session: PaymentSession, sale: Sale): Promise<boolean> {
+  const siteEmail = deps.config.siteEmail;
+  if (!siteEmail || !deps.env.RESEND_API_KEY) {
+    log("fulfil_config_incomplete");
+    return false;
+  }
+  const payment = session.payment;
+  if (payment && readMarks(session).hl_mismatch !== undefined) return true;
+  const sent = await sendEmail(deps.env.RESEND_API_KEY, mismatchEmail(deps, siteEmail, sale, session), idempotency(payment?.id ?? session.id, "mismatch"), "gift_mismatch");
+  if (sent && payment && !(await writeMark(provider, payment.id, "hl_mismatch", "sent"))) log("mark_failed", { step: "hl_mismatch" });
+  return sent;
 }

@@ -6,7 +6,7 @@ import type { PaymentProvider, PaymentSession } from "./types.ts";
  * database. The marks live on the provider's payment record, next to the sale's own details.
  */
 
-export const MARK_KEYS = ["hl_buyer", "hl_recipient", "hl_ledger", "hl_owner", "hl_alert"] as const;
+export const MARK_KEYS = ["hl_buyer", "hl_recipient", "hl_ledger", "hl_owner", "hl_alert", "hl_mismatch"] as const;
 export type MarkKey = (typeof MARK_KEYS)[number];
 export type Marks = Partial<Record<MarkKey, string>>;
 
