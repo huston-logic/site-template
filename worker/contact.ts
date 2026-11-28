@@ -13,6 +13,7 @@ import { findForm, formFiles, formSpec, TOKEN_KEY, type Delivery, type FormSourc
 import type { MakeCertificate } from "./gift-cards/deps.ts";
 import { handlePaymentsRoute, isPaymentsPath } from "./gift-cards/routes.ts";
 import { jsonResponse } from "./http.ts";
+import { makeCertificate } from "./gift-cards/make-certificate.ts";
 import { loadCatalogData, quoteLazySpec } from "./quote.ts";
 import { autoReplyEmail, notificationEmail, pipelineMessage, sheetRow } from "./messages.ts";
 import { sendToPipeline } from "./pipeline.ts";
@@ -246,7 +247,6 @@ export interface WorkerOptions {
   now?: () => number;
 }
 
-const notWired: MakeCertificate = () => Promise.reject(new Error("The certificate maker is not wired."));
 const bundledSettings: GiftCardSettings = bundledGiftCards;
 
 /**
@@ -276,7 +276,7 @@ export function createWorker(config: WorkerConfig, forms: FormSource = formFiles
           mode,
           url,
           settings: options.giftCards ?? bundledSettings,
-          makeCertificate: options.makeCertificate ?? notWired,
+          makeCertificate: options.makeCertificate ?? makeCertificate,
           now: options.now ?? Date.now,
           save: (saveMode, delivery) => saveSubmission(config, env, saveMode, delivery),
         });
