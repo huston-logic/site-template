@@ -301,7 +301,7 @@ export function GiftCardForm({ settings, currency }: { settings: GiftCardSetting
 
         <Labeled id={idFor("recipientName")} label={words.recipientNameLabel} error={errors.recipientName}>
           {(describedBy) => (
-            <input id={idFor("recipientName")} name="recipientName" type="text" autoComplete="off" maxLength={100} value={values.recipientName} onChange={onText("recipientName")} aria-required="true" aria-invalid={errors.recipientName ? "true" : undefined} aria-describedby={describedBy} className={inputClass} />
+            <input id={idFor("recipientName")} name="recipientName" type="text" autoComplete="off" maxLength={100} value={values.recipientName} onChange={onText("recipientName")} aria-invalid={errors.recipientName ? "true" : undefined} aria-describedby={describedBy} className={inputClass} />
           )}
         </Labeled>
 

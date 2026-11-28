@@ -73,14 +73,13 @@ test.describe("the block on the showcase", () => {
     await expect(form.getByText(giftCardWords.fieldErrors.amount)).toBeVisible();
     await expect(form.getByText(giftCardWords.fieldErrors.buyerName)).toBeVisible();
     await expect(form.getByText(giftCardWords.fieldErrors.buyerEmail)).toBeVisible();
-    await expect(form.getByText(giftCardWords.fieldErrors.recipientName)).toBeVisible();
     // The optional fields are not faulted when empty.
+    await expect(form.getByLabel(giftCardWords.recipientNameLabel, { exact: true })).not.toHaveAttribute("aria-invalid", "true");
     await expect(form.getByLabel(giftCardWords.recipientEmailLabel, { exact: true })).not.toHaveAttribute("aria-invalid", "true");
 
     for (const [label, error] of [
       [giftCardWords.buyerNameLabel, giftCardWords.fieldErrors.buyerName],
       [giftCardWords.buyerEmailLabel, giftCardWords.fieldErrors.buyerEmail],
-      [giftCardWords.recipientNameLabel, giftCardWords.fieldErrors.recipientName],
     ] as const) {
       const control = form.getByLabel(label, { exact: true });
       await expect(control).toHaveAttribute("aria-invalid", "true");

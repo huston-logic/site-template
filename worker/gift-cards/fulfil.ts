@@ -1,3 +1,4 @@
+import { formatAmount } from "../payments/money.ts";
 import { sendEmail } from "../email.ts";
 import { log } from "../env.ts";
 import { readMarks, writeMark, type MarkKey } from "../payments/marks.ts";
@@ -74,7 +75,7 @@ export async function fulfil(deps: GiftCardDeps, provider: PaymentProvider, sess
     const input: CertificateInput = {
       businessName: config.businessName,
       siteHost: config.editor.host,
-      amountText: facts(deps, sale, issuedMs).amount,
+      amountText: formatAmount(sale.amountMinor, sale.currency),
       code: sale.code,
       to: sale.recipientName || null,
       from: sale.buyerName,

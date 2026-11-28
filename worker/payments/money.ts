@@ -13,3 +13,9 @@ export function formatMoney(minor: number, currency: PaymentCurrency): string {
   const cents = String(Math.abs(minor) % MINOR_PER_UNIT).padStart(2, "0");
   return `${minor < 0 ? "-" : ""}${SYMBOLS[currency]}${String(whole).replace(/\B(?=(\d{3})+$)/g, ",")}.${cents}`;
 }
+
+/** For display where a whole amount reads better without cents (the certificate): 5000 is "$50", 5050 is "$50.50". */
+export function formatAmount(minor: number, currency: PaymentCurrency): string {
+  const full = formatMoney(minor, currency);
+  return minor % MINOR_PER_UNIT === 0 ? full.slice(0, -3) : full;
+}

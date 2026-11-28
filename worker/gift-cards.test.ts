@@ -393,7 +393,7 @@ describe("the walk: checkout, payment, one signed webhook", () => {
     assert.deepEqual(madeCertificates[0], {
       businessName: "Example Co",
       siteHost: "example.test",
-      amountText: "$50.00",
+      amountText: "$50",
       code,
       to: RECIPIENT,
       from: NAME,

@@ -51,7 +51,7 @@ export function giftCardProblems(settings: GiftCardSettings, values: GiftCardVal
   const email = cleanLine(values.buyerEmail);
   if (!EMAIL_PATTERN.test(email) || email.length > fieldLimits.email) out.push("buyerEmail");
   const recipient = cleanLine(values.recipientName);
-  if (recipient.length === 0 || recipient.length > fieldLimits.name) out.push("recipientName");
+  if (recipient.length > fieldLimits.name) out.push("recipientName");
   if (cleanText(values.message).length > MESSAGE_MAX) out.push("message");
   const theirs = cleanLine(values.recipientEmail);
   if (theirs.length > 0 && (!EMAIL_PATTERN.test(theirs) || theirs.length > fieldLimits.email)) out.push("recipientEmail");

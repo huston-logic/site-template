@@ -34,10 +34,11 @@ describe("giftCardProblems", () => {
     assert.deepEqual(problems({ choice: OTHER_CHOICE, custom: "100" }, { ...exampleGiftCards, custom: null }), ["custom"]);
   });
 
-  test("names and emails are required, and the recipient's email only when given", () => {
+  test("the buyer's name and email are required; the recipient's name and email are optional", () => {
     assert.deepEqual(problems({ buyerName: "  " }), ["buyerName"]);
     assert.deepEqual(problems({ buyerEmail: "ada" }), ["buyerEmail"]);
-    assert.deepEqual(problems({ recipientName: "" }), ["recipientName"]);
+    assert.deepEqual(problems({ recipientName: "" }), []);
+    assert.deepEqual(problems({ recipientName: "x".repeat(101) }), ["recipientName"]);
     assert.deepEqual(problems({ recipientEmail: "grace" }), ["recipientEmail"]);
   });
 
