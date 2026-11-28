@@ -4,6 +4,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { siteConfig } from "../../site.config.ts";
+import { paymentsForBuild } from "../payments/config.ts";
 import { registry } from "../blocks/definitions.ts";
 import type { PageData } from "../blocks/schema.ts";
 import { toLoadedItems, validateSite } from "../collections/site-validate.ts";
@@ -32,10 +33,10 @@ function load(): SiteContent {
   const repo = { imageExists: (src: string) => existsSync(join(root, "public", src)), fileExists: (href: string) => pdfs.has(href.replace(/^\/files\//, "")) };
   const settingsErrors = Object.fromEntries(Object.entries(settings).flatMap(([name, { error }]) => (error === undefined ? [] : [[name, error]])));
   const problems = validateSite(
-    { pages, items, forms, business: settings.business.data, brand: settings.brand.data, notice: settings.notice.data, catalog: settings.catalog.data, pricing: settings.pricing.data, settingsErrors },
+    { pages, items, forms, business: settings.business.data, brand: settings.brand.data, notice: settings.notice.data, catalog: settings.catalog.data, pricing: settings.pricing.data, "gift-cards": settings["gift-cards"].data, settingsErrors },
     registry,
     repo,
-    { links: thanksPageLinks(thanks), formSettings: siteConfig.forms },
+    { links: thanksPageLinks(thanks), formSettings: siteConfig.forms, paymentsOn: paymentsForBuild(siteConfig, process.env) !== null },
   );
   if (problems.length > 0) {
     throw new Error(`The site content has ${problems.length} problem${problems.length === 1 ? "" : "s"}:\n${problems.map((p) => `  - ${p}`).join("\n")}`);

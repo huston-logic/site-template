@@ -28,7 +28,8 @@ describe("validateGiftCards", () => {
 
   test("not an object, missing keys and unknown keys are refused", () => {
     for (const bad of [null, [], "x", 3]) assert.equal(validateGiftCards(bad, on).length, 1);
-    const { custom: _custom, ...rest } = good();
+    const rest = good();
+    delete rest["custom"];
     assert.ok(validateGiftCards(rest, on).some((p) => p.includes('"custom" is missing')));
     assert.ok(validateGiftCards({ ...good(), extra: 1 }, on).some((p) => p.includes('"extra" is not a gift card setting')));
   });

@@ -227,6 +227,10 @@ function settingState(snapshot: Snapshot, name: SettingsName): string {
     const groups = Array.isArray(data.groups) ? data.groups.length : 0;
     return `pricing: ${groups === 0 ? "no option groups yet" : `${groups} option ${groups === 1 ? "group" : "groups"}`}`;
   }
+  if (name === "gift-cards") {
+    const amounts = Array.isArray(data.amounts) ? data.amounts.length : 0;
+    return `gift-cards: ${data.selling === true ? "on sale" : "not on sale"}, ${amounts} ${amounts === 1 ? "amount" : "amounts"}${isObject(data.custom) ? ", other amount allowed" : ""}`;
+  }
   const colors = isObject(data.colors) ? data.colors : {};
   return `brand: brand color ${String(colors.green)}, accent ${String(colors.rust)}, ${isObject(data.logo) ? "a logo" : "no logo (the business name is shown)"}`;
 }

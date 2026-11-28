@@ -10,6 +10,8 @@ import type { AnyBlockDefinition } from "../blocks/schema.ts";
 import { DEFAULT_FORM_SETTINGS } from "../forms/schema.ts";
 import type { FormFile, FormSettings, FormStatus } from "../forms/schema.ts";
 import { formWarnings, validateForms } from "../forms/validate.ts";
+import { GIFT_CARD_BLOCK } from "../gift-cards/schema.ts";
+import { validateGiftCards } from "../gift-cards/validate.ts";
 import { validateBrand } from "../settings/brand.ts";
 import { validateBusiness } from "../settings/business.ts";
 import { validateNotice } from "../settings/notice.ts";
@@ -36,6 +38,7 @@ export type SiteInput = {
   notice: unknown;
   catalog: unknown;
   pricing: unknown;
+  "gift-cards": unknown;
   /** Why a settings file could not be read (bad JSON), by name. */
   settingsErrors?: Partial<Record<SettingsName, string>>;
 };
@@ -47,6 +50,8 @@ export type SiteExtra = {
   formSettings?: FormSettings;
   /** The ids the generated registry lists; when given, it must match the form files exactly. */
   registryIds?: readonly string[];
+  /** Whether site.config.ts has `payments` set. Missing means off: gift card sales cannot be on and no gift-card block may be live. */
+  paymentsOn?: boolean;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -109,6 +114,16 @@ function catalogPageProblems(input: SiteInput, items: readonly { slug: string; s
   return out;
 }
 
+/** A live page cannot sell gift cards while the site has no payments (R1): the block would take orders that cannot be paid. */
+function giftCardPageProblems(pages: readonly PageFile[], paymentsOn: boolean): string[] {
+  if (paymentsOn) return [];
+  return pages.flatMap(({ file, data, error }) => {
+    if (error !== undefined || !isRecord(data) || data["status"] !== "live" || !Array.isArray(data["blocks"])) return [];
+    if (!data["blocks"].some((block) => isRecord(block) && block["type"] === GIFT_CARD_BLOCK)) return [];
+    return [`src/content/pages/${file}: this page has a gift card block, but payments are not set up on this site, so gift cards cannot be sold. Take the block off, or archive the page, until Huston Logic sets payments up (docs/PAYMENTS.md).`];
+  });
+}
+
 /** Warnings that do not stop a change: health words in forms. Printed by the content check and shown in the owner's change list. */
 export function siteWarnings(input: Pick<SiteInput, "forms">): string[] {
   return input.forms.flatMap(({ id, data, error }) => (error === undefined ? formWarnings(id, data) : []));
@@ -120,6 +135,7 @@ export function siteWarnings(input: Pick<SiteInput, "forms">): string[] {
  */
 export function validateSite(input: SiteInput, registry: readonly AnyBlockDefinition[], repo: Repo, extra: SiteExtra = {}): string[] {
   const out: string[] = [];
+  const paymentsOn = extra.paymentsOn === true;
   const forms = formStatuses(input.forms);
   const catalogProblems = input.catalog === undefined ? [] : validateCatalogSettings(input.catalog);
   const pricingProblems = input.pricing === undefined ? [] : validatePricing(input.pricing);
@@ -143,6 +159,7 @@ export function validateSite(input: SiteInput, registry: readonly AnyBlockDefini
     else if (name === "business") out.push(...validateBusiness(data, ctx));
     else if (name === "catalog") out.push(...catalogProblems);
     else if (name === "pricing") out.push(...pricingProblems);
+    else if (name === "gift-cards") out.push(...validateGiftCards(data, { paymentsOn }));
     else out.push(...validateNotice(data, ctx));
   }
 
@@ -151,6 +168,7 @@ export function validateSite(input: SiteInput, registry: readonly AnyBlockDefini
   );
   out.push(...validateCatalogLinks({ settings: settingsOk, pricing: pricingOk, items: catalogItems, itemRefs: false }));
   out.push(...catalogPageProblems(input, catalogItems, forms, repo));
+  out.push(...giftCardPageProblems(input.pages, paymentsOn));
 
   if (hasLivePost(input.items) && !blogHasPostIndex(input.pages)) {
     out.push(`A post is live, so ${BLOG_PATH} must be a live page with a "${POST_INDEX_BLOCK}" block (src/content/pages/blog.json); without it the posts have no list.`);
