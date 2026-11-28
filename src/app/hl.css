@@ -272,6 +272,23 @@
     outline-offset: 3px;
   }
 
+  /* A piece's photos as a row that swipes (spec photo views P4): the browser's own scroll snapping, no scrollbar, and the
+     scroll stays inside the row. Smooth scrolling is allowed only without reduced motion. */
+  .hl-strip {
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .hl-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .hl-strip {
+      scroll-behavior: smooth;
+    }
+  }
+
   /* The card's second photo (spec photo views P2): absent from layout until a rule below shows it, so the browser never
      requests its lazy image on a touch screen or before the card is used. */
   .hl-card-second {
