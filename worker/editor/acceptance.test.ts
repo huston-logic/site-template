@@ -236,7 +236,8 @@ test("Add a booking calendar that takes payments.", async () => {
   const t = site();
   const ai = aiApp(t);
   const guide = await ai("get_editing_guide");
-  assert.ok(guide.text.includes("- **Payments setup.** Huston Logic sets up your payment account") && guide.text.includes("Booking payments come later and are also Huston Logic's."));
+  assert.ok(guide.text.includes("- **Payments setup.** Huston Logic sets up your payment account") && guide.text.includes("Booking payments use the same setup and are also Huston Logic's."));
+  assert.ok(guide.text.includes("- **Booking calendar setup.** Huston Logic connects your Google Calendar"));
 
   const recorded = await ai("request_feature", { request: "Add a booking calendar that takes payments", lane_reason: "Payments: Huston Logic builds it." });
   assert.equal(

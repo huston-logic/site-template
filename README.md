@@ -309,6 +309,10 @@ test walk, the go-live list and refunds are in [docs/PAYMENTS.md](docs/PAYMENTS.
 
 `scripts/fetch-certificate-fonts.mjs` is run by Huston Logic only when the curated fonts change (`node scripts/fetch-certificate-fonts.mjs`). A normal build never fetches fonts.
 
+## Booking
+
+A site can take bookings. Visitors pick a time, and the owner's Google Calendar is the one record of what is booked. Setup, the test walk and how it behaves are in [docs/BOOKING.md](docs/BOOKING.md). The owner's booking settings are in [docs/EDITING.md](docs/EDITING.md), "Booking". Booking is off unless `booking` is set in `site.config.ts`.
+
 ## Deploy to Cloudflare Workers
 
 Merging a pull request into `main` deploys the site automatically through Cloudflare Workers Builds. Other branches get preview URLs (Cloudflare Worker Previews, configured by the `previews` block in `wrangler.jsonc`). Never run `wrangler deploy` by hand. The Worker config is `wrangler.jsonc`: static assets from `./out`, plus the Worker (entry `worker/index.ts`: the contact form, and the site editor when `editor.enabled` is on, see `docs/EDITING.md`), which wrangler bundles at deploy time. The build and deploy commands did not change when the Worker was added.

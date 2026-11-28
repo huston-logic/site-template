@@ -65,8 +65,17 @@ export const siteConfig = {
      * which names wrangler.jsonc lists under secrets.required (see docs/SECRETS.md).
      */
     sheetWriter: "apps-script" as "apps-script" | "service-account",
-    /** The tab names in the Sheet: the contact form's two, the two every other form shares, then the gift card ledger's two. Generic names; the Apps Script reads the same names from its Script Properties. */
-    sheetTabs: { production: "Submissions", preview: "Preview", forms: "Forms", formsPreview: "Forms preview", giftCards: "Gift cards", giftCardsPreview: "Gift cards preview" },
+    /** The tab names in the Sheet: the contact form's two, the two every other form shares, the gift card ledger's two, then the booking ledger's two. Generic names; the Apps Script reads the same names from its Script Properties. */
+    sheetTabs: {
+      production: "Submissions",
+      preview: "Preview",
+      forms: "Forms",
+      formsPreview: "Forms preview",
+      giftCards: "Gift cards",
+      giftCardsPreview: "Gift cards preview",
+      bookings: "Bookings",
+      bookingsPreview: "Bookings preview",
+    },
     /**
      * Where each submission is saved. "sheet" (the default) is the Google Sheet above, the fallback. "pipeline" posts it
      * server to server to the client's Pipeline app copy (`pipelineUrl` + "/intake", secret INTAKE_SECRET). The notification
@@ -155,6 +164,15 @@ export const siteConfig = {
    * currencies only (src/payments/config.ts keeps the same list). After a change run `npm run sync:config`.
    */
   payments: null as null | { provider: "stripe"; currency: "usd" | "cad" | "gbp" | "eur" | "aud" | "nzd" },
+  /**
+   * Booking (docs/BOOKING.md; design: docs/superpowers/specs/2026-11-27-booking-design.md, R1 and R2). null means nothing
+   * ships: no booking route answers, wrangler.jsonc has no lock binding or cron, the booking thank-you page is not built and
+   * a live booking block fails the content check. Otherwise the Google Calendar bookings are written to, shared with the
+   * site's service account ("Make changes to events"), and any extra calendars read for busy time only ("See only
+   * free/busy"). `previewCalendarId` is a test calendar for branch previews (null: previews show times but cannot book).
+   * Owner-only file: no chat tool can connect a calendar. After a change run `npm run sync:config`.
+   */
+  booking: null as null | { calendarId: string; busyCalendarIds: string[]; previewCalendarId: string | null },
   /** Published price text. Empty means none is published (not a launch blocker). */
   prices: { website: "" },
   /** Extra origins appended to the CSP in public/_headers. */

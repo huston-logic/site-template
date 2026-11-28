@@ -445,3 +445,38 @@ worktrees, then two fix waves; Haiku drafted the docs; the three reviewers ran o
 | Commits | 30 plus 5 merge commits |
 | Time in checks | about 35 minutes (`check:fast` per commit and in 7 worktrees, 5 full checks, 6 builds, 3 a11y runs, 4 tracking runs, 1 Lighthouse CI run and 12 single Lighthouse runs, 3 fixture builds) |
 | Time waiting on CI | 0 (auto-merge queued) |
+
+## Record: For the master lines from the font loading, payments and gift cards run (moved from STATUS.md unchanged, 2026-11-27)
+
+Earlier lines were copied to the master and moved to `docs/history/STATUS-history.md`.
+
+- Sites can sell gift cards: the buyer pays on Stripe's own page and gets a printable certificate with a code by email.
+- Money goes straight to the client's own Stripe account; the site never sees a card number and loads no Stripe script.
+- Every sale lands in the owner's Sheet (or Pipeline app) and their inbox; the ledger is where balances are kept.
+- Owners change amounts, the any-amount range, the certificate wording and selling on or off by chat.
+- Payments are set up per site by Huston Logic (the client's Stripe account, keys, webhook); booking will reuse them.
+- Not offered: online redeeming, balance checks, scheduled delivery, automatic refunds, tax, other payment providers.
+- Pages led by a photo now load faster: fonts load only the styles the design uses.
+
+## Record: Font loading, and payments base with gift cards (2026-11-27) run, moved from STATUS.md unchanged (2026-11-27)
+
+Process run, unattended, two PRs. Design: `docs/superpowers/specs/2026-11-27-payments-and-gift-cards-design.md`. Opus
+designed, built PR 1 and integrated; Sonnet built PR 2's parts in parallel worktrees and one fix wave; Haiku drafted docs.
+
+- **#38, fonts (merged):** median of 5 Lighthouse runs on the 500-piece fixture: gallery 89 to 92, piece page 89 to 92;
+  142 of 142 page screenshots identical, and every accent font checked; thresholds unchanged.
+- **#39, payments and gift cards:** `npm run check` passes (1,217 Worker and shared-module tests, 614 script tests);
+  `test:a11y` 183 passed; `test:tracking` 10 passed, including the walk against the real Worker code (begin_checkout and
+  purchase once, a reload fires nothing, the webhook three times gives one email, one row and one owner email with the
+  same code, amount and source); Lighthouse 100 on every audited page. Payments off: production pages pixel-identical,
+  same `_headers` and sitemap, no gift card script (shared CSS 1.1 KB larger).
+- **Reviews (all fixed):** a misreported Sheet row, checkout without the webhook secret, a silent paid mismatch, sales
+  bound to their site, the session id kept out of the Meta Pixel.
+- **New dependencies:** none (the certificate PDF is made without a library).
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | about 1 hour 55 minutes (16:23 to about 18:18, both PRs open, reviewed and fixed) |
+| Commits | 5 on #38; 20 plus 4 merge commits on #39 |
+| Time in checks | about 45 minutes (Lighthouse 4 x 10 fixture runs and 2 suites, 9 pixel comparisons, about 25 builds, a11y twice, tracking 3 times, `check:fast` per commit) |
+| Time waiting on CI | 0 (auto-merge queued on both) |

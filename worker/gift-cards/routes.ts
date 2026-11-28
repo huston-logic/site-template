@@ -1,6 +1,7 @@
 import { log } from "../env.ts";
 import { readBody } from "../read-body.ts";
 import { paymentProvider, verifyPaymentWebhook } from "../payments/provider.ts";
+import { alertUnhandledBooking } from "../booking/unhandled.ts";
 import { handleCheckout } from "./checkout.ts";
 import { handleConfirm } from "./confirm.ts";
 import type { GiftCardDeps } from "./deps.ts";
@@ -20,13 +21,14 @@ export const CONFIRM_PATH = "/api/gift-cards/confirm";
 export const WEBHOOK_PATH = "/api/payments/stripe";
 export const WEBHOOK_BODY_BYTES = 262_144;
 const SESSION_ID = /^cs_(?:test|live)_[A-Za-z0-9]{1,200}$/;
-const HANDLED_EVENTS = new Set(["checkout.session.completed", "checkout.session.async_payment_succeeded"]);
+const PAID_EVENTS = new Set(["checkout.session.completed", "checkout.session.async_payment_succeeded"]);
+const HANDLED_EVENTS = new Set([...PAID_EVENTS, "checkout.session.expired"]);
 
 export const isPaymentsPath = (pathname: string): boolean => pathname === CHECKOUT_PATH || pathname === CONFIRM_PATH || pathname === WEBHOOK_PATH;
 
 /**
- * Stripe's webhook (design R6, R7). The signature is checked first, over the raw body; then only the two payment events act.
- * The session is read again from Stripe (the event body is not trusted), must be a paid gift card of this site whose amount
+ * Stripe's webhook (design R6, R7). The signature is checked first, over the raw body; then only the two payment events act (and `checkout.session.expired`, for booking's holds).
+ * The session is read again from Stripe (the event body is not trusted); a booking session goes to booking (`deps.booking`), and a gift card must be a paid one of this site whose amount
  * and currency match what the Worker sent (a paid one that does not match is a log and one owner alert, never a certificate), and then fulfilment runs. 200 means done or nothing to do; 500 asks Stripe to retry.
  */
 async function handleWebhook(request: Request, deps: GiftCardDeps): Promise<Response> {
@@ -57,6 +59,22 @@ async function handleWebhook(request: Request, deps: GiftCardDeps): Promise<Resp
     return json(200, { received: true });
   }
   const session = read.value;
+  // A booking's payment (or its page closing) belongs to booking; an absent hook means booking is off, so nothing happens.
+  if (session.metadata["kind"] === "booking") {
+    if (!deps.booking) {
+      // Booking cannot run here (off, or its form is unusable): a paid booking of this site is never answered with a silent 200.
+      if (!PAID_EVENTS.has(event.type)) {
+        log("webhook_nothing_to_do", { reason: "booking_off" });
+        return json(200, { received: true });
+      }
+      const told = await alertUnhandledBooking(deps, made.provider, session);
+      return json(told ? 200 : 500, { received: told });
+    }
+    const done = await deps.booking(event.type, session, made.provider);
+    return json(done ? 200 : 500, { received: done });
+  }
+  // Only a payment acts for a gift card; its page closing unpaid is nothing.
+  if (!PAID_EVENTS.has(event.type)) return json(200, { received: true });
   const judged = judgeSession(deps, session);
   if (judged.kind === "ignore" || judged.kind === "not_paid") {
     log("webhook_nothing_to_do", { reason: judged.kind });

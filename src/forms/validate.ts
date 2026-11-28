@@ -73,6 +73,15 @@ function answerChars(field: Record<string, unknown>, type: FieldType): number {
   return typeof field["max"] === "number" ? field["max"] : (defaultMax(type) ?? 0);
 }
 
+/** The most characters a form file's answers can add up to (every field's limit, as the form check counts them). Unreadable fields count 0. */
+export function formAnswerChars(data: unknown): number {
+  const fields = isRecord(data) && Array.isArray(data["fields"]) ? data["fields"] : [];
+  return fields.reduce<number>((sum, field) => {
+    const type = isRecord(field) ? field["type"] : undefined;
+    return isRecord(field) && (FIELD_TYPES as readonly unknown[]).includes(type) ? sum + answerChars(field, type as FieldType) : sum;
+  }, 0);
+}
+
 function fieldProblems(field: unknown, n: number, file: string, out: string[]): { type: FieldType | null; chars: number; purpose: string | null } {
   const fallback = { type: null, chars: 0, purpose: null };
   if (!isRecord(field)) {

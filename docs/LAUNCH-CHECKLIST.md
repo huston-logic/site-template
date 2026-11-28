@@ -49,6 +49,14 @@ Where items run: A1–A8 and D5 on the onboarding call. C7, D6–D8 and the D9 w
 | C9 | Gift cards only: the ledger is ready, the two Sheet tabs with their header rows and the updated Apps Script, or the Pipeline app | C + G | Test row seen in `Gift cards` tab or the app, then deleted |
 | C10 | Gift cards only: the privacy page says Stripe is the payment processor and takes the card details | C + G | Privacy page text checked on the live site |
 | C11 | Gift cards only: one real low-value purchase, checked like the test walk, then refunded in Stripe; Stripe's failing-webhook email alerts are on | G | Refund shown in Stripe; note in the ledger's Notes; date logged |
+| C12 | Booking only: `booking` in `site.config.ts` holds the real calendar IDs (`calendarId`, `busyCalendarIds`, `previewCalendarId`), and `business.timeZone` is the business's own zone, not `"UTC"`. `npm run sync:config` and the Wrangler types step are committed | G | Merged PR with the IDs and the zone; `npm run check:config` passes |
+| C13 | Booking only: the Google Calendar API is enabled in the site's Google project, the booking calendar is shared with the service account ("Make changes to events") and each busy calendar ("See only free/busy") | C + G | Sharing page of each calendar lists the service account's email |
+| C14 | Booking only: the service account key is set as `GOOGLE_SERVICE_ACCOUNT_KEY` for production and for previews, and the test calendar is shared with the service account and set as `previewCalendarId` | G | `npx wrangler secret list` shows the name; the test calendar's sharing page lists the service account |
+| C15 | Booking only, with payments: the live Stripe webhook also sends `checkout.session.expired`, next to the two gift card events | G | Stripe shows the endpoint with three events; see [BOOKING.md](BOOKING.md), step 7 |
+| C16 | Booking only: the two Sheet tabs, `Bookings` and `Bookings preview`, with the header row from [BOOKING.md](BOOKING.md), step 8, and the updated Apps Script; or the Pipeline app | C + G | Test row seen in the `Bookings` tab or the app, then deleted |
+| C17 | Booking only: one test booking walked on the preview, as in [BOOKING.md](BOOKING.md), section 4 (the free service, and the paid one with payments) | G | Every check in section 4 passes; the test events and rows are deleted |
+| C18 | Booking only: every `[[placeholder]]` in `src/content/booking.json` is replaced (the policy, the change wording, the gift card line and the service descriptions) | C + G | `npm run check:placeholders` shows none in that file |
+| C19 | Booking only: taking bookings is turned on (`taking: true`), only after C12 to C18 are done | C + G | The change list is published; the date is logged |
 
 ### D. Search and discovery
 

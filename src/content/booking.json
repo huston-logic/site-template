@@ -1,0 +1,35 @@
+{
+  "taking": false,
+  "policy": "[[Booking policy: cancellations, lateness and deposits]]",
+  "changeWording": "[[How a visitor changes or cancels a booking]]",
+  "giftCardLine": "[[How to book with a gift card]]",
+  "hours": {
+    "weekly": {
+      "mon": [["09:00", "17:00"]],
+      "tue": [["09:00", "17:00"]],
+      "wed": [["09:00", "17:00"]],
+      "thu": [["09:00", "17:00"]],
+      "fri": [["09:00", "17:00"]],
+      "sat": [],
+      "sun": []
+    },
+    "starts": { "every": 30 },
+    "bufferMinutes": 15,
+    "noticeHours": 24,
+    "aheadDays": 60,
+    "closed": []
+  },
+  "services": [
+    {
+      "id": "consultation",
+      "name": "Consultation",
+      "description": "[[What the consultation is, in one or two sentences]]",
+      "status": "live",
+      "sessions": [{ "minutes": 60 }],
+      "between": null,
+      "party": { "min": 1, "max": 1 },
+      "price": null,
+      "payment": { "kind": "free" }
+    }
+  ]
+}

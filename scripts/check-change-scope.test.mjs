@@ -523,7 +523,7 @@ function makeRepo(setup) {
   write("src/content/pages/home.json", pageText("/"));
   write("src/content/pages/contact.json", pageText("/contact"));
   write("src/content/pages/about.json", pageText("/about", { menu: { label: "About", order: 20, places: ["header"] } }));
-  for (const name of ["business", "brand", "notice", "catalog", "pricing", "gift-cards"]) write(`src/content/${name}.json`, readFileSync(new URL(`../src/content/${name}.json`, import.meta.url)));
+  for (const name of ["business", "brand", "notice", "catalog", "pricing", "gift-cards", "booking"]) write(`src/content/${name}.json`, readFileSync(new URL(`../src/content/${name}.json`, import.meta.url)));
   git(["add", "-A"]);
   commit("base");
   git(["checkout", "-q", "-b", "change/test"]);
@@ -761,7 +761,7 @@ test("gatherChange reads every page file and the image list at the head commit w
     "ls-tree -r --name-only -z HEAD -- public/images/": "public/images/a.jpg\0public/images/team/b.png\0",
     "ls-tree -r --name-only -z HEAD -- public/files/": "public/files/menu.pdf\0",
     "ls-tree -r --name-only -z HEAD -- src/content/collections/": "",
-    "ls-tree --name-only -z HEAD -- src/content/business.json src/content/brand.json src/content/notice.json src/content/catalog.json src/content/pricing.json src/content/gift-cards.json": "",
+    "ls-tree --name-only -z HEAD -- src/content/business.json src/content/brand.json src/content/notice.json src/content/catalog.json src/content/pricing.json src/content/gift-cards.json src/content/booking.json": "",
     "ls-tree --name-only -z HEAD -- src/content/forms/": "src/content/forms/contact.json\0",
     "show HEAD:src/content/forms/contact.json": "{}",
     "ls-tree --name-only -z HEAD -- src/forms/registry.generated.ts": "",
@@ -1394,4 +1394,28 @@ test("real git: a new draft piece with its photo and card passes; a card with no
     write("public/images/catalog/ring-1-card.webp", makeWebp());
   });
   assert.equal(noAlt.code, 1, noAlt.report);
+});
+
+// ---- booking: the settings file is tier 1 like gift-cards.json ------------------------------------------------------------
+
+test("booking.json is a settings file: tier 1 to edit, tier 3 to delete", () => {
+  assert.equal(run([file("src/content/booking.json")]).tier, 1);
+  assert.equal(run([file("src/content/booking.json", "D")]).tier, 3);
+});
+
+test("real git: a valid edit of booking.json (a closed range, a notice) passes in strict mode", () => {
+  const booking = JSON.parse(readFileSync(new URL("../src/content/booking.json", import.meta.url), "utf8"));
+  booking.hours.noticeHours = 72;
+  booking.hours.closed = [{ from: "2026-12-24", to: "2027-01-02" }];
+  const { code, report } = inRepo(({ write }) => write("src/content/booking.json", `${JSON.stringify(booking, null, 2)}\n`));
+  assert.equal(code, 0, report);
+  assert.match(report, /Tier 1/);
+});
+
+test("real git: turning taking on while the calendar is not connected fails, with the plain reason", () => {
+  const booking = JSON.parse(readFileSync(new URL("../src/content/booking.json", import.meta.url), "utf8"));
+  booking.taking = true;
+  const { code, report } = inRepo(({ write }) => write("src/content/booking.json", `${JSON.stringify(booking, null, 2)}\n`));
+  assert.equal(code, 1, report);
+  assert.match(report, /Booking cannot be turned on yet: the calendar is not connected/);
 });

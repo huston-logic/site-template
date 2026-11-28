@@ -16,7 +16,7 @@ type, optionally a variant, and fill in its content.
 - **Menu.** `label`: The words in the menu, 1 to 24 characters. `order`: A number; lower numbers come first. `places`: Any of "header", "footer", "legal". A page appears in the menu only if it has a menu entry. At most 6 live pages may be in the header.
 - **Block keys.** `type`: The name of a block in this catalog. `variant` (optional): One of the block's variants; the first is used when it is left out. `anchor` (optional): A lowercase name (letters, digits, hyphens; starts with a letter; at most 40 characters) that links can point to as /page#name. Unique on the page. `content`: The block's fields, as listed in its entry.
 - **Status.** `live`: the page is built, listed in the menu places it asks for, and in the sitemap. `archived`: the page leaves the build, the menu and the sitemap. The file and its content stay, and setting it back to live restores it. A link to an archived page fails the check.
-- **Required pages.** `/` and `/contact` must exist and stay live. Reserved paths no page may take: `/blocks`, `/api`, `/contact/thanks`, `/gift-cards/thanks`, `/og.png`, `/icon.svg`, `/sitemap.xml`, `/robots.txt`, `/404`, `/index`, `/_not-found`, `/_next`.
+- **Required pages.** `/` and `/contact` must exist and stay live. Reserved paths no page may take: `/blocks`, `/api`, `/contact/thanks`, `/gift-cards/thanks`, `/booking/thanks`, `/og.png`, `/icon.svg`, `/sitemap.xml`, `/robots.txt`, `/404`, `/index`, `/_not-found`, `/_next`.
 - **The first block.** The first block must be a block whose position is "first" (the hero). It carries the page's one H1, so a page has exactly one.
 - **Focal animation.** At most one block per page may carry a signature (focal) animation.
 - **Length.** At most 20 blocks on a page.
@@ -1188,5 +1188,36 @@ Sells gift cards: the visitor chooses one of the amounts you list (or an amount 
 {
   "heading": "A short heading that invites someone to give a gift card",
   "intro": "A sentence that says what the card is for and what happens after the buyer pays."
+}
+```
+
+## Booking (`booking`)
+
+Lets a visitor book a time: they choose one of your services, say how many people are coming, pick a day and a time for each session, leave their details and, where you ask for it, pay a deposit or the whole price on Stripe's own page. The services, hours, prices and wording come from the booking settings, not from this block, and every booking goes on your calendar. You can name a service to start with selected. It can only be on a live page once booking is connected for the site, and a page can hold one.
+
+**Where it can go:** anywhere, once.
+
+**Needs JavaScript:** Choosing a service, the times and the booking itself all need JavaScript. Without it the block lists the services and says how to get in touch.
+
+**Variants** (set with `variant`; the first is used when it is left out):
+
+- `panel` (default): One centred column: the heading and introduction above the booking panel, with the policy and the way to get in touch inside it.
+
+**Fields** (inside `content`):
+
+| Field | What it is | Required | Limits |
+| --- | --- | --- | --- |
+| `heading` | Heading | yes | up to 90 characters |
+| `intro` | Introduction | no | up to 280 characters |
+| `service` | Service to start with (its id in the booking settings) | no | up to 60 characters |
+
+**Motion:** Rises gently into place as it scrolls into view (it shows at once for visitors who prefer reduced motion).
+
+**Example:**
+
+```json
+{
+  "heading": "A short heading that invites someone to book",
+  "intro": "A sentence that says what happens when they choose a time."
 }
 ```

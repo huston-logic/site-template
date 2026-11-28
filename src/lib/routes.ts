@@ -89,5 +89,8 @@ export const exampleItemRoute: string = showcaseItemRoutes[0] ?? `${showcaseRout
 /** The gift card thank-you page is built only while payments are on (finish-build removes it otherwise), so it is listed only when the build in `out/` has it. */
 const giftCardThanks = ["/gift-cards/thanks"].filter(() => existsSync(join(process.cwd(), "out", "gift-cards", "thanks.html")));
 
+/** The booking thank-you page is built only while booking is on (finish-build removes it otherwise), so it is listed only when the build in `out/` has it. */
+const bookingThanks = ["/booking/thanks"].filter(() => existsSync(join(process.cwd(), "out", "booking", "thanks.html")));
+
 /** Real pages that stay out of the sitemap (noindex): the thanks page, the showcase, one example item page, draft posts and draft catalog items. The other example item pages are `showcaseItemRoutes`. */
-export const noindexRoutes = ["/contact/thanks", ...giftCardThanks, showcaseRoute, exampleItemRoute, ...blog.draftPosts, ...catalogItemRoutes.drafts];
+export const noindexRoutes = ["/contact/thanks", ...giftCardThanks, ...bookingThanks, showcaseRoute, exampleItemRoute, ...blog.draftPosts, ...catalogItemRoutes.drafts];

@@ -489,7 +489,9 @@ describe("repeats and out-of-order events", () => {
     assert.equal((await w.fetch(await webhookRequest("checkout.session.completed", "not-a-session"), env())).status, 200);
     session.metadata["kind"] = "booking";
     assert.equal((await deliver(w, session)).status, 200);
-    assert.equal(emails.length, 0);
+    // A paid session of this site that says it is a booking, on a site with booking off, is told to the owner (never a certificate, never a row).
+    assert.equal(emails.length, 1);
+    assert.ok(emails[0]?.subject.startsWith("ACTION NEEDED"));
     assert.equal(rows.length, 0);
   });
 });

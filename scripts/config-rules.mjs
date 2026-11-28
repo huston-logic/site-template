@@ -19,11 +19,13 @@ const PLACEHOLDER = /\[\[[^\]]*\]\]/;
 /**
  * Secret names for `secrets.required` in wrangler.jsonc. Always RESEND_API_KEY and TURNSTILE_SECRET_KEY; then
  * INTAKE_SECRET for the "pipeline" destination, or the Sheet writer's pair for "sheet" (a missing destination is "sheet").
- * A set `payments` (site.config.ts) appends the two Stripe secrets.
+ * A set `payments` (site.config.ts) appends the two Stripe secrets. A set `booking` appends the Google service-account key
+ * (the calendar is read and written with it), once, even when the Sheet writer already needs it.
  */
-export function secretsFor(contact, payments = null) {
+export function secretsFor(contact, payments = null, booking = null) {
   const contactSecrets = contactSecretsFor(contact);
-  return payments ? [...contactSecrets, "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] : contactSecrets;
+  const names = payments ? [...contactSecrets, "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"] : contactSecrets;
+  return booking && !names.includes("GOOGLE_SERVICE_ACCOUNT_KEY") ? [...names, "GOOGLE_SERVICE_ACCOUNT_KEY"] : names;
 }
 
 function contactSecretsFor(contact) {
@@ -178,7 +180,8 @@ export function wranglerText(c) {
   const editor = c.editor?.enabled === true ? c.editor : null;
   const uploads = editor && editor.uploads?.enabled === true ? editor.uploads : null;
   const payments = c.payments ? c.payments : null;
-  const secrets = [...secretsFor(c.contact, payments), ...(editor ? ["GITHUB_APP_PRIVATE_KEY"] : [])];
+  const booking = c.booking ? c.booking : null;
+  const secrets = [...secretsFor(c.contact, payments, booking), ...(editor ? ["GITHUB_APP_PRIVATE_KEY"] : [])];
   const rate = (name, id, lim, period) => `{ "name": "${name}", "namespace_id": "${id}", "simple": { "limit": ${lim}, "period": ${period} } }`;
   const contactRate = (id) => rate("CONTACT_RATE_LIMIT", id, limit, periodSeconds);
   const paths = ["/api/*", ...(editor ? EDITOR_PATHS : [])].map((p) => `"${p}"`).join(", ");
@@ -204,6 +207,18 @@ export function wranglerText(c) {
   "images": { "binding": "IMAGES" },
 `
       : "";
+  // The booking lock is a Durable Object. A class that has shipped cannot be dropped without a "deleted_classes" migration
+  // (which erases its data), so the migration below is kept even if booking is later turned off (docs/BOOKING.md).
+  const bookingBindings = booking
+    ? `  // Serialises booking checkouts per calendar so two visitors cannot take one time (docs/BOOKING.md).
+  "durable_objects": { "bindings": [{ "name": "BOOKING_LOCK", "class_name": "BookingLock" }] },
+  // Once deployed, this class cannot be removed without a delete migration, which erases its data.
+  "migrations": [{ "tag": "booking-lock-v1", "new_sqlite_classes": ["BookingLock"] }],
+  // Every 15 minutes: releases the holds of checkouts that were never paid and finishes bookings whose webhook was missed.
+  "triggers": { "crons": ["*/15 * * * *"] },
+`
+    : "";
+  const previewBooking = booking ? `,\n    "durable_objects": { "bindings": [{ "name": "BOOKING_LOCK", "class_name": "BookingLock" }] }` : "";
   const ratelimits = editor
     ? `[
     ${contactRate(ids.production)},
@@ -227,14 +242,14 @@ export function wranglerText(c) {
   "secrets": {
     "required": [${secrets.map((name) => `"${name}"`).join(", ")}]
   },
-${kv}${uploadBindings}${paymentsImages}  "ratelimits": ${ratelimits},
+${kv}${uploadBindings}${paymentsImages}${bookingBindings}  "ratelimits": ${ratelimits},
   // Invocation logs would store request metadata; the Worker's own log lines hold no personal data.
   "observability": { "enabled": true, "logs": { "invocation_logs": false } },
   // Worker Previews (branch previews) do not inherit the settings above, so they are repeated here.
   // Preview secrets are separate: \`wrangler preview base-config secret put\`. The editor never runs on a preview.
   "previews": {
     "vars": { "SITE_ENV": "preview" },
-    "ratelimits": [${contactRate(ids.preview)}]
+    "ratelimits": [${contactRate(ids.preview)}]${previewBooking}
   }
 }
 `;
@@ -255,9 +270,62 @@ function paymentsProblems(c) {
   return problems;
 }
 
+const BOOKING_KEYS = ["calendarId", "busyCalendarIds", "previewCalendarId"];
+const MAX_BUSY_CALENDARS = 10;
+const CALENDAR_ID_MAX = 254;
+
+/** A Google Calendar id: text, no spaces, at most 254 characters. Returns the reason it is not one, or null. */
+function calendarIdProblem(value) {
+  if (typeof value !== "string" || value === "") return "must be a calendar id (text)";
+  if (/\s/.test(value)) return "must not contain spaces";
+  if (value.length > CALENDAR_ID_MAX) return `must be at most ${CALENDAR_ID_MAX} characters`;
+  return null;
+}
+
+/** A real zone name the runtime knows, and not "UTC" (a default nobody chose). */
+function zoneIsUsable(zone) {
+  if (typeof zone !== "string" || zone === "" || zone.toUpperCase() === "UTC") return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Problems with the `booking` setting (the calendar). null or missing means booking is off. */
+function bookingProblems(c) {
+  const b = c.booking;
+  if (b === undefined || b === null) return [];
+  const need = (path, message) => `site.config.ts  booking${path} ${message}`;
+  if (typeof b !== "object" || Array.isArray(b)) return [need("", `must be null or { calendarId, busyCalendarIds, previewCalendarId }, not ${JSON.stringify(b)}`)];
+  const problems = [];
+  const idProblem = calendarIdProblem(b.calendarId);
+  if (idProblem) problems.push(need(".calendarId", `${idProblem}, not ${JSON.stringify(b.calendarId)}`));
+  if (!Array.isArray(b.busyCalendarIds)) problems.push(need(".busyCalendarIds", `must be a list of calendar ids (it can be empty), not ${JSON.stringify(b.busyCalendarIds)}`));
+  else {
+    if (b.busyCalendarIds.length > MAX_BUSY_CALENDARS) problems.push(need(".busyCalendarIds", `lists ${b.busyCalendarIds.length} calendars; at most ${MAX_BUSY_CALENDARS}`));
+    b.busyCalendarIds.forEach((id, index) => {
+      const bad = calendarIdProblem(id);
+      if (bad) problems.push(need(`.busyCalendarIds[${index}]`, `${bad}, not ${JSON.stringify(id)}`));
+      else if (id === b.calendarId) problems.push(need(`.busyCalendarIds[${index}]`, "is the booking calendar itself; list only other calendars to read busy time from"));
+    });
+  }
+  const preview = b.previewCalendarId;
+  if (preview === undefined) problems.push(need(".previewCalendarId", "is missing; set a test calendar's id, or null so a preview shows times but refuses to book"));
+  else if (preview !== null) {
+    const bad = calendarIdProblem(preview);
+    if (bad) problems.push(need(".previewCalendarId", `${bad} (or null), not ${JSON.stringify(preview)}`));
+    else if (preview === b.calendarId) problems.push(need(".previewCalendarId", "is the same as calendarId. A preview must write to a test calendar, never the real one"));
+  }
+  for (const key of Object.keys(b)) if (!BOOKING_KEYS.includes(key)) problems.push(need(`.${key}`, `is not a booking setting. The settings are: ${BOOKING_KEYS.join(", ")}`));
+  if (!zoneIsUsable(c.business?.timeZone)) problems.push(`site.config.ts  business.timeZone is ${JSON.stringify(c.business?.timeZone)}. Booking needs the business's own time zone, like "America/Chicago": every opening time, booking and email uses it.`);
+  return problems;
+}
+
 /** One plain line per problem; an empty array means the config passes. */
 export function configProblems(c) {
-  return [...siteProblems(c), ...paymentsProblems(c), ...trackingProblems(c.tracking)];
+  return [...siteProblems(c), ...paymentsProblems(c), ...bookingProblems(c), ...trackingProblems(c.tracking)];
 }
 
 function siteProblems(c) {
@@ -280,7 +348,7 @@ function siteProblems(c) {
   // A preview must never write into the production tab: each production tab and its preview tab need different names.
   const tabs = contact.sheetTabs;
   if (tabs && typeof tabs === "object") {
-    for (const [live, preview] of [["production", "preview"], ["forms", "formsPreview"], ["giftCards", "giftCardsPreview"]]) {
+    for (const [live, preview] of [["production", "preview"], ["forms", "formsPreview"], ["giftCards", "giftCardsPreview"], ["bookings", "bookingsPreview"]]) {
       if (typeof tabs[live] === "string" && tabs[live] !== "" && tabs[live] === tabs[preview]) {
         problems.push(`site.config.ts  contact.sheetTabs.${live} and .${preview} are both ${JSON.stringify(tabs[live])}. Give them different names, or a preview would write into the production tab`);
       }

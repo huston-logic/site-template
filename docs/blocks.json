@@ -160,6 +160,7 @@
       "/api",
       "/contact/thanks",
       "/gift-cards/thanks",
+      "/booking/thanks",
       "/og.png",
       "/icon.svg",
       "/sitemap.xml",
@@ -1766,6 +1767,59 @@
       "example": {
         "heading": "A short heading that invites someone to give a gift card",
         "intro": "A sentence that says what the card is for and what happens after the buyer pays."
+      }
+    },
+    {
+      "type": "booking",
+      "title": "Booking",
+      "description": "Lets a visitor book a time: they choose one of your services, say how many people are coming, pick a day and a time for each session, leave their details and, where you ask for it, pay a deposit or the whole price on Stripe's own page. The services, hours, prices and wording come from the booking settings, not from this block, and every booking goes on your calendar. You can name a service to start with selected. It can only be on a live page once booking is connected for the site, and a page can hold one.",
+      "source": "library",
+      "variants": [
+        {
+          "name": "panel",
+          "description": "One centred column: the heading and introduction above the booking panel, with the policy and the way to get in touch inside it.",
+          "default": true
+        }
+      ],
+      "placement": {
+        "position": "any",
+        "maxPerPage": 1,
+        "rhythm": "section",
+        "joinsHero": false
+      },
+      "motion": {
+        "entrance": "default",
+        "reason": null,
+        "signature": null
+      },
+      "fixedAnchor": null,
+      "interactive": "Choosing a service, the times and the booking itself all need JavaScript. Without it the block lists the services and says how to get in touch.",
+      "fields": [
+        {
+          "name": "heading",
+          "kind": "text",
+          "label": "Heading",
+          "required": true,
+          "max": 90
+        },
+        {
+          "name": "intro",
+          "kind": "text",
+          "label": "Introduction",
+          "required": false,
+          "max": 280
+        },
+        {
+          "name": "service",
+          "kind": "text",
+          "label": "Service to start with (its id in the booking settings)",
+          "required": false,
+          "max": 60
+        }
+      ],
+      "example": {
+        "heading": "A short heading that invites someone to book",
+        "intro": "A sentence that says what happens when they choose a time."
       }
     }
   ],

@@ -106,7 +106,7 @@ export async function readSite(github: GitHub): Promise<Snapshot> {
     imagesTree: entries.find((e) => e.type === "tree" && e.path === IMAGES_DIR)?.sha ?? "none",
     filesTree: entries.find((e) => e.type === "tree" && e.path === FILES_DIR)?.sha ?? "none",
     collectionsTree: entries.find((e) => e.type === "tree" && e.path === ITEM_DIR)?.sha ?? "none",
-    settingsShas: { business: "none", brand: "none", notice: "none", catalog: "none", pricing: "none", "gift-cards": "none" },
+    settingsShas: { business: "none", brand: "none", notice: "none", catalog: "none", pricing: "none", "gift-cards": "none", booking: "none" },
   };
   for (const entry of entries) {
     if (entry.type === "blob" && entry.path.startsWith(`${IMAGES_DIR}/`)) snapshot.images.add(entry.path.slice("public".length));
@@ -173,6 +173,7 @@ export function validateSet(
   documents: Documents = snapshot,
   formSettings: FormSettings = DEFAULT_FORM_SETTINGS,
   paymentsOn: boolean = siteConfig.payments !== null,
+  calendarOn: boolean = siteConfig.booking !== null,
 ): string[] {
   const files: PageFile[] = [...snapshot.broken];
   for (const [path, data] of after) files.push({ file: snapshot.fileOf.get(path) ?? fileForPath(path), data });
@@ -198,6 +199,7 @@ export function validateSet(
       catalog: documents.settings.get("catalog"),
       pricing: documents.settings.get("pricing"),
       "gift-cards": documents.settings.get("gift-cards"),
+      booking: documents.settings.get("booking"),
       settingsErrors: snapshot.settingsErrors,
     },
     registry,
@@ -205,7 +207,7 @@ export function validateSet(
       imageExists: (src) => snapshot.images.has(src) || (pending?.images.has(src) ?? false),
       fileExists: (href) => snapshot.files.has(href) || (pending?.files.has(href) ?? false),
     },
-    { links, formSettings, paymentsOn, registryIds: listedIds,...(pending && pending.names.size > 0 ? { uploadNames: pending.names } : {}) },
+    { links, formSettings, paymentsOn, calendarOn, registryIds: listedIds,...(pending && pending.names.size > 0 ? { uploadNames: pending.names } : {}) },
   );
 }
 

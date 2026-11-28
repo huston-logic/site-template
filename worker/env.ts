@@ -17,6 +17,8 @@ export interface ContactEnv {
   CONTACT_RATE_LIMIT?: RateLimit;
   /** The site's own static assets: the quote form reads `/catalog.json` (its price source) through it. */
   ASSETS?: Fetcher;
+  /** Present while `booking` is set (wrangler.jsonc): the one-per-site lock that makes a time go to exactly one visitor (booking design R9). */
+  BOOKING_LOCK?: DurableObjectNamespace;
   /** Present while payments or editor uploads are on (wrangler.jsonc): the gift card certificate turns the logo into a PNG with it. */
   IMAGES?: ImagesBinding;
 }

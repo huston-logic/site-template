@@ -231,6 +231,10 @@ function settingState(snapshot: Snapshot, name: SettingsName): string {
     const amounts = Array.isArray(data.amounts) ? data.amounts.length : 0;
     return `gift-cards: ${data.selling === true ? "on sale" : "not on sale"}, ${amounts} ${amounts === 1 ? "amount" : "amounts"}${isObject(data.custom) ? ", other amount allowed" : ""}`;
   }
+  if (name === "booking") {
+    const live = Array.isArray(data.services) ? data.services.filter((service) => isObject(service) && service.status === "live").length : 0;
+    return data.taking === true ? `booking: taking bookings, ${live} live ${live === 1 ? "service" : "services"}` : "booking: not taking bookings";
+  }
   const colors = isObject(data.colors) ? data.colors : {};
   return `brand: brand color ${String(colors.green)}, accent ${String(colors.rust)}, ${isObject(data.logo) ? "a logo" : "no logo (the business name is shown)"}`;
 }

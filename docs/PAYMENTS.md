@@ -1,7 +1,8 @@
 # Payments and gift cards
 
-This explains how a site takes payment and sells gift cards, and how Huston Logic sets it up for one site. The first
-product is gift cards. Booking and other products will use the same base later.
+This explains how a site takes payment, sells gift cards and takes paid bookings, and how Huston Logic sets it up for one site.
+The first product is gift cards. Booking is the second, and it uses the same base (see "Booking" below). Other products will
+use the same base later.
 
 Terms used below:
 
@@ -18,8 +19,7 @@ Terms used below:
   one row in the ledger: the client's Google Sheet, or their Pipeline app.
 - The ledger is the record. The site does not check balances and does not redeem cards. Redeeming is done by the business.
 - Refunds are done in Stripe, by hand. See "Refunds" below.
-- Not included: booking, online redemption, scheduled delivery, automatic refunds, tax, subscriptions and other
-  payment providers.
+- Not included: online redemption, scheduled delivery, automatic refunds, tax, subscriptions and other payment providers.
 
 Payments are off by default. While `payments` in `site.config.ts` is `null`, nothing about payments is in the build:
 no payment route answers, no Stripe secret is listed, the thank-you page is not built, and a live page with a gift card
@@ -108,6 +108,13 @@ payments are set up on the site, and the refusal says so. Selling starts when th
 **Certificate fonts (Huston Logic only).** The certificate uses the site's own fonts as small subsets in
 `src/brand/certificate-fonts/`. Run `node scripts/fetch-certificate-fonts.mjs` only when the curated fonts change
 (`CURATED_FONTS` in `src/brand/fonts.ts`). A normal build never fetches fonts.
+
+## Booking
+
+Booking is the second product on this base. It uses the same Stripe keys, the same webhook endpoint and the same marks on the
+payment record. It adds one event to the webhook: `checkout.session.expired`, so Stripe tells the site when a checkout closes
+unpaid and its hold can be removed. Booking takes card payments only, and a payment can only complete while its checkout is
+open. The emails, the ledger and the calendar are described in [BOOKING.md](BOOKING.md).
 
 ## Test walk on a preview
 

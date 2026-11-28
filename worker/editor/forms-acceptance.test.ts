@@ -41,10 +41,11 @@ const formBlock = (id: string) => ({ type: "form", content: { form: id } });
 
 /** A seeded site that already has these forms (files and the registry listing them, as the template keeps them). */
 function site(forms: Record<string, unknown> = {}, pages: Record<string, unknown> = {}): UploadsEditor {
-  // The template's own quote form collects a phone number; these sayings test the privacy note for a site that has none yet.
+  // The template's own quote and booking forms collect a phone number; these sayings test the privacy note for a site that has none yet.
   const files: Record<string, string> = {
     "src/content/forms/quote.json": json({ name: "Quote request", status: "live", fields: [field("name", "short-text", "Your name", { purpose: "name" }), field("email", "email", "Email")], button: "Send", thanks: "Thanks.", reply: { subject: "Your estimate", next: "I will reply soon." } }),
-    "src/forms/registry.generated.ts": registrySource(["contact", "quote", ...Object.keys(forms)]),
+    "src/content/forms/booking.json": json({ name: "Booking details", status: "live", fields: [field("name", "short-text", "Your name", { purpose: "name" }), field("email", "email", "Email")], button: "Continue", thanks: "Booked." }),
+    "src/forms/registry.generated.ts": registrySource(["contact", "quote", "booking", ...Object.keys(forms)]),
   };
   for (const [id, form] of Object.entries(forms)) files[`src/content/forms/${id}.json`] = json(form);
   for (const [path, page] of Object.entries(pages)) files[`src/content/pages/${path}.json`] = json(page);
@@ -123,7 +124,7 @@ test('1. "Add a quote request form to my Services page with name, email, phone, 
   const committed = JSON.parse(files["src/content/forms/quote-request.json"]) as Record<string, unknown>;
   assert.deepEqual(Object.keys(committed).slice(0, 2), ["name", "status"], "the file starts with its name, then its status");
   assert.equal(committed.name, "Quote request");
-  assert.equal(files["src/forms/registry.generated.ts"], registrySource(["contact", "quote", "quote-request"]));
+  assert.equal(files["src/forms/registry.generated.ts"], registrySource(["contact", "quote", "booking", "quote-request"]));
   assert.match(files["src/content/pages/services.json"], /"form": "quote-request"/);
   assert.equal(files["src/content/forms/contact.json"], t.github.filesOn("main")["src/content/forms/contact.json"], "the contact form is untouched");
 });
@@ -247,7 +248,8 @@ test("a pointer on a form never reaches its status, and other parts are not reac
 
 test("the 11th live form is refused", async () => {
   const forms: Record<string, unknown> = {};
-  for (let i = 1; i <= 8; i += 1) forms[`form-${i}`] = { ...newsletter, name: `Form ${i}` };
+  // Contact, quote and booking are three of the ten.
+  for (let i = 1; i <= 7; i += 1) forms[`form-${i}`] = { ...newsletter, name: `Form ${i}` };
   const t = site(forms);
   const ai = aiApp(t);
   const text = await refused(ai, [addForm("form-10", { ...newsletter, name: "Form 10" })]);
@@ -260,7 +262,7 @@ test("the registry is committed with add_form only", async () => {
   let before = t.github.filesOn("main");
   const added = await publishAndMerge(t, ai, proposalId(await propose(ai, "Add a quote form", [addForm("quote-request", quote())])));
   assert.deepEqual(committedChanges(before, added).sort(), ["src/content/forms/quote-request.json", "src/forms/registry.generated.ts"].sort());
-  assert.equal(added["src/forms/registry.generated.ts"], registrySource(["contact", "quote", "newsletter", "quote-request"]));
+  assert.equal(added["src/forms/registry.generated.ts"], registrySource(["contact", "quote", "booking", "newsletter", "quote-request"]));
 
   for (const operations of [
     [setForm("quote-request", "/button", "Go")],

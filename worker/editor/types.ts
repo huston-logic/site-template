@@ -1,6 +1,7 @@
 import type { EditorConfig } from "../config.ts";
 import type { AnyBlockDefinition } from "../../src/blocks/schema.ts";
 import type { FormSettings } from "../../src/forms/schema.ts";
+import type { PaymentCurrency } from "../../src/payments/config.ts";
 import type { UploadStore } from "../uploads/store.ts";
 import type { GitHub } from "./github.ts";
 import type { ChangeView, ProposalView, UploadView } from "./views.ts";
@@ -31,6 +32,10 @@ export interface EditorDeps {
   formSettings?: FormSettings;
   /** Whether the site takes payments (`payments` in site.config.ts); missing means it follows site.config.ts. Gift card sales can be turned on only while it is true. */
   paymentsOn?: boolean;
+  /** The site's payments currency, for amounts in the change list; missing means it follows site.config.ts, null reads as "$". */
+  paymentsCurrency?: PaymentCurrency | null;
+  /** Whether the calendar is connected (`booking` in site.config.ts); missing means it follows site.config.ts. Booking can be turned on only while it is true. */
+  calendarOn?: boolean;
 }
 
 export interface Editor {

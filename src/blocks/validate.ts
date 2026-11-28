@@ -1,6 +1,7 @@
 // The content check: judges page files against the block registry and returns problems in plain words, each naming the
 // file, the block number and the field. Pure (no file access): the caller passes the pages and a small view of the repo.
 // Import-free apart from its siblings, so Node scripts and Next both load it.
+import { BOOKING_FORM_ID } from "../booking/schema.ts";
 import {
   ID_RE,
   MAX_ITEM_FILTER_VALUES,
@@ -248,6 +249,7 @@ function checkField(field: Field, value: unknown, label: string, where: string, 
       if (typeof value !== "string") return say("must be the id of a form, written as text.");
       if (value === CONTACT_FORM_ID) return say(`"${value}" is the contact form, which only the contact-form block shows; pick another form.`);
       if (value === QUOTE_FORM_ID) return say(`"${value}" is the quote form, which only the quote builder shows; pick another form.`);
+      if (value === BOOKING_FORM_ID) return say(`"${value}" is the booking form, which only the booking section shows; pick another form.`);
       const status = ctx.forms?.get(value);
       if (status === undefined) say(`"${value}" is not a form on this site.`);
       else if (status !== "live") say(`"${value}" is archived; pick a live form or restore it.`);

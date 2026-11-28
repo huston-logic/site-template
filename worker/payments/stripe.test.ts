@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
-import { createCheckoutSession, encodeForm, getSession, markPayment, STRIPE_VERSION } from "./stripe.ts";
+import { createCheckoutSession, encodeForm, expireSession, getSession, markPayment, STRIPE_VERSION } from "./stripe.ts";
 
 type Call = { url: string; init: RequestInit };
 let calls: Call[] = [];
@@ -105,7 +105,7 @@ test("reads a session with its payment and the time the money was taken", async 
   const result = await getSession("rk_test_key", "cs_test_1");
   assert.deepEqual(result, {
     ok: true,
-    value: { id: "cs_test_1", status: "complete", paymentStatus: "paid", amountTotal: 5000, currency: "usd", created: 1_800_000_000, metadata: { kind: "gift_card" }, payment: { id: "pi_1", metadata: { hl_buyer: "sent" }, paidAt: 1_800_000_030 } },
+    value: { id: "cs_test_1", status: "complete", paymentStatus: "paid", amountTotal: 5000, currency: "usd", created: 1_800_000_000, expiresAt: null, metadata: { kind: "gift_card" }, payment: { id: "pi_1", metadata: { hl_buyer: "sent" }, paidAt: 1_800_000_030 } },
   });
   assert.equal(calls[0]?.init.method, "GET");
   assert.equal(calls[0]?.url, "https://api.stripe.com/v1/checkout/sessions/cs_test_1?expand%5B%5D=payment_intent.latest_charge");
@@ -127,4 +127,30 @@ test("writes marks into the payment's metadata with an idempotency key that name
   assert.equal(headers(calls[0]!)["idempotency-key"], "pay-pi_1-mark-hl_ledger=saved");
   replies.push(reply(400, { error: { code: "x" } }));
   assert.equal(await markPayment("rk_test_key", "pi_1", { hl_buyer: "sent" }), false);
+});
+
+test("a page can close at a set time and take cards only; without them Stripe's defaults stand", async () => {
+  replies.push(reply(200, { id: "cs_test_3", url: "https://checkout.stripe.com/c/pay/cs_test_3" }));
+  assert.ok((await createCheckoutSession("rk_test_key", { ...PARAMS, expiresAt: 1_800_001_860, cardOnly: true }, "k3")).ok);
+  const form = body(calls[0]!);
+  assert.equal(form.get("expires_at"), "1800001860");
+  assert.equal(form.get("payment_method_types[0]"), "card");
+  assert.equal(form.get("payment_method_types[1]"), null);
+});
+
+test("a session read gives the time its page closes", async () => {
+  replies.push(reply(200, { id: "cs_test_4", status: "open", payment_status: "unpaid", amount_total: 100, currency: "usd", created: 1, expires_at: 1_800_001_860, metadata: {}, payment_intent: null }));
+  const read = await getSession("rk_test_key", "cs_test_4");
+  assert.ok(read.ok && read.value?.expiresAt === 1_800_001_860);
+});
+
+test("expiring a page: true when closed or already not open, false when Stripe cannot be asked", async () => {
+  replies.push(reply(200, { id: "cs_test_5", status: "expired" }));
+  assert.equal(await expireSession("rk_test_key", "cs_test_5"), true);
+  assert.equal(calls[0]?.url, "https://api.stripe.com/v1/checkout/sessions/cs_test_5/expire");
+  assert.equal(calls[0]?.init.method, "POST");
+  replies.push(reply(400, { error: { code: "resource_missing" } }));
+  assert.equal(await expireSession("rk_test_key", "cs_test_5"), true);
+  replies.push(reply(403, { error: { code: "secret_key_required" } }));
+  assert.equal(await expireSession("rk_test_key", "cs_test_5"), false);
 });

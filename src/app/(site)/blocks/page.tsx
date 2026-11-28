@@ -6,8 +6,10 @@ import { registry } from "@/blocks/definitions";
 import type { AnyBlockDefinition, BlockInstance } from "@/blocks/schema";
 import { Container } from "@/components/hl/Container";
 import { FadingDivider } from "@/components/hl/FadingDivider";
+import { BOOKING_BLOCK } from "@/booking/schema";
 import { GIFT_CARD_BLOCK } from "@/gift-cards/schema";
 import { getShowcaseCatalog } from "@/lib/catalog";
+import { getShowcaseBooking } from "@/lib/booking";
 import { getShowcaseGiftCards } from "@/lib/gift-cards";
 import { showcaseRoute } from "@/lib/routes";
 import { pageMetadata } from "@/lib/metadata";
@@ -34,6 +36,7 @@ export default function ShowcasePage() {
   const seenHeadings = new Set<string>();
   const showcaseCatalog = getShowcaseCatalog();
   const showcaseGiftCards = getShowcaseGiftCards();
+  const showcaseBooking = getShowcaseBooking() ?? undefined;
   return (
     <div className="relative overflow-x-clip">
       <BlockView block={heroBlock} index={0} primary />
@@ -61,6 +64,7 @@ export default function ShowcasePage() {
                 business={exampleBusiness}
                 catalog={def.collection === "catalog" ? showcaseCatalog : undefined}
                 giftCards={def.type === GIFT_CARD_BLOCK ? showcaseGiftCards : undefined}
+                booking={def.type === BOOKING_BLOCK ? showcaseBooking : undefined}
               />
             </div>
           );

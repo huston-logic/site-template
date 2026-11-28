@@ -324,6 +324,7 @@ function loadSiteParts(root) {
     catalog: settingsFiles.catalog.data,
     pricing: settingsFiles.pricing.data,
     "gift-cards": settingsFiles["gift-cards"].data,
+    booking: settingsFiles.booking.data,
     settingsErrors,
   };
 }
@@ -383,7 +384,7 @@ export function judgeEntries({ entries, site, root }) {
 
 /** The problems the site already has before any row is added (so they are not blamed on the import). */
 function validateSiteBaseline(site, repo) {
-  return validateSite({ ...site, items: site.items }, registry, repo, { links: thanksPageLinks(thanks), formSettings: siteConfig.forms, paymentsOn: siteConfig.payments !== null, registryIds: formFiles.map((file) => file.id) });
+  return validateSite({ ...site, items: site.items }, registry, repo, { links: thanksPageLinks(thanks), formSettings: siteConfig.forms, paymentsOn: siteConfig.payments !== null, calendarOn: siteConfig.booking !== null, registryIds: formFiles.map((file) => file.id) });
 }
 
 export function parseArgs(argv) {

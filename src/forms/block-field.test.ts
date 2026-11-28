@@ -7,7 +7,7 @@ import type { FormStatus } from "./schema.ts";
 
 const def = { fields: { form: { kind: "form", label: "Form" } } } as unknown as AnyBlockDefinition;
 const repo = { imageExists: () => true, fileExists: () => true };
-const forms = new Map<string, FormStatus>([["enquiry", "live"], ["old", "archived"], ["quote", "live"], ["contact", "live"]]);
+const forms = new Map<string, FormStatus>([["enquiry", "live"], ["old", "archived"], ["quote", "live"], ["contact", "live"], ["booking", "live"]]);
 const ctx: Context = { repo, pages: null, forms };
 const check = (value: unknown, context: Context = ctx) => validateContent(def, { form: value }, "page.json, block 2 (form)", context);
 
@@ -16,6 +16,10 @@ describe('the "form" field kind', () => {
   test("refuses the quote form, with the reason", () => {
     const [problem] = check("quote");
     assert.match(problem as string, /is the quote form, which only the quote builder shows/);
+  });
+  test("refuses the booking form, with the reason", () => {
+    const [problem] = check("booking");
+    assert.match(problem as string, /"booking" is the booking form, which only the booking section shows; pick another form\./);
   });
   test("refuses the contact form, with the reason", () => {
     const [problem] = check("contact");
