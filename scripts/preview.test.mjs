@@ -28,7 +28,7 @@ function fetchRaw(port, path, headers = {}) {
 }
 
 test("text files are gzipped when the browser accepts gzip, and plain when it does not", async () => {
-  const server = await startPreviewServer({ outDir: fixtureSite(), port: 0 });
+  const server = await startPreviewServer({ outDir: fixtureSite(), port: 0, host: "127.0.0.1" });
   try {
     const zipped = await fetchRaw(server.port, "/app.js", { "accept-encoding": "gzip, deflate, br" });
     assert.equal(zipped.headers["content-encoding"], "gzip");
@@ -47,7 +47,7 @@ test("text files are gzipped when the browser accepts gzip, and plain when it do
 });
 
 test("images and fonts are never re-compressed", async () => {
-  const server = await startPreviewServer({ outDir: fixtureSite(), port: 0 });
+  const server = await startPreviewServer({ outDir: fixtureSite(), port: 0, host: "127.0.0.1" });
   try {
     for (const path of ["/photo.webp", "/font.woff2"]) {
       const res = await fetchRaw(server.port, path, { "accept-encoding": "gzip" });
@@ -59,7 +59,7 @@ test("images and fonts are never re-compressed", async () => {
 });
 
 test("the 404 page keeps its status when it is compressed", async () => {
-  const server = await startPreviewServer({ outDir: fixtureSite(), port: 0 });
+  const server = await startPreviewServer({ outDir: fixtureSite(), port: 0, host: "127.0.0.1" });
   try {
     const res = await fetchRaw(server.port, "/nope", { "accept-encoding": "gzip" });
     assert.equal(res.status, 404);
