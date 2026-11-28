@@ -12,8 +12,10 @@ import { loadBusyBucketed } from "./events.ts";
 /**
  * GET /api/booking/times?service=&party=&index=&from=&days=&chosen= (booking design R8). The query is judged strictly:
  * anything a person could not have made through the page is a 400. Open times are the rules minus busy time (free/busy over
- * every busy calendar) minus other people's live holds; a result is kept 30 seconds per calendar set and range. Reads do
- * not take the lock and are not rate limited: a visitor paging through weeks would hit the forms' limit. If any calendar
+ * every busy calendar) minus other people's live holds. Only dates inside the window the session may fall on are read,
+ * and busy time is read per fixed 14-day bucket kept 30 seconds (memory, then the edge cache), so no query can force more
+ * Google calls. Reads are same-origin only, do not take the lock and are not rate limited: a visitor paging through weeks
+ * would hit the forms' limit. If any calendar
  * cannot be read the route fails closed (502), never offering a time it could not check. In development nothing outside is
  * called: times come from the rules alone.
  */
