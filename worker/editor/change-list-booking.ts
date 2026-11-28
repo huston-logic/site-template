@@ -76,35 +76,35 @@ const partyText = (value: unknown): string => {
   return min === max ? plural(Number(min), "person", "people") : `${String(min)} to ${String(max)} people`;
 };
 
-const priceText = (value: unknown): string => {
+const priceText = (value: unknown, symbol: string): string => {
   if (!isObject(value)) return "no price shown";
-  return `$${String(value.amount)}${value.per === "person" ? " per person" : " per booking"}`;
+  return `${symbol}${String(value.amount)}${value.per === "person" ? " per person" : " per booking"}`;
 };
 
-const paymentText = (value: unknown): string => {
+const paymentText = (value: unknown, symbol: string): string => {
   const payment = record(value);
   if (payment.kind === "full") return "pays in full online";
-  if (payment.kind === "deposit") return typeof payment.percent === "number" ? `pays a ${payment.percent} percent deposit online, the rest later` : `pays a $${String(payment.amount)} deposit online, the rest later`;
+  if (payment.kind === "deposit") return typeof payment.percent === "number" ? `pays a ${payment.percent} percent deposit online, the rest later` : `pays a ${symbol}${String(payment.amount)} deposit online, the rest later`;
   return "nothing paid online (any price is paid on the day)";
 };
 
-function describeService(service: Record<string, unknown>): string[] {
+function describeService(service: Record<string, unknown>, symbol: string): string[] {
   const lines = [
     `Status: ${service.status === "archived" ? "archived" : "live"}`,
     `Sessions: ${sessionsText(service.sessions)}`,
     ...(list(service.sessions).length > 1 ? [`Between sessions: ${betweenText(service.between)}`] : []),
     `Party: ${partyText(service.party)}`,
-    `Price: ${priceText(service.price)}`,
-    `Payment: ${paymentText(service.payment)}`,
+    `Price: ${priceText(service.price, symbol)}`,
+    `Payment: ${paymentText(service.payment, symbol)}`,
     `Description: ${quote(service.description)}`,
   ];
   if (isObject(service.hours)) lines.push("Its own hours:", ...hoursLines({}, service.hours, "  ", true, true));
   return lines;
 }
 
-function serviceLines(old: Record<string, unknown> | undefined, now: Record<string, unknown> | undefined, id: string): string[] {
+function serviceLines(old: Record<string, unknown> | undefined, now: Record<string, unknown> | undefined, id: string, symbol: string): string[] {
   if (now === undefined) return old === undefined ? [] : [`  Service ${quote(old.name)} (${id}) was removed from the file; services are archived, never deleted.`];
-  if (old === undefined) return [`  New service ${quote(now.name)} (${id}):`, ...describeService(now).map((line) => `    ${line}`)];
+  if (old === undefined) return [`  New service ${quote(now.name)} (${id}):`, ...describeService(now, symbol).map((line) => `    ${line}`)];
   const lines: string[] = [];
   if (old.name !== now.name) lines.push(`Name: ${quote(old.name)} → ${quote(now.name)}`);
   if (old.description !== now.description) lines.push(`Description: ${quote(old.description)} → ${quote(now.description)}`);
@@ -118,8 +118,8 @@ function serviceLines(old: Record<string, unknown> | undefined, now: Record<stri
   if (!deepEqual(old.sessions, now.sessions)) lines.push(`Sessions: ${sessionsText(old.sessions)} → ${sessionsText(now.sessions)}`);
   if (!deepEqual(old.between, now.between)) lines.push(`Between sessions: ${betweenText(old.between)} → ${betweenText(now.between)}`);
   if (!deepEqual(old.party, now.party)) lines.push(`Party: ${partyText(old.party)} → ${partyText(now.party)}`);
-  if (!deepEqual(old.price, now.price)) lines.push(`Price: ${priceText(old.price)} → ${priceText(now.price)}`);
-  if (!deepEqual(old.payment, now.payment)) lines.push(`Payment: ${paymentText(old.payment)} → ${paymentText(now.payment)}`);
+  if (!deepEqual(old.price, now.price)) lines.push(`Price: ${priceText(old.price, symbol)} → ${priceText(now.price, symbol)}`);
+  if (!deepEqual(old.payment, now.payment)) lines.push(`Payment: ${paymentText(old.payment, symbol)} → ${paymentText(now.payment, symbol)}`);
   if (!deepEqual(old.hours, now.hours)) {
     lines.push("Its own hours:", ...(isObject(now.hours) ? hoursLines(record(old.hours), now.hours, "  ", true) : ["  now follow the site's hours"]));
   }
@@ -127,7 +127,7 @@ function serviceLines(old: Record<string, unknown> | undefined, now: Record<stri
 }
 
 /** "Booking settings:" and what changed in them. */
-export function bookingSection(old: Record<string, unknown>, now: Record<string, unknown>): string {
+export function bookingSection(old: Record<string, unknown>, now: Record<string, unknown>, symbol: string = "$"): string {
   const lines = ["Booking settings:"];
   if (old.taking !== now.taking) lines.push(`  Taking bookings: ${old.taking === true ? "yes" : "no"} → ${now.taking === true ? "yes" : "no"}`);
   for (const [key, label] of [["policy", "Policy"], ["changeWording", "How to change or cancel"], ["giftCardLine", "Gift card line"]] as const) {
@@ -137,7 +137,7 @@ export function bookingSection(old: Record<string, unknown>, now: Record<string,
   if (hours.length > 0) lines.push("  Opening hours:", ...hours);
   const was = new Map(list(old.services).filter(isObject).map((service) => [String(service.id), service]));
   const is = new Map(list(now.services).filter(isObject).map((service) => [String(service.id), service]));
-  for (const id of new Set([...was.keys(), ...is.keys()])) lines.push(...serviceLines(was.get(id), is.get(id), id));
+  for (const id of new Set([...was.keys(), ...is.keys()])) lines.push(...serviceLines(was.get(id), is.get(id), id, symbol));
   if (old.taking !== true && now.taking === true) lines.push(`  ${BOOKING_ON_LINE}`);
   if (old.taking === true && now.taking !== true) lines.push(`  ${BOOKING_OFF_LINE}`);
   return lines.join("\n");

@@ -29,7 +29,7 @@
  * and a row whose reference is already in column J of its tab is not added again, so a repeated payment notice never lists
  * a booking twice:
  *   Booked (UTC) | Service | Sessions | Party size | Name | Email | Phone | Paid | Due later | Stripe reference | Catalog item | Came from | Campaign | Click ID | First seen (UTC) | Days to note | Status | Notes
- * Status and Notes stay empty for the owner to fill in.
+ * The Worker writes Status ("Booked" or "Needs attention") and leaves Notes empty for the owner to fill in.
  *
  * Deploy as: Web app, Execute as "Me", Who has access "Anyone". The secret is what keeps the URL private.
  * Every failure returns {"ok":false} with no details.

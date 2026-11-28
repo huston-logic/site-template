@@ -82,7 +82,7 @@ export interface BookingSummary {
 
 export type CheckoutAnswer =
   /** A paid booking: leave for `url`. `dueNow` is in whole currency units with cents (for begin_checkout). */
-  | { ok: true; kind: "checkout"; url: string; sessionId: string; dueNow: number; currency: string; /** Proves to the release route that this browser started the checkout (kept in sessionStorage beside the session id). */ releaseToken?: string }
+  | { ok: true; kind: "checkout"; url: string; sessionId: string; dueNow: number; currency: string; /** Proves to the release route that this browser started the checkout (kept in sessionStorage beside the session id). */ releaseToken: string }
   /** A free booking: confirmed already. */
   | { ok: true; kind: "booked"; summary: BookingSummary }
   | { ok: false; error: "invalid"; fields: string[] }

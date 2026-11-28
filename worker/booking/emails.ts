@@ -1,5 +1,5 @@
 import { bookingEmails, type Facts } from "../../src/content/booking-emails.ts";
-import { formatLocal, zoneName } from "../../src/booking/zone.ts";
+import { formatLocalZoned, zoneName } from "../../src/booking/zone.ts";
 import { autoReplyFirstName } from "../../src/lib/first-name.ts";
 import type { OutgoingEmail } from "../email.ts";
 import { toBase64 } from "../gift-cards/emails.ts";
@@ -36,7 +36,7 @@ export function facts(deps: BookingDeps, booking: Booking): Facts {
     service: booking.serviceName,
     reference: booking.reference,
     party: booking.party,
-    sessions: booking.starts.map((start, index) => `${many ? `Session ${index + 1} of ${booking.starts.length}: ` : "When: "}${formatLocal(start, tz)}`),
+    sessions: booking.starts.map((start, index) => `${many ? `Session ${index + 1} of ${booking.starts.length}: ` : "When: "}${formatLocalZoned(start, tz)}`),
     zoneName: zoneName(tz, booking.starts[0] as number),
     paid: booking.dueNowMinor > 0 ? formatMoney(booking.dueNowMinor, booking.currency) : "",
     dueLater: booking.dueLaterMinor > 0 ? formatMoney(booking.dueLaterMinor, booking.currency) : "",

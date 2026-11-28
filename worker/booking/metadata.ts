@@ -61,6 +61,8 @@ export interface BookingInput {
   item: { slug: string; name: string } | null;
   siteMode: string;
   site: string;
+  /** 32 hex characters drawn at checkout; the release route acts only for the browser that was handed it (metadata `rt`). */
+  releaseToken: string;
 }
 
 const cap = (text: string, max = 500): string => (text.length > max ? text.slice(0, max) : text);
@@ -111,6 +113,7 @@ export function bookingMetadata(input: BookingInput, attribution: Attribution | 
     email: cap(input.email),
     site_mode: input.siteMode,
     site: input.site,
+    rt: input.releaseToken,
     cal_preview: input.siteMode === "preview" ? "1" : "0",
     ...answerChunks(input.answers),
     ...sourceMetadata(attribution, receivedAtIso),

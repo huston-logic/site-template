@@ -6,7 +6,7 @@ import type { PaymentProvider, PaymentSession } from "../payments/types.ts";
 import type { CalendarEvent } from "./calendar.ts";
 import type { BookingDeps } from "./deps.ts";
 import { alertEmail, mismatchEmail, ownerEmail, visitorEmail, waitingEmail } from "./emails.ts";
-import { bookingChanges, isOurBooking, liveClaims, loadBusy, writeCalendarId } from "./events.ts";
+import { bookingChanges, isMarkedCheck, isOurBooking, liveClaims, loadBusy, writeCalendarId } from "./events.ts";
 import { saveLedger } from "./ledger.ts";
 import { hasTimeLeft, type Claim } from "./lock.ts";
 import { parseBooking, type Booking } from "./metadata.ts";
@@ -55,22 +55,25 @@ const idempotency = (paymentId: string, step: string) => `book-${paymentId}-${st
 const overlaps = (a: Interval, b: Interval) => a.start < b.end && b.start < a.end;
 const DAY_MS = 86_400_000;
 
-/** Whether any session now collides with another event. null when the busy time could not be read. */
-async function sessionsClash(deps: BookingDeps, booking: Booking, claims: Claim[]): Promise<boolean | null> {
+/** Whether any of the sessions at `indices` now collides with another event. null when the busy time could not be read. */
+async function sessionsClash(deps: BookingDeps, booking: Booking, claims: Claim[], indices: number[]): Promise<boolean | null> {
   const own = new Set(booking.eventIds);
   const first = Math.min(...booking.starts);
   const last = Math.max(...booking.ends);
-  const busy = await loadBusy(deps, first - DAY_MS, last + DAY_MS, { fresh: true, own });
+  const busy = await loadBusy(deps, first - DAY_MS, last + DAY_MS, { own });
   if (busy === null) return null;
   const claimed = await liveClaims(deps, claims, own);
   if (claimed === null) return null;
   const others: Interval[] = [...busy, ...claimed];
-  return booking.starts.some((start, index) => others.some((other) => overlaps({ start, end: booking.ends[index] as number }, other)));
+  return indices.some((index) => others.some((other) => overlaps({ start: booking.starts[index] as number, end: booking.ends[index] as number }, other)));
 }
 
 /**
  * Inside the lock: turns the holds into bookings, or into "CHECK" bookings when a hold is gone or the time is no longer free.
- * "failed" means a calendar call failed or the lock could not be had: nothing is marked and a later run tries again.
+ * A CHECK booking carries `hl_check=1` from the same patch that makes it, and any event of this booking carrying it makes the
+ * answer "clash" on every later run, so a run that stopped halfway can never turn a clash into "booked". An event is already
+ * done only when it is ours AND opaque; one still transparent is patched, whatever its properties say.
+ * "failed" means a calendar call failed, time ran out or the lock could not be had: nothing is marked and a later run tries again.
  */
 async function settleCalendar(deps: BookingDeps, booking: Booking): Promise<"booked" | "clash" | "failed"> {
   const calendarId = writeCalendarId(deps);
@@ -80,7 +83,9 @@ async function settleCalendar(deps: BookingDeps, booking: Booking): Promise<"boo
   }
   const lease = await deps.lock.acquire();
   if (!lease) return "failed";
-  let claims: Claim[] = [];
+  // Each event's claim is kept the moment it is written, so the release below carries every one of them whatever happens next.
+  const claims: Claim[] = [];
+  const claimOf = (index: number): Claim => ({ start: booking.starts[index] as number, end: booking.ends[index] as number, ref: booking.eventIds[index] as string });
   try {
     const events: (CalendarEvent | null)[] = [];
     for (const id of booking.eventIds) {
@@ -88,25 +93,36 @@ async function settleCalendar(deps: BookingDeps, booking: Booking): Promise<"boo
       if (!found.ok) return "failed";
       events.push(found.value);
     }
-    // A run that patched and then lost its mark finds its own bookings: they were checked before they were written, so no check now.
-    const alreadyBooked = events.some((event) => event !== null && isOurBooking(event, booking));
-    let clash = events.some((event) => event === null);
-    if (!clash && !alreadyBooked) {
-      const found = await sessionsClash(deps, booking, lease.claims);
+    const pending = events.flatMap((event, index) => (event !== null && !isOurBooking(event, booking) ? [index] : []));
+    let clash = events.some((event) => event === null || isMarkedCheck(event, booking));
+    // Bookings an earlier run wrote were checked before they were written, so only the sessions still to be written are checked now.
+    if (!clash && pending.length > 0) {
+      const found = await sessionsClash(deps, booking, lease.claims, pending);
       if (found === null) return "failed";
       clash = found;
     }
-    if (!hasTimeLeft(lease, deps.now())) return "failed";
     for (let index = 0; index < events.length; index++) {
       const event = events[index];
-      if (!event || isOurBooking(event, booking)) continue;
-      const patched = await deps.calendar.patchEvent(calendarId, booking.eventIds[index] as string, bookingChanges(booking, index, clash));
+      if (!event) continue;
+      if (isOurBooking(event, booking)) {
+        claims.push(claimOf(index));
+        continue;
+      }
+      if (!hasTimeLeft(lease, deps.now())) {
+        log("booking_lock_slow");
+        return "failed";
+      }
+      const patched = await deps.calendar.patchEvent(calendarId, booking.eventIds[index] as string, bookingChanges(booking, index, clash, deps.config.timeZone));
       if (!patched.ok) return "failed";
+      claims.push(claimOf(index));
     }
-    claims = booking.starts.map((start, index) => ({ start, end: booking.ends[index] as number, ref: booking.eventIds[index] as string }));
     return clash ? "clash" : "booked";
   } finally {
-    await deps.lock.release(lease.token, claims);
+    try {
+      await deps.lock.release(lease.token, claims);
+    } catch {
+      log("booking_lock_release_failed");
+    }
   }
 }
 
