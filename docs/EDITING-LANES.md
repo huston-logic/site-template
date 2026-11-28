@@ -73,6 +73,10 @@ Ask for any of these in plain words.
   range, change the redeem wording and the terms line, and stop or start selling. The certificate shows your business name
   and logo. Works once Huston Logic has set up payments on your site. Turning sales on is refused until then. See the
   Gift cards section in [EDITING.md](EDITING.md).
+- **Bookings.** Turn taking bookings on or off, add, change or archive services (with their sessions, price and payment),
+  change your hours, start times, notice, how far ahead people can book and closed dates, and change the policy and the
+  booking form's questions. Works once Huston Logic has connected the calendar on your site. Turning bookings on is refused
+  until then. A paid service is refused until payments are set up. See the Booking section in [EDITING.md](EDITING.md).
 
 ### The check on every change
 
@@ -128,8 +132,10 @@ These need Huston Logic. Ask, and Huston Logic will tell you what it takes.
 - **A section design that does not exist yet.** Huston Logic designs it for your site. Once it is built, it joins your
   list in Lane 1. Huston Logic builds it.
 - **Payments setup.** Huston Logic sets up your payment account (your own Stripe account, in your name), the keys and the
-  webhook, and makes any refund in Stripe. Booking payments come later and are also Huston Logic's. See
+  webhook, and makes any refund in Stripe. Booking payments use the same setup and are also Huston Logic's. See
   [PAYMENTS.md](PAYMENTS.md).
+- **Booking calendar setup.** Huston Logic connects your Google Calendar (the one bookings go to, and any others that should
+  block times) and sets up a test calendar for previews. See [BOOKING.md](BOOKING.md).
 - **Logins and members areas.** Huston Logic builds it.
 - **A store.** Huston Logic builds it.
 - **Domain and email setup.** Huston Logic builds it.

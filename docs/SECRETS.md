@@ -26,13 +26,13 @@ After changing `destination` or `sheetWriter`, run `npm run sync:config` and com
 | `INTAKE_SECRET` | The shared secret the Worker sends to the Pipeline app in the `X-Intake-Secret` header. Make it long and random. Must be the same value as the app's copy of it. | `pipeline` | `npx wrangler secret put INTAKE_SECRET` | `npx wrangler preview base-config secret put INTAKE_SECRET` |
 | `SHEET_WEBHOOK_URL` | The Apps Script web-app URL (starts with `https://script.google.com/`). | `sheet` with `apps-script` | `npx wrangler secret put SHEET_WEBHOOK_URL` | `npx wrangler preview base-config secret put SHEET_WEBHOOK_URL` |
 | `SHEET_WEBHOOK_SECRET` | The shared secret the Worker sends and the Apps Script checks. Make it long and random. Must equal the Script Property `SHEET_SECRET`. | `sheet` with `apps-script` | `npx wrangler secret put SHEET_WEBHOOK_SECRET` | `npx wrangler preview base-config secret put SHEET_WEBHOOK_SECRET` |
-| `GOOGLE_SERVICE_ACCOUNT_KEY` | The whole service-account JSON key file. | `sheet` with `service-account` | `npx wrangler secret put GOOGLE_SERVICE_ACCOUNT_KEY < path/to/key.json` | `npx wrangler preview base-config secret put GOOGLE_SERVICE_ACCOUNT_KEY < path/to/key.json` |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | The whole service-account JSON key file. | `sheet` with `service-account`; and `booking` set in `site.config.ts`, whatever the Sheet writer is | `npx wrangler secret put GOOGLE_SERVICE_ACCOUNT_KEY < path/to/key.json` | `npx wrangler preview base-config secret put GOOGLE_SERVICE_ACCOUNT_KEY < path/to/key.json` |
 | `GOOGLE_SHEET_ID` | The Sheet ID (between `/d/` and `/edit` in its URL). | `sheet` with `service-account` | `npx wrangler secret put GOOGLE_SHEET_ID` | `npx wrangler preview base-config secret put GOOGLE_SHEET_ID` |
 | `GITHUB_APP_PRIVATE_KEY` | The private key file (`.pem`) of the site's GitHub App, for the site editor. | Only when `editor.enabled` is true | `npx wrangler secret put GITHUB_APP_PRIVATE_KEY < path/to/key.pem` | Never: the editor is off on previews |
 | `STRIPE_SECRET_KEY` | The Stripe restricted key (`rk_live_...` in production, `rk_test_...` in previews), with only Checkout Sessions write, PaymentIntents write and Charges read. The Worker refuses a key whose mode does not match the site. | Only when `payments` is set in `site.config.ts` | `npx wrangler secret put STRIPE_SECRET_KEY` | `npx wrangler preview base-config secret put STRIPE_SECRET_KEY` (a test key) |
 | `STRIPE_WEBHOOK_SECRET` | The signing secret of the site's Stripe webhook endpoint (`whsec_...`), for `https://<site domain>/api/payments/stripe`. Test mode has its own endpoint and secret. | Only when `payments` is set in `site.config.ts` | `npx wrangler secret put STRIPE_WEBHOOK_SECRET` | `npx wrangler preview base-config secret put STRIPE_WEBHOOK_SECRET` (the test endpoint's secret) |
 
-Setup for payments is in [docs/PAYMENTS.md](PAYMENTS.md).
+Setup for payments is in [docs/PAYMENTS.md](PAYMENTS.md). Setup for booking, including its calendar, is in [docs/BOOKING.md](BOOKING.md).
 
 `INTAKE_SECRET` is also set on the Pipeline app copy, with the same value. The Worker never sends it to a browser.
 
@@ -76,10 +76,12 @@ this repo.
 | `TAB_FORMS_PREVIEW` | No | Tab for branch previews of the other forms. Defaults to `Forms preview`, which is `contact.sheetTabs.formsPreview` in `site.config.ts`. |
 | `TAB_GIFT_CARDS` | No | Tab for live gift card sales (the ledger). Defaults to `Gift cards`, which is `contact.sheetTabs.giftCards` in `site.config.ts`. |
 | `TAB_GIFT_CARDS_PREVIEW` | No | Tab for branch previews of gift card sales. Defaults to `Gift cards preview`, which is `contact.sheetTabs.giftCardsPreview` in `site.config.ts`. |
+| `TAB_BOOKINGS` | No | Tab for live bookings (the booking ledger). Defaults to `Bookings`, which is `contact.sheetTabs.bookings` in `site.config.ts`. |
+| `TAB_BOOKINGS_PREVIEW` | No | Tab for branch previews of bookings. Defaults to `Bookings preview`, which is `contact.sheetTabs.bookingsPreview` in `site.config.ts`. |
 
 If you rename a tab in `site.config.ts`, set the matching property here and rename the tab in the Sheet.
 
-Forms add no new secret. The only new Script Properties are the two tab names above. The Apps Script must be updated (a new version of the same web app) before new forms' answers reach the Sheet, and before gift card sales reach the ledger (docs/PAYMENTS.md, step 6).
+Forms add no new secret. The gift card and booking tab names are the only later Script Properties, and they are in the table above. The Apps Script must be updated (a new version of the same web app) before new forms' answers reach the Sheet, before gift card sales reach the ledger (docs/PAYMENTS.md, step 6), and before bookings reach the ledger (docs/BOOKING.md, step 8).
 
 ## Public settings (not secrets)
 

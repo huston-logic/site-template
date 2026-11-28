@@ -274,12 +274,99 @@ unique. The buyer's message and the recipient's name are in the ledger, not on t
 Every sale is also a row in your ledger (your Sheet's "Gift cards" tab, or your Pipeline app), with the code, amount,
 buyer, recipient and where the sale came from. The chat does not see sales, check a balance or redeem a card.
 
+## Booking
+
+A site can take bookings. A visitor picks a service and a time, pays online if you ask for it, and gets a confirmation email
+with a calendar file. Your Google Calendar is the record. Every booking is an event on it, and the site reads it to see which
+times are busy. Huston Logic connects your calendar and sets up payments first (see [BOOKING.md](BOOKING.md)). After that you
+change the booking settings by chat, like the rest of the site.
+
+The settings are one file, `src/content/booking.json`. It holds whether you are taking bookings (`taking`), your policy, the
+change wording, the gift card line, your hours and your services. The booking block on your page reads these. The block
+itself does not change by chat.
+
+### What you can change by chat
+
+- **Turn bookings on or off.** "Turn booking on" or "Stop taking bookings". Stopping deletes nothing: your services stay, and
+  bookings already made stay on your calendar.
+- **Services.** Add, change or archive a service, for example "Add a free one-hour consultation, weekdays 10 to 4". A service
+  has a name, a description, its sessions, a price and a payment choice. Archive one with "Archive the workshop". It leaves
+  the site and nobody can book it. Nothing is deleted, and you can ask for it back.
+- **Sessions.** A service is one session, or up to six sessions on different days, such as a course with weekly meetings.
+  Each session lasts 15 minutes to 12 hours. With two or more sessions, one rule applies between each pair of sessions that
+  sit next to each other: the fewest and most days between them. Zero means the same day is allowed. For example, "The second
+  session must be 2 to 10 days after the first".
+- **Party size.** How many people can book at once, from 1 to 50.
+- **Price.** A price per person or per booking, or no price (the service costs nothing).
+- **Payment.** The full price online, a deposit, or nothing online. See "Payment choices" below.
+- **Hours.** Your opening hours for each weekday: one or more windows, or none for a closed day. Start times, either every so
+  many minutes (such as every 30) or a fixed list. The gap kept free before and after each booking. How long before the start
+  a visitor can still book (the notice). How many days ahead people can book. Closed dates, such as December 24 to January 2.
+- **Hours for one service.** A service can have its own hours. Its own weekday hours, start times, gap, notice or days ahead
+  replace yours. Its closed dates add to your closed dates.
+- **Wording.** The policy, which is shown before the visitor pays or confirms. How a visitor changes or cancels a booking,
+  which is in every email. The gift card line, which says how to book with a gift card and is shown while gift cards are on
+  sale.
+- **The booking form.** The questions a visitor answers. You change them as you change any form (see "Forms" above). The
+  form must keep one question for the name and one for an email address. The first phone question is the phone number, and
+  every other answer goes in the notes. The answers can be up to 2,000 characters in all.
+
+Every change shows in a change list before you say yes. Read it, then say yes only if it is right.
+
+### Payment choices
+
+- **Full.** The visitor pays the whole price online.
+- **Deposit.** The visitor pays a set amount online and the rest later. You name a whole dollar amount or a percent from 1 to
+  99. A deposit is never more than the price.
+- **Free.** Nothing is paid online. If the service has a price, the whole price is due on the day. Without a price, the
+  service costs nothing.
+
+Taking money online needs payments set up on the site. Until then a service that takes money is refused, and the refusal
+says why. A free service, or one paid on the day, needs no payments.
+
+### What the chat refuses
+
+- **No calendar.** Turning bookings on is refused until Huston Logic has connected the calendar. The refusal says so.
+- **A paid service without payments.** A service that takes money online is refused until payments are set up. Make it free
+  (paid on the day), or ask Huston Logic to set up payments.
+- **No live service.** Bookings cannot be on while no service is live. Make one service live, or turn bookings off first.
+
+### Examples you can say
+
+The examples say "workshop" for a service. Use the name of one of your own services instead.
+
+- "Workshops need 14 days' notice." The workshop gets its own notice of 14 days. Nothing else changes.
+- "Close December 24 to January 2." Those dates are added to your closed dates.
+- "Add a free one-hour consultation, weekdays 10 to 4." A new live service, with its own weekday hours.
+- "Take a $100 deposit instead of full payment." The workshop takes $100 online and the rest later. Needs payments set up.
+- "The second session must be 2 to 10 days after the first." Sets the rule between the sessions of the workshop.
+
+### Times and changes after a booking
+
+- Every time is in your business's time zone, and the page says which zone that is.
+- Times are checked against your calendar each time someone looks at them. A change in Google Calendar shows on the page
+  within 30 seconds. A time is always checked again just before it is booked.
+- To move or cancel a booking, move or delete its event in Google Calendar. To refund a payment, refund it in Stripe. The
+  chat cannot change a booking, and a visitor cannot change or cancel their own.
+
+Every booking is also a row in your ledger (your Sheet's "Bookings" tab, or your Pipeline app), with the time, the party,
+the amount paid and due later, and where the booking came from. The chat does not see bookings.
+
+### Limits
+
+- Services: up to 20. A name is up to 60 characters and a description up to 300.
+- Sessions: 1 to 6 for each service. Each is 15 minutes to 12 hours, in steps of 5 minutes.
+- Party size: 1 to 50. Price: a whole number of dollars, up to 100,000.
+- Hours: up to 4 windows a day. Start times every 5 to 240 minutes, or up to 24 fixed times. The gap is up to 240 minutes.
+  Notice is up to 2,160 hours (90 days). Days ahead is 1 to 365. Up to 50 closed ranges.
+- Policy is up to 600 characters. Change wording is up to 300. The gift card line is up to 200.
+
 ## What is protected
 
 - **Owners only.** Only the emails in `editor.ownerEmails` in `site.config.ts` can sign in or connect an AI app. Cloudflare Access (a sign-in gate that emails a one-time code) and the Worker both check this on every visit to `/owner`.
 - **Limited access to GitHub.** The site has its own GitHub App. A GitHub App is a small identity on GitHub with only the permissions it is given. This one is installed on the site's repository only. It can read and write contents, pull requests and issues. It cannot change workflows, settings, Actions or secrets. It is not a bypass actor in the "Protect main" ruleset, so the rules apply to it.
 - **Short-lived tokens.** The Worker holds the App's private key as a secret. Each time it needs GitHub, it asks for a token that lasts one hour and works on that one repository only.
-- **Page files, item files, settings and the owner's uploads.** The editor changes only the files in `src/content/pages/`, the item files under `src/content/collections/` (one file per post, video, episode, testimonial or team member), the three settings files `src/content/business.json`, `src/content/brand.json` and `src/content/notice.json`, the form files in `src/content/forms/` (one per form, never the contact form's file), and adds the photos and PDFs the owner uploaded (`public/images/uploads/<id>.webp` and `public/files/<slug>-<id>.pdf`). A brand change also rewrites two generated files, `src/app/palette.css` and `src/lib/fonts.ts`, from `brand.json`. All of this happens only through a proposal the owner says yes to. The editor never deletes a page file or an item file. A page or an item that is no longer wanted is archived, and its file stays.
+- **Page files, item files, settings and the owner's uploads.** The editor changes only the files in `src/content/pages/`, the item files under `src/content/collections/` (one file per post, video, episode, testimonial or team member), the three settings files `src/content/business.json`, `src/content/brand.json` and `src/content/notice.json`, the form files in `src/content/forms/` (one per form, never the contact form's file), and adds the photos and PDFs the owner uploaded (`public/images/uploads/<id>.webp` and `public/files/<slug>-<id>.pdf`). A brand change also rewrites two generated files, `src/app/palette.css` and `src/lib/fonts.ts`, from `brand.json`. The booking settings file, `src/content/booking.json`, is changed the same way (see "Booking"). All of this happens only through a proposal the owner says yes to. The editor never deletes a page file or an item file. A page or an item that is no longer wanted is archived, and its file stays.
 - **Not editable by chat.** The editor never writes wiring: the notification email address, the booking link, the scheduler, the Worker settings, the security headers (CSP) and the other values in `site.config.ts`. Those go to Huston Logic. The auto-reply email and the owner page keep their own colors, which are also in `site.config.ts`. The modules in `src/content/` that are not listed above (the thanks page, the 404 page, the menu labels) are not changed by the editor either.
 - **One change in flight.** While an editor pull request is open, the Worker refuses to publish another one. Several previews can wait at once.
 - **Daily cap.** At most `editor.dailyChangeLimit` changes a day (default 10). The Worker counts the editor's pull requests on GitHub since 00:00 UTC. An undo counts. Withdrawing an open change does not. Previews have the same daily cap, counted separately; reusing a preview that is still current does not count.

@@ -72,7 +72,7 @@ Setting `booking` to `{ calendarId, busyCalendarIds, previewCalendarId }` adds:
    Booked (UTC) | Service | Sessions | Party size | Name | Email | Phone | Paid | Due later | Stripe reference | Catalog item | Came from | Campaign | Click ID | First seen (UTC) | Days to note | Status | Notes
    ```
 
-   Then paste the new contents of `docs/apps-script/contact-sheet.gs` into the Apps Script editor in place of the old code, save, and deploy a new version of the same web app, so the address does not change. If a tab name differs from `contact.sheetTabs`, set the matching Script Property as [SECRETS.md](SECRETS.md) describes. Pipeline sites need nothing here: bookings post to the app the way forms do.
+   Then paste the new contents of `docs/apps-script/contact-sheet.gs` into the Apps Script editor in place of the old code, save, and deploy a new version of the same web app, so the address does not change. If a tab has a different name, set the Script Property `TAB_BOOKINGS` (the live tab) or `TAB_BOOKINGS_PREVIEW` (the preview tab) to that name, as [SECRETS.md](SECRETS.md) describes. Set them only when the tabs are named differently. Pipeline sites need nothing here: bookings post to the app the way forms do.
 
 9. **The owner's settings.** The owner changes `src/content/booking.json` by chat (services, hours, deposits, policy). See docs/EDITING.md, "Booking". The chat change to turn taking on (`taking: true`) is refused until the calendar is connected (step 6). A service that takes money is refused until payments are set up.
 
