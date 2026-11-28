@@ -88,6 +88,7 @@ function templateDocuments(): Record<string, string> {
   for (const name of ["business", "brand", "notice", "catalog", "pricing", "gift-cards"]) files[`src/content/${name}.json`] = template(`src/content/${name}.json`);
   files["src/content/forms/contact.json"] = template("src/content/forms/contact.json");
   files["src/content/forms/quote.json"] = template("src/content/forms/quote.json");
+  files["src/content/forms/booking.json"] = template("src/content/forms/booking.json");
   files["src/forms/registry.generated.ts"] = template("src/forms/registry.generated.ts");
   for (const kind of COLLECTION_KINDS) {
     if (kind === "posts") continue;

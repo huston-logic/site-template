@@ -1,0 +1,12 @@
+{
+  "name": "Booking details",
+  "status": "live",
+  "fields": [
+    { "id": "name", "type": "short-text", "label": "Your name", "purpose": "name", "max": 100, "required": true, "error": "Please add your name." },
+    { "id": "email", "type": "email", "label": "Email", "required": true, "error": "That email doesn't look quite right." },
+    { "id": "phone", "type": "phone", "label": "Phone", "required": true, "help": "In case I need to reach you about the booking.", "error": "Please add a phone number I can reach you on." },
+    { "id": "notes", "type": "long-text", "label": "Anything I should know? (optional)", "max": 1000, "required": false }
+  ],
+  "button": "Continue",
+  "thanks": "Your booking is confirmed. The details are on their way to your inbox."
+}
