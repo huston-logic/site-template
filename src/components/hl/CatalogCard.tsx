@@ -41,13 +41,14 @@ type CardProps = {
  */
 export function CatalogCard({ view, href, settings, pricing, variant, index, eager }: CardProps) {
   const cover = view.photos[0];
+  const second = cover ? view.photos[1] : undefined;
   const price = cardPrice(view, pricing);
   const filterData = Object.fromEntries(settings.filters.map((filter) => [`data-f-${filter.id}`, (view.filters[filter.id] ?? []).join(" ")]));
   const showcase = variant === "showcase";
   const facts = showcase ? quietFacts(view, settings, 2) : "";
   return (
     <li data-card="" data-order={index} {...filterData} className="hl-card relative">
-      <div className="hl-card-frame rounded-card">
+      <div className={`hl-card-frame rounded-card${second ? " relative" : ""}`}>
         {cover ? (
           <Image
             src={cardPathFor(cover.src)}
@@ -59,6 +60,21 @@ export function CatalogCard({ view, href, settings, pricing, variant, index, eag
             // The first card is usually the page's largest first-screen element, so its photo is asked for first.
             fetchPriority={index === 0 ? "high" : undefined}
             className={`aspect-photo-4-5 w-full rounded-card bg-tint object-cover ${FOCUS[cover.focus ?? "center"]}`}
+          />
+        ) : null}
+        {second ? (
+          // Hidden by CSS until the card is hovered (a device with hover) or its link has keyboard focus. A lazy image with
+          // no box is not requested, so the file loads only then. Decorative: the piece's page lists every photo.
+          <Image
+            src={cardPathFor(second.src)}
+            alt=""
+            aria-hidden="true"
+            width={720}
+            height={900}
+            sizes={SIZES[variant]}
+            loading="lazy"
+            data-card-second=""
+            className={`hl-card-second absolute inset-0 h-full w-full rounded-card bg-tint object-cover ${FOCUS[second.focus ?? "center"]}`}
           />
         ) : null}
       </div>

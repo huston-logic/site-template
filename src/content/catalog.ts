@@ -35,6 +35,15 @@ export const catalogWords = {
   photo: (n: number, of: number, alt: string) => `Photo ${n} of ${of}: ${alt}`,
   /** The link to a full photo for a visitor without JavaScript. */
   photoLink: (n: number, of: number) => `Photo ${n} of ${of}`,
+  /** The button laid over a photo on a piece's page: "Open photo 2 of 4 larger: <alt>". */
+  openLarge: (n: number, of: number, alt: string) => `Open photo ${n} of ${of} larger: ${alt}`,
+  /** The name of the closer-look window. */
+  largeView: (name: string) => `Photos of ${name}`,
+  previousPhoto: "Previous photo",
+  nextPhoto: "Next photo",
+  closeLarge: "Close",
+  /** Said as the photo changes in the closer look: "Photo 2 of 4". */
+  photoCount: (n: number, of: number) => `Photo ${n} of ${of}`,
   /** Said after a filter value's number: "12 (12 pieces)". */
   facetCount: (n: number, singular: string, plural: string) => ` (${n} ${n === 1 ? singular : plural})`,
   quote: {

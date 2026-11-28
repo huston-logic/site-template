@@ -10,16 +10,17 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 - **Repo:** `huston-logic/site-template`, a GitHub template (`is_template` is true). Default branch `main`, ruleset
   "Protect main" active, "Allow auto-merge" on.
 - **Live:** not checked from the repo; client sites deploy from their own repos.
-- **Merged:** PRs #1 to #39, all merged except #3 (Dependabot, closed unmerged). #39 (payments and gift cards) merged on
-  2026-11-27.
-- **Open:** #40, booking (`feat/booking`), queued for auto-merge behind the required checks.
+- **Merged:** PRs #1 to #40, all merged except #3 (Dependabot, closed unmerged). #40 (booking) merged on 2026-11-27.
+- **Open:** #41, catalog photo views (`feat/catalog-photo-views`), queued for auto-merge behind the required checks.
 - **In `main`:** the site editor, uploads, collections, brand, forms and ad tracking (owners change pages, photos,
   PDFs, posts, videos, episodes, testimonials, team, business details, brand, a notice and forms by chatting; editor and
   uploads off by default, mocks only; tags off until IDs are set); catalog and quotes (#37; `/blocks` shows a 60-piece
   example); fonts loading only the faces the design uses (#38: photo-led pages 89 to 92, every page pixel-identical).
 - **Payments and gift cards (#39, in `main`):** off by default (`payments: null`). Stripe hosted Checkout,
   Worker-computed amounts, a PDF certificate by email, ledger row, owner email, owner tools. Mocked Stripe only.
-- **Booking (#40):** off by default (`booking: null`; a production build ships none of it). Google Calendar is the one
+- **Catalog photo views (#41):** a gallery card shows its second photo on hover or keyboard focus, loaded only then;
+  a piece's page swipes between photos and opens them larger. A one-photo piece is unchanged.
+- **Booking (#40, in `main`):** off by default (`booking: null`; a production build ships none of it). Google Calendar is the one
   record; services, sessions, deposits and hours by chat; holds, a lock, exactly-once confirmation. Mocked Google and
   Stripe only (`docs/BOOKING.md`).
 - **Still open per `docs/TEMPLATE.md`:** README polish; which Huston content rules in AGENTS.md stay as defaults.
@@ -28,7 +29,10 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 
 In order:
 
-1. Check that #40 (booking) merged (auto-merge queued). "Needs your eyes": AGENTS.md (Booking paragraph, Worker imports,
+1. Check that #41 (catalog photo views) merged (auto-merge queued). "Needs your eyes": AGENTS.md (one line naming the
+   photo strip and larger view). Copy: the six new interface words in `src/content/catalog.ts` ("Open photo 2 of 4
+   larger", "Photos of <name>", "Previous photo", "Next photo", "Close", "Photo 2 of 4"). On a real phone, swipe a
+   piece's photos and open the larger view once (emulated touch only). From #40 (merged): AGENTS.md (Booking paragraph, Worker imports,
    secrets, `BOOKING_FIXTURE`), README, package.json (test globs; no dependency). Copy: `src/content/booking.ts`,
    `booking-emails.ts`, event text in `worker/booking/events.ts`, `src/content/forms/booking.json`, `booking.json`'s and
    (from #39) `gift-cards.json`'s placeholders, `gift-cards.ts`, `gift-card-emails.ts`, `gift-certificate.ts`.
@@ -123,27 +127,24 @@ In order:
 
 Earlier lines were copied to the master and moved to `docs/history/STATUS-history.md`.
 
-- Sites can take bookings: visitors pick a service, party size and a time for each session, and pay a deposit, the full
-  price or nothing, with no phone call. Multi-session services (sessions days apart) are supported.
-- The owner's own Google Calendar is the one record: busy times there are never offered, bookings land there, and
-  moving or deleting an event moves or frees the time. Refunds stay in Stripe.
-- Owners change services, prices, deposits, hours, notice, closed dates and session rules by chat.
-- Not offered: classes with seats, visitor rescheduling or cancelling, reminders, staff or rooms, calendars other than Google.
+- Catalog visitors see a piece's other photos with almost no effort: the gallery card shows the second photo when
+  pointed at, and a piece's page swipes between photos and opens them larger. Photo order now matters to owners.
+- Not offered: pinch zoom, video on pieces, autoplay or a carousel on cards.
 
-## Last run: Booking (2026-11-27)
+## Last run: Catalog photo views (2026-11-27)
 
-Process run, unattended, one PR (#40). Design: `docs/superpowers/specs/2026-11-27-booking-design.md` (R1 to R19). Opus designed,
-wrote the contracts and integrated; Sonnet built seven parts in parallel worktrees and two fix waves; Haiku wrote docs.
-- `npm run check` passes (1,427 Worker and shared tests, 635 script tests); `test:a11y` 179 passed (incl. no-JavaScript), booking and gift card
-  specs on a fixture build 70 passed; Lighthouse CI passes, unchanged thresholds. Booking off: 18 of 18 page
-  screenshots identical to `main`, same `_headers` and sitemap, no booking script on any page (shared CSS 1.9 KB larger).
-- Reviews (all fixed): a clash a retry could call booked, an insert retry that orphaned an event, the times route open to
-  quota abuse, a missing time zone check, a paid booking ignored while booking is off, 38 px day buttons on phones.
-- New dependencies: none. New binding: the `BookingLock` Durable Object and a cron, only while `booking` is set.
+Process run, unattended, one PR (#41). Plan and rulings P1 to P10: `docs/superpowers/plans/2026-11-27-photo-views.md`
+(amends catalog R8 and R12). Opus planned, reviewed and fixed; one Sonnet agent built it; Haiku wrote the docs.
+- Rulings worth a look: P2 (a lazy image with no box is never fetched; pinned in Chromium), P4 (native scrolling, no
+  touch handler), P7 (one photo: no larger view), P10 (phone thumbnails four across, for 44 px). No new dependency or CSP.
+- `npm run check` passes; `test:a11y` 189 passed (7 new photo tests); Lighthouse CI passes (8 pages), unchanged thresholds. 500-piece fixture builds
+  580 pages in 6.6 s; its gallery page is 50 KB gzipped (was 39 KB), and its second photos load nothing until used.
+- Reviews fixed: arrow keys dead until a Tab, modifier arrows swallowed, clipped focus ring, stale aim after a touch,
+  scrollbar shift, 37 px thumbnails at 320 px, larger-view controls off the page grid at 1440 (design critique).
 
 | Measure | This run |
 |---|---|
-| Wall-clock time | about 1 hour 10 minutes (19:21 to about 20:30, PR open, reviewed and fixed) |
-| Commits | 26 plus 6 merge commits |
-| Time in checks | about 30 minutes (`check:fast` per commit and in 9 worktrees, 3 full checks, 6 builds, 2 a11y runs, 2 fixture spec runs, 1 Lighthouse CI run, 2 pixel comparisons) |
+| Wall-clock time | about 45 minutes (21:00 to about 21:45, PR open, reviewed and fixed) |
+| Commits | 10 |
+| Time in checks | about 20 minutes (`check:fast` per commit, 2 full checks, 7 builds incl. the fixture, the catalog spec 4 times, `test:a11y` once, 1 Lighthouse CI run) |
 | Time waiting on CI | 0 (auto-merge queued) |

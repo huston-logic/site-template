@@ -104,7 +104,7 @@ mat, so no product photo is cut off. The content check fails a live item whose c
 check accepts `<id>-card.webp` beside an upload and `-card.webp` under `public/images/catalog/` with the usual photo
 rules. Cards come from the Worker at upload time (one more Images transformation per photo: 3 to 6 per photo instead
 of 2 to 5, so the 5,000 free transformations a month cover about 830 to 1,670 photos across all sites) and from the
-import script locally. Cost if wrong: a non-cover photo opened large loads its full file (by design).
+import script locally. Cost if wrong: a non-cover photo opened large loads its full file (by design). Amended by the photo views run (docs/superpowers/plans/2026-11-27-photo-views.md, P1 to P2): the gallery card also shows the second photo's card file on hover or keyboard focus, loaded only then.
 
 ## Pages and blocks
 
@@ -145,7 +145,7 @@ visitor came from when there is one, from `sessionStorage`), the photo frame wit
 (`aria-pressed`, no carousel, no autoplay, no swipe handler), the name as H1, the description, the item's filter values
 as facts, and the quote builder. Fires `view_item` (item_id the slug, item_name the name) once per view. Without
 JavaScript the price line shows the default range and the builder's place shows the contact route. Cost if wrong: no
-zoom on photos.
+zoom on photos. Amended by the photo views run (P4 to P7): the photo frame swipes as a native scroll-snap strip (still no touch handler), and pressing it opens a larger view; a one-photo piece is unchanged.
 
 **R13. The quote builder** (client component, used by the item view and the `quote-builder` block): one radio group
 per option group (chips; the choice's effect is never shown as a formula), a people stepper when the item takes the

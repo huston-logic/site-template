@@ -169,6 +169,7 @@ A site sells from its catalog through three things: the `catalog` section (the g
 ### What you can change by chat
 
 - **Add a piece.** Give its name, description, price, filters and options, and ask for its photos. Ask for the photo you uploaded, for example "Add this piece with the photo I just uploaded". A piece has up to six photos. The first is the cover. Every photo needs alt text, a short description of what it shows. A new piece is a draft unless you say to publish it.
+- **Photo order.** Order matters: the first photo is the cover. The second photo shows when a visitor points at the piece in the gallery, so put the most useful other view second. Ask to reorder the photos at any time.
 - **Change a piece.** Its name, description, price, filters, options and order. Ask in plain words.
 - **Hide the price.** Ask for it, for example "Hide the price on this piece". The piece then shows "Price on request" and no estimate.
 - **Archive and restore a piece.** For example, "Archive this piece". An archived piece leaves the gallery and the sitemap. Nothing is deleted, and you can ask for it back.
@@ -177,6 +178,10 @@ A site sells from its catalog through three things: the `catalog` section (the g
 - **Raise or lower one choice by a percent.** For example, "Raise 18k gold by 5 percent". This is one change. It also changes the exact prices for that choice, on every piece that has one.
 
 The chat tools use the word "estimate", not "price", for what a visitor sees. Prices come only from your words. The AI never invents a price, a filter value or a fact about a piece. Each price on the site is a range, or "About" a figure, beside the word "Estimate" and the pricing note.
+
+### How visitors see the photos
+
+In the gallery, a piece with two or more photos shows its second photo when a mouse rests on the card or a keyboard reaches it. On a touch screen the card does not change, and a tap opens the piece. On the piece's page, a visitor swipes left and right between the photos, and the thumbnails follow. Pressing the main photo opens it larger, with Previous, Next and Close buttons. Escape or a press outside the photo also closes it. A piece with one photo has no swipe and no larger view.
 
 ### What a price change shows
 

@@ -158,6 +158,30 @@ test('"Add this piece with the photo I just uploaded": the photo and its card ar
   assert.deepEqual(t.github.bytesOn(branch, `public/images/uploads/${id}-card.webp`), CARD, "the card is the upload's card");
 });
 
+test("an upload used as a piece's second photo gets its card committed too", async () => {
+  const t = site();
+  const ai = aiApp(t);
+  const first = await upload(t, "Front.jpg");
+  const second = await upload(t, "Back.jpg");
+  const newPiece = {
+    status: "draft",
+    name: "Two-photo pendant",
+    photos: [
+      { src: `upload:${first}`, alt: "A pendant seen from the front" },
+      { src: `upload:${second}`, alt: "The same pendant seen from the back" },
+    ],
+    description: "A pendant with an emerald, set in gold.",
+    filters: { type: ["pendant"], metal: ["gold"] },
+    price: { low: 800, high: 1000 },
+    options: ["metal"],
+    order: 6,
+  };
+  const proposed = await propose(ai, "Add the two-photo pendant", [{ op: "add_item", collection: "catalog", slug: "two-photo-pendant", item: newPiece }]);
+  const { branch } = await publishAndMerge(t, ai, proposalId(proposed));
+  assert.deepEqual(t.github.bytesOn(branch, `public/images/uploads/${second}-card.webp`), CARD, "photo 2 has its card");
+  assert.deepEqual(t.github.bytesOn(branch, `public/images/uploads/${first}-card.webp`), CARD, "photo 1 has its card");
+});
+
 test("a photo uploaded before cards existed cannot be a catalog photo, and the sentence says so", async () => {
   const t = site();
   const ai = aiApp(t);

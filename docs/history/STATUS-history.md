@@ -480,3 +480,30 @@ designed, built PR 1 and integrated; Sonnet built PR 2's parts in parallel workt
 | Commits | 5 on #38; 20 plus 4 merge commits on #39 |
 | Time in checks | about 45 minutes (Lighthouse 4 x 10 fixture runs and 2 suites, 9 pixel comparisons, about 25 builds, a11y twice, tracking 3 times, `check:fast` per commit) |
 | Time waiting on CI | 0 (auto-merge queued on both) |
+
+## Record: For the master lines from the booking run (moved from STATUS.md unchanged, 2026-11-27)
+
+- Sites can take bookings: visitors pick a service, party size and a time for each session, and pay a deposit, the full
+  price or nothing, with no phone call. Multi-session services (sessions days apart) are supported.
+- The owner's own Google Calendar is the one record: busy times there are never offered, bookings land there, and
+  moving or deleting an event moves or frees the time. Refunds stay in Stripe.
+- Owners change services, prices, deposits, hours, notice, closed dates and session rules by chat.
+- Not offered: classes with seats, visitor rescheduling or cancelling, reminders, staff or rooms, calendars other than Google.
+
+## Record: Booking (2026-11-27) run, moved from STATUS.md unchanged (2026-11-27)
+
+Process run, unattended, one PR (#40). Design: `docs/superpowers/specs/2026-11-27-booking-design.md` (R1 to R19). Opus designed,
+wrote the contracts and integrated; Sonnet built seven parts in parallel worktrees and two fix waves; Haiku wrote docs.
+- `npm run check` passes (1,427 Worker and shared tests, 635 script tests); `test:a11y` 179 passed (incl. no-JavaScript), booking and gift card
+  specs on a fixture build 70 passed; Lighthouse CI passes, unchanged thresholds. Booking off: 18 of 18 page
+  screenshots identical to `main`, same `_headers` and sitemap, no booking script on any page (shared CSS 1.9 KB larger).
+- Reviews (all fixed): a clash a retry could call booked, an insert retry that orphaned an event, the times route open to
+  quota abuse, a missing time zone check, a paid booking ignored while booking is off, 38 px day buttons on phones.
+- New dependencies: none. New binding: the `BookingLock` Durable Object and a cron, only while `booking` is set.
+
+| Measure | This run |
+|---|---|
+| Wall-clock time | about 1 hour 10 minutes (19:21 to about 20:30, PR open, reviewed and fixed) |
+| Commits | 26 plus 6 merge commits |
+| Time in checks | about 30 minutes (`check:fast` per commit and in 9 worktrees, 3 full checks, 6 builds, 2 a11y runs, 2 fixture spec runs, 1 Lighthouse CI run, 2 pixel comparisons) |
+| Time waiting on CI | 0 (auto-merge queued) |
