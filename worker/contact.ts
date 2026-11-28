@@ -11,6 +11,9 @@ import { sendEmail } from "./email.ts";
 import { log, resolveMode, type ContactEnv, type Mode, type SaveStatus } from "./env.ts";
 import { findForm, formFiles, formSpec, TOKEN_KEY, type Delivery, type FormSource, type LazySpec, type SubmissionSpec } from "./forms.ts";
 import type { MakeCertificate } from "./gift-cards/deps.ts";
+import { buildBookingDeps, handleBookingEvent, handleBookingRoute, isBookingPath } from "./booking/routes.ts";
+import { cleanupHolds } from "./booking/cleanup.ts";
+import type { BookingOptions } from "./booking/deps.ts";
 import { handlePaymentsRoute, isPaymentsPath } from "./gift-cards/routes.ts";
 import { jsonResponse } from "./http.ts";
 import { makeCertificate } from "./gift-cards/make-certificate.ts";
@@ -238,7 +241,7 @@ async function handleSubmission<T>(config: WorkerConfig, given: SubmissionSpec<T
 }
 
 /** What a test (or the integration) can replace in the payments routes. The production defaults are below. */
-export interface WorkerOptions {
+export interface WorkerOptions extends BookingOptions {
   /** The gift card settings. Default: the bundled `src/content/gift-cards.json`, like the form files. */
   giftCards?: GiftCardSettings;
   /** Makes the certificate PDF. Default: throws until the real maker is wired in at integration. */
@@ -269,6 +272,9 @@ export function createWorker(config: WorkerConfig, forms: FormSource = formFiles
           log("config_invalid_mode");
           return json(500, { ok: false, error: "failed" });
         }
+        const save = (saveMode: Mode, delivery: Delivery) => saveSubmission(config, env, saveMode, delivery);
+        // Booking's share of the webhook exists only while `booking` is on (booking design R1).
+        const bookingDeps = buildBookingDeps({ config, env, mode, url, options, save });
         return handlePaymentsRoute(url.pathname, request, {
           config,
           payments,
@@ -278,8 +284,21 @@ export function createWorker(config: WorkerConfig, forms: FormSource = formFiles
           settings: options.giftCards ?? bundledSettings,
           makeCertificate: options.makeCertificate ?? makeCertificate,
           now: options.now ?? Date.now,
-          save: (saveMode, delivery) => saveSubmission(config, env, saveMode, delivery),
+          save,
+          ...(bookingDeps ? { booking: (type, session, provider) => handleBookingEvent(bookingDeps, type, session, provider) } : {}),
         });
+      }
+      if (isBookingPath(url.pathname)) {
+        // Off means nothing ships: a site without `booking` answers 404 on every booking route (booking design R1).
+        if (!config.booking) return json(404, { error: "not_found" });
+        const mode = resolveMode(env.SITE_ENV, url.hostname, config.workerName, config.previewHostSuffix);
+        if (!mode) {
+          log("config_invalid_mode");
+          return json(500, { ok: false, error: "failed" });
+        }
+        const deps = buildBookingDeps({ config, env, mode, url, options, save: (saveMode, delivery) => saveSubmission(config, env, saveMode, delivery) });
+        if (!deps) return json(500, { ok: false, error: "failed" });
+        return handleBookingRoute(url.pathname, request, deps);
       }
       const isContact = url.pathname === "/api/contact";
       const formId = url.pathname.startsWith(FORMS_PREFIX) ? url.pathname.slice(FORMS_PREFIX.length) : null;
@@ -306,6 +325,23 @@ export function createWorker(config: WorkerConfig, forms: FormSource = formFiles
       }
       if (request.method !== "POST") return json(405, { error: "method_not_allowed" }, { allow: "POST" });
       return formResponse ? formResponse(request) : handleSubmission(config, contactSpec(config), request, env, url);
+    },
+    /**
+     * The cron (every 15 minutes, only while `booking` and `payments` are on): removes the holds of closed checkouts and
+     * finishes a paid booking whose webhook never came. A cron has no host, so the mode comes from the site's own address.
+     */
+    async scheduled(_controller: ScheduledController, env: ContactEnv): Promise<void> {
+      if (!config.booking || !config.payments) return;
+      const url = new URL(config.editor.siteUrl);
+      const mode = resolveMode(env.SITE_ENV, url.hostname, config.workerName, config.previewHostSuffix);
+      if (mode !== "production") return;
+      const deps = buildBookingDeps({ config, env, mode, url, options, save: (saveMode, delivery) => saveSubmission(config, env, saveMode, delivery) });
+      if (!deps) return;
+      try {
+        await cleanupHolds(deps);
+      } catch {
+        log("cleanup_failed");
+      }
     },
   } satisfies ExportedHandler<ContactEnv>;
 }

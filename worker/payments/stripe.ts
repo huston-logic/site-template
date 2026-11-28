@@ -69,6 +69,8 @@ export async function createCheckoutSession(key: string, params: CheckoutParams,
     cancel_url: params.cancelUrl,
     metadata: params.metadata,
     payment_intent_data: { metadata: params.metadata },
+    ...(params.expiresAt !== undefined ? { expires_at: params.expiresAt } : {}),
+    ...(params.cardOnly ? { payment_method_types: ["card"] } : {}),
   });
   const result = await call(key, "POST", "/checkout/sessions", body, idempotencyKey);
   if (!result.ok) return result;
@@ -96,6 +98,7 @@ export async function getSession(key: string, id: string): Promise<Outcome<Payme
       amountTotal: typeof data["amount_total"] === "number" ? data["amount_total"] : null,
       currency: typeof data["currency"] === "string" ? data["currency"] : null,
       created: typeof data["created"] === "number" ? data["created"] : 0,
+      expiresAt: typeof data["expires_at"] === "number" ? data["expires_at"] : null,
       metadata: textMap(data["metadata"]),
       payment: intent !== null && typeof intent["id"] === "string" ? { id: intent["id"], metadata: textMap(intent["metadata"]), paidAt } : null,
     },
@@ -107,4 +110,14 @@ export async function markPayment(key: string, paymentIntentId: string, marks: R
   const stamp = Object.entries(marks).sort(([a], [b]) => (a < b ? -1 : 1)).map(([name, value]) => `${name}=${value}`).join(",");
   const result = await call(key, "POST", `/payment_intents/${encodeURIComponent(paymentIntentId)}`, encodeForm({ metadata: marks }), `pay-${paymentIntentId}-mark-${stamp}`.slice(0, 250));
   return result.ok;
+}
+
+/**
+ * Closes an open payment page. A 400 means Stripe says the page is not open (already complete or expired), which is the
+ * state the caller wanted or one it must look at: it reads the session again, so a 400 counts as true here. Any other
+ * failure is false.
+ */
+export async function expireSession(key: string, sessionId: string): Promise<boolean> {
+  const result = await call(key, "POST", `/checkout/sessions/${encodeURIComponent(sessionId)}/expire`, null, `expire-${sessionId}`);
+  return result.ok || result.status === 400;
 }

@@ -1,3 +1,4 @@
+import { BOOKING_FORM_ID } from "../src/booking/schema.ts";
 import { honeypot } from "../src/content/contact-fields.ts";
 import { formFiles } from "../src/forms/registry.generated.ts";
 import { FORM_ID_RE, CONTACT_FORM_ID, type FormDefinition } from "../src/forms/schema.ts";
@@ -71,9 +72,10 @@ export type FormSource = readonly { id: string; data: unknown }[];
 
 export type FormLookup = { kind: "found"; def: FormDefinition } | { kind: "missing" } | { kind: "invalid" };
 
-/** The live definition for an id. Unknown, archived and the contact id are "missing" (404); a file that fails the shared check is "invalid". */
+/** The live definition for an id. Unknown, archived, the contact id and the booking id are "missing" (404); a file that fails the shared check is "invalid". */
 export function findForm(config: WorkerConfig, source: FormSource, id: string): FormLookup {
-  if (!FORM_ID_RE.test(id) || id === CONTACT_FORM_ID) return { kind: "missing" };
+  // The booking form is bound in code to the booking block and its own routes, like the contact form: never a generic form.
+  if (!FORM_ID_RE.test(id) || id === CONTACT_FORM_ID || id === BOOKING_FORM_ID) return { kind: "missing" };
   const file = source.find((entry) => entry.id === id);
   if (!file) return { kind: "missing" };
   const raw = file.data as { status?: unknown } | null;

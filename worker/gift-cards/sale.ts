@@ -49,7 +49,7 @@ export interface SaleInput {
 const cap = (text: string, max = VALUE_MAX): string => (text.length > max ? text.slice(0, max) : text);
 
 /** The lead source as metadata values: the cells, the email line and the Pipeline post (in pieces when it is long). */
-function sourceMetadata(attribution: Attribution | null, receivedAtIso: string): Record<string, string> {
+export function sourceMetadata(attribution: Attribution | null, receivedAtIso: string): Record<string, string> {
   const cells = sheetCells(attribution, receivedAtIso);
   const lean = [cells[0] ?? "Not known", "", "", cells[3] ?? "", cells[4] ?? ""];
   const out: Record<string, string> = {
@@ -82,7 +82,7 @@ export function saleMetadata(sale: SaleInput, attribution: Attribution | null, r
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
-function parseLead(metadata: Record<string, string>): Sale["lead"] {
+export function parseLead(metadata: Record<string, string>): Sale["lead"] {
   let json = "";
   for (let i = 0; i < MAX_CHUNKS; i++) {
     const part = metadata[`src_pipe${i}`];
@@ -102,7 +102,7 @@ function parseLead(metadata: Record<string, string>): Sale["lead"] {
   }
 }
 
-function parseCells(text: string | undefined): string[] {
+export function parseCells(text: string | undefined): string[] {
   try {
     const data: unknown = JSON.parse(text ?? "");
     if (Array.isArray(data) && data.length === 5 && data.every((cell) => typeof cell === "string")) return data as string[];

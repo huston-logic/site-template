@@ -99,7 +99,13 @@ async function handleEditor(request: Request, env: ProviderEnv, ctx: ExecutionCo
   return createProvider(url.origin).fetch(request, { ...env }, ctx);
 }
 
+// The booking lock is a Durable Object; the runtime finds the class through the entry's exports (wrangler.jsonc).
+export { BookingLock } from "./booking/lock-object.ts";
+
 export default {
+  async scheduled(controller: ScheduledController, env: ProviderEnv): Promise<void> {
+    await contactWorker.scheduled(controller, env);
+  },
   async fetch(request: Request, env: ProviderEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) return contactWorker.fetch(request, env);
