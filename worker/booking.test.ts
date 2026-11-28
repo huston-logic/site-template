@@ -1558,7 +1558,7 @@ describe("what a visitor types never becomes markup in the calendar", () => {
     assert.ok(event);
     assert.ok(event.description.includes("Name: Ada &lt;b&gt;&amp;&lt;/b&gt;"), event.description);
     assert.ok(event.description.includes("&lt;script&gt;alert(1)&lt;/script&gt; &amp; more"));
-    assert.ok(!/<(b|script)>/.test(event.description));
+    assert.ok(!event.description.includes("<"), "no raw angle bracket survives, whatever the tag or its case");
   });
 
   test("the same on a paid booking's patch", async () => {
