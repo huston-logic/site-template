@@ -1,4 +1,6 @@
 import { QUOTE_FORM_ID } from "../src/catalog/schema.ts";
+import bundledGiftCards from "../src/content/gift-cards.json" with { type: "json" };
+import type { GiftCardSettings } from "../src/gift-cards/schema.ts";
 import { honeypot } from "../src/content/contact-fields.ts";
 import { CONTACT_BODY_BYTES } from "../src/forms/contact.ts";
 import { contactKeys, validateContact, type ContactInput, type ContactSubmission } from "../src/lib/contact-validation.ts";
@@ -8,6 +10,8 @@ import { workerConfig, type WorkerConfig } from "./config.ts";
 import { sendEmail } from "./email.ts";
 import { log, resolveMode, type ContactEnv, type Mode, type SaveStatus } from "./env.ts";
 import { findForm, formFiles, formSpec, TOKEN_KEY, type Delivery, type FormSource, type LazySpec, type SubmissionSpec } from "./forms.ts";
+import type { MakeCertificate } from "./gift-cards/deps.ts";
+import { handlePaymentsRoute, isPaymentsPath } from "./gift-cards/routes.ts";
 import { jsonResponse } from "./http.ts";
 import { loadCatalogData, quoteLazySpec } from "./quote.ts";
 import { autoReplyEmail, notificationEmail, pipelineMessage, sheetRow } from "./messages.ts";
@@ -44,10 +48,11 @@ function json(status: number, body: ApiBody | { error: string }, extra: Record<s
 }
 
 /** The Sheet writer is chosen here (`contact.sheetWriter` in site.config.ts). Both return true only when the row was saved. */
-function saveRow(config: WorkerConfig, env: ContactEnv, tab: string, row: string[]): Promise<boolean> {
+function saveRow(config: WorkerConfig, env: ContactEnv, tab: string, row: string[], uniqueCell?: number): Promise<boolean> {
+  // The Apps Script skips a gift card row whose code is already in its tab (docs/apps-script/contact-sheet.gs), so `uniqueCell` is for the service account only.
   return config.sheetWriter === "apps-script"
     ? appendRowViaAppsScript(env.SHEET_WEBHOOK_URL, env.SHEET_WEBHOOK_SECRET, tab, row)
-    : appendRow(env.GOOGLE_SERVICE_ACCOUNT_KEY, env.GOOGLE_SHEET_ID, tab, row);
+    : appendRow(env.GOOGLE_SERVICE_ACCOUNT_KEY, env.GOOGLE_SHEET_ID, tab, row, uniqueCell);
 }
 
 /**
@@ -67,7 +72,7 @@ async function saveSubmission(config: WorkerConfig, env: ContactEnv, mode: Mode,
     return (await sendToPipeline(config.pipelineUrl, env.INTAKE_SECRET, delivery.lead)) ? "saved" : "failed";
   }
   const tab = mode === "preview" ? delivery.tabs.preview : delivery.tabs.production;
-  return (await saveRow(config, env, tab, delivery.row)) ? "saved" : "failed";
+  return (await saveRow(config, env, tab, delivery.row, delivery.uniqueCell)) ? "saved" : "failed";
 }
 
 /** The contact form's spec: its flat body, 16 KB limit, rate key, Turnstile action, Sheet row, Pipeline message, notification and B7b reply. */
@@ -231,17 +236,51 @@ async function handleSubmission<T>(config: WorkerConfig, given: SubmissionSpec<T
   return json(200, await spec.finish({ config, env, siteEmail, bookingUrl }, submission, mode, id));
 }
 
+/** What a test (or the integration) can replace in the payments routes. The production defaults are below. */
+export interface WorkerOptions {
+  /** The gift card settings. Default: the bundled `src/content/gift-cards.json`, like the form files. */
+  giftCards?: GiftCardSettings;
+  /** Makes the certificate PDF. Default: throws until the real maker is wired in at integration. */
+  makeCertificate?: MakeCertificate;
+  /** Milliseconds, like `Date.now`. Default: `Date.now`. */
+  now?: () => number;
+}
+
+const notWired: MakeCertificate = () => Promise.reject(new Error("The certificate maker is not wired."));
+const bundledSettings: GiftCardSettings = bundledGiftCards;
+
 /**
  * Builds the Worker from a config. The default export below uses the real site.config.ts and the generated form
  * registry; the tests pass a fixture config and, for the forms, their own definitions. The form with id `quote` gets the
  * catalog extras (worker/quote.ts) when `quoteExtras` is true, which is the default for the real registry only: a test
  * that uses its own "quote" fixture opts in with a third argument.
  */
-export function createWorker(config: WorkerConfig, forms: FormSource = formFiles, quoteExtras: boolean = forms === formFiles) {
+export function createWorker(config: WorkerConfig, forms: FormSource = formFiles, quoteExtras: boolean = forms === formFiles, options: WorkerOptions = {}) {
   return {
     async fetch(request: Request, env: ContactEnv): Promise<Response> {
       const url = new URL(request.url);
       if (url.pathname === "/api/visit") return handleVisit(request, url);
+      if (isPaymentsPath(url.pathname)) {
+        // Off means nothing ships: a site without `payments` answers 404 on every payments route (design R1).
+        const { payments } = config;
+        if (!payments) return json(404, { error: "not_found" });
+        const mode = resolveMode(env.SITE_ENV, url.hostname, config.workerName, config.previewHostSuffix);
+        if (!mode) {
+          log("config_invalid_mode");
+          return json(500, { ok: false, error: "failed" });
+        }
+        return handlePaymentsRoute(url.pathname, request, {
+          config,
+          payments,
+          env,
+          mode,
+          url,
+          settings: options.giftCards ?? bundledSettings,
+          makeCertificate: options.makeCertificate ?? notWired,
+          now: options.now ?? Date.now,
+          save: (saveMode, delivery) => saveSubmission(config, env, saveMode, delivery),
+        });
+      }
       const isContact = url.pathname === "/api/contact";
       const formId = url.pathname.startsWith(FORMS_PREFIX) ? url.pathname.slice(FORMS_PREFIX.length) : null;
       if (!isContact && formId === null) return json(404, { error: "not_found" });

@@ -36,6 +36,8 @@ export interface Delivery {
   tabs: { production: string; preview: string };
   row: string[];
   lead: PipelineLead;
+  /** The 0-based cell that must be unique in the tab (a gift card's code): the row is added only if that value is not already there. */
+  uniqueCell?: number;
 }
 
 export interface FinishContext {
