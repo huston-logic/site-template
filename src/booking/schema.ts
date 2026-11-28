@@ -148,8 +148,11 @@ export const BOOKING_FORM_ANSWER_CHARS = 2000;
 
 /** The hosted payment page closes after this (Stripe's minimum). */
 export const CHECKOUT_MINUTES = 30;
-/** A hold past its checkout's end still counts as busy this long, so a late webhook finds its time free. Then it is stale and ignored. */
-export const HOLD_GRACE_MINUTES = 60;
+/**
+ * A hold counts as busy until it is deleted (its checkout expired, or it became a booking). This long past its checkout's end
+ * it is treated as stale anyway: a safety valve for a hold whose expiry webhook and cron both failed (design R10).
+ */
+export const HOLD_GRACE_MINUTES = 1440;
 /** The most days the times route answers in one call. */
 export const TIMES_DAYS_MAX = 14;
 

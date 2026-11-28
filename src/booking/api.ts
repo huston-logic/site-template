@@ -82,7 +82,7 @@ export interface BookingSummary {
 
 export type CheckoutAnswer =
   /** A paid booking: leave for `url`. `dueNow` is in whole currency units with cents (for begin_checkout). */
-  | { ok: true; kind: "checkout"; url: string; sessionId: string; dueNow: number; currency: string }
+  | { ok: true; kind: "checkout"; url: string; sessionId: string; dueNow: number; currency: string; /** Proves to the release route that this browser started the checkout (kept in sessionStorage beside the session id). */ releaseToken?: string }
   /** A free booking: confirmed already. */
   | { ok: true; kind: "booked"; summary: BookingSummary }
   | { ok: false; error: "invalid"; fields: string[] }
@@ -90,9 +90,13 @@ export type CheckoutAnswer =
   | { ok: false; error: "taken"; index: number }
   | { ok: false; error: "rejected" | "closed" | "rate_limited" | "failed" | "unavailable" | "payments_misconfigured" | "preview_calendar_missing" };
 
-/** POST /api/booking/release { sessionId }: the visitor came back from Stripe without paying. Always `{ ok: true }` for a well-formed id. */
+/**
+ * POST /api/booking/release { sessionId, releaseToken }: the visitor came back from Stripe without paying. Always `{ ok: true }`
+ * for a well-formed request; nothing is released unless the token matches the one the checkout gave this browser.
+ */
 export interface ReleaseRequest {
   sessionId: string;
+  releaseToken: string;
 }
 
 /**
