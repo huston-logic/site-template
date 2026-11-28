@@ -34,6 +34,20 @@ describe("booking settings in the editor", () => {
     assert.match(out, /Visitors can book on the live site when this is published\./);
   });
 
+  test("prices and deposits use the site's currency symbol, and a dollar sign only without payments", () => {
+    const priced = booking.services.map((service) => ({ ...service, price: { amount: 80, per: "person" }, payment: { kind: "deposit", amount: 20 } }));
+    const now = { ...booking, services: priced };
+    const pounds = documentSections({ ...change(now), currency: "gbp" as const }, makeCtx(), registry).join("\n");
+    assert.match(pounds, /Price: no price shown → £80 per person/);
+    assert.match(pounds, /pays a £20 deposit online/);
+    assert.ok(!pounds.includes("$"), pounds);
+    const euros = documentSections({ ...change(now), currency: "eur" as const }, makeCtx(), registry).join("\n");
+    assert.match(euros, /€80 per person/);
+    const none = documentSections({ ...change(now), currency: null }, makeCtx(), registry).join("\n");
+    assert.match(none, /\$80 per person/);
+    assert.match(documentSections(change(now), makeCtx(), registry).join("\n"), /\$80 per person/);
+  });
+
   test("a service that goes archived reads as archived, not as removed", () => {
     const services = booking.services.map((service) => ({ ...service, status: "archived" }));
     const out = documentSections(change({ ...booking, services }), makeCtx(), registry).join("\n");

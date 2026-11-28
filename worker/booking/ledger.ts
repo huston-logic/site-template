@@ -1,4 +1,4 @@
-import { formatLocal } from "../../src/booking/zone.ts";
+import { formatLocalZoned } from "../../src/booking/zone.ts";
 import type { Delivery } from "../forms.ts";
 import { formatMoney } from "../payments/money.ts";
 import type { BookingDeps } from "./deps.ts";
@@ -42,7 +42,7 @@ export function ledgerRow(deps: BookingDeps, booking: Booking, reference: string
   return [
     bookedAtIso,
     booking.serviceName,
-    booking.starts.map((start) => formatLocal(start, tz)).join("\n"),
+    booking.starts.map((start) => formatLocalZoned(start, tz)).join("\n"),
     String(booking.party),
     booking.name,
     booking.email,
@@ -68,7 +68,7 @@ function delivery(deps: BookingDeps, booking: Booking, reference: string, booked
     "Booking",
     `Reference: ${booking.reference}`,
     `Service: ${booking.serviceName}`,
-    ...booking.starts.map((start, index) => `Session ${index + 1} of ${booking.starts.length}: ${formatLocal(start, tz)}`),
+    ...booking.starts.map((start, index) => `Session ${index + 1} of ${booking.starts.length}: ${formatLocalZoned(start, tz)}`),
     `Party: ${booking.party}`,
     ...(booking.phone ? [`Phone: ${booking.phone}`] : []),
     `Paid: ${formatMoney(booking.dueNowMinor, booking.currency)}`,

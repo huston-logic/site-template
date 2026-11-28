@@ -123,3 +123,8 @@ export function formatLocal(ms: number, tz: string): string {
   const p = longParts(ms, tz);
   return `${p["weekday"]}, ${p["month"]} ${p["day"]}, ${p["year"]}, ${formatTime(ms, tz)}`;
 }
+
+/** "Tuesday, December 1, 2026, 9:00 AM (Central Standard Time)": a session's time with its own zone name, because the name changes on the day the clocks do. */
+export function formatLocalZoned(ms: number, tz: string): string {
+  return `${formatLocal(ms, tz)} (${zoneName(tz, ms)})`;
+}

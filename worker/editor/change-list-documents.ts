@@ -17,6 +17,8 @@ import { siteWarnings } from "../../src/collections/site-validate.ts";
 import { DEFAULT_FORM_SETTINGS, type FormDefinition, type FormSettings } from "../../src/forms/schema.ts";
 import { dataKindLabel, newDataKinds } from "../../src/forms/sensitive.ts";
 import { parseForm } from "../../src/forms/validate.ts";
+import { SYMBOLS } from "../payments/money.ts";
+import type { PaymentCurrency } from "../../src/payments/config.ts";
 import { bookingSection } from "./change-list-booking.ts";
 import { type Ctx, type Entry, diffValue, formatSize, leaves, photoText, quote, render, text } from "./change-list.ts";
 import { isObject } from "./json.ts";
@@ -39,6 +41,8 @@ export interface DocumentChange {
   pages: ReadonlyMap<string, unknown>;
   /** Today's date, YYYY-MM-DD, in the site's time zone. */
   today: string;
+  /** The site's payments currency; amounts in the booking section use its symbol. Missing or null reads as "$". */
+  currency?: PaymentCurrency | null;
 }
 
 /** A post longer than this ends its change list entry with the preview line. */
@@ -538,7 +542,7 @@ export function documentSections(change: DocumentChange, ctx: Ctx, registry: rea
     else if (name === "catalog") sections.push(catalogSection(old, now, ctx));
     else if (name === "pricing") sections.push(pricingSection(old, now, ctx));
     else if (name === "gift-cards") sections.push(giftCardsSection(old, now, ctx));
-    else if (name === "booking") sections.push(bookingSection(old, now));
+    else if (name === "booking") sections.push(bookingSection(old, now, change.currency ? SYMBOLS[change.currency] : "$"));
     else sections.push(noticeSection(old, now, change.today, ctx));
   }
   const notes = [...emptyListNotes(change, registry), ...formNotes(change)];

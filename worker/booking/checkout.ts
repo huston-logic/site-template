@@ -17,7 +17,7 @@ import { loadCatalogData } from "../quote.ts";
 import { verifyTurnstile } from "../turnstile.ts";
 import { newEventId } from "./calendar.ts";
 import type { BookingDeps } from "./deps.ts";
-import { bookingEvent, holdEvent, loadBusyForBooking, summaryOf, writeCalendarId } from "./events.ts";
+import { bookingEvent, holdEvent, insertOrAdopt, loadBusyForBooking, removeEvents, summaryOf, writeCalendarId } from "./events.ts";
 import { finishFree } from "./fulfil.ts";
 import { hasTimeLeft, type Claim, type Lease } from "./lock.ts";
 import { bookingMetadata, newBookingReference, parseBooking, type Booking, type BookingInput } from "./metadata.ts";
@@ -81,8 +81,15 @@ interface Context {
   calendarId: string;
   provider: PaymentProvider | null;
   cancelUrl: string;
-  /** Filled in when something was written, so the lock remembers the times. */
+  /** Filled in as each event is written, so the lock remembers the times even when a later step stops early. */
   claims: Claim[];
+  /** Proves to the release route that the browser that started this checkout is the one asking (metadata `rt`). */
+  releaseToken: string;
+}
+
+/** 32 hex characters from the platform's random source. */
+export function newReleaseToken(random: (n: number) => Uint8Array = (n) => crypto.getRandomValues(new Uint8Array(n))): string {
+  return Array.from(random(16), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /** Everything that needs the lock: the fresh check, then the holds or the bookings. */
@@ -104,17 +111,20 @@ async function underLock(ctx: Context, lease: Lease): Promise<Response | "free_w
   const sessionClaims: Claim[] = booking.starts.map((start, index) => ({ start, end: booking.ends[index] as number, ref: booking.eventIds[index] as string }));
 
   if (booking.dueNowMinor === 0) {
-    const written: string[] = [];
     for (let index = 0; index < booking.starts.length; index++) {
-      const result = await deps.calendar.insertEvent(calendarId, bookingEvent(deps, booking, index));
+      if (!hasTimeLeft(lease, deps.now())) {
+        log("booking_lock_slow");
+        await removeEvents(deps, calendarId, booking.eventIds);
+        return reply({ ok: false, error: "unavailable" }, 502);
+      }
+      const result = await insertOrAdopt(deps, calendarId, bookingEvent(deps, booking, index));
       if (!result.ok) {
-        for (const id of written) await deps.calendar.deleteEvent(calendarId, id);
+        await removeEvents(deps, calendarId, booking.eventIds);
         log("booking_write_failed", { status: result.status });
         return reply({ ok: false, error: "unavailable" }, 502);
       }
-      written.push(booking.eventIds[index] as string);
+      ctx.claims.push(sessionClaims[index] as Claim);
     }
-    ctx.claims = sessionClaims;
     return "free_written";
   }
 
@@ -142,19 +152,19 @@ async function underLock(ctx: Context, lease: Lease): Promise<Response | "free_w
     return reply({ ok: false, error: "unavailable" }, 502);
   }
   const sessionId = created.value.id;
-  const written: string[] = [];
   for (let index = 0; index < booking.starts.length; index++) {
-    const result = await deps.calendar.insertEvent(calendarId, holdEvent(deps, booking, sessionId, expiresAt, index));
-    if (!result.ok) {
-      for (const id of written) await deps.calendar.deleteEvent(calendarId, id);
+    const timedOut = !hasTimeLeft(lease, deps.now());
+    const result = timedOut ? null : await insertOrAdopt(deps, calendarId, holdEvent(deps, booking, sessionId, expiresAt, index));
+    if (result === null || !result.ok) {
+      await removeEvents(deps, calendarId, booking.eventIds);
       await provider.expireSession(sessionId);
-      log("hold_write_failed", { status: result.status });
+      if (result === null) log("booking_lock_slow");
+      else log("hold_write_failed", { status: result.status });
       return reply({ ok: false, error: "unavailable" }, 502);
     }
-    written.push(booking.eventIds[index] as string);
+    ctx.claims.push(sessionClaims[index] as Claim);
   }
-  ctx.claims = sessionClaims;
-  return reply({ ok: true, kind: "checkout", url: created.value.url, sessionId, dueNow: booking.dueNowMinor / 100, currency: booking.currency.toUpperCase() }, 200);
+  return reply({ ok: true, kind: "checkout", url: created.value.url, sessionId, dueNow: booking.dueNowMinor / 100, currency: booking.currency.toUpperCase(), releaseToken: ctx.releaseToken }, 200);
 }
 
 export async function handleCheckout(request: Request, deps: BookingDeps): Promise<Response> {
@@ -189,6 +199,8 @@ export async function handleCheckout(request: Request, deps: BookingDeps): Promi
     }
   } else {
     log("rate_limit_binding_missing");
+    // Local development has no binding; anywhere else a missing one must not leave the route open to floods.
+    if (mode !== "development") return reply({ ok: false, error: "failed" }, 502);
   }
 
   const trap = fields[honeypot.name];
@@ -273,13 +285,14 @@ export async function handleCheckout(request: Request, deps: BookingDeps): Promi
     item: null,
     siteMode: mode,
     site: config.workerName,
+    releaseToken: newReleaseToken(),
   };
 
   if (mode === "development") {
     log("dry_run", { booking: true, paid: dueNowMinor > 0 });
     const dev = parseBooking(bookingMetadata(input, attribution, receivedAt));
     if (!dev) return reply({ ok: false, error: "failed" }, 502);
-    if (dueNowMinor > 0) return reply({ ok: true, kind: "checkout", url: cancelUrl, sessionId: "dev", dueNow: dueNowMinor / 100, currency: currency.toUpperCase() }, 200);
+    if (dueNowMinor > 0) return reply({ ok: true, kind: "checkout", url: cancelUrl, sessionId: "dev", dueNow: dueNowMinor / 100, currency: currency.toUpperCase(), releaseToken: input.releaseToken }, 200);
     const summary: BookingSummary = { ...summaryOf(deps, dev), reference: "dev" };
     return reply({ ok: true, kind: "booked", summary }, 200);
   }
@@ -332,12 +345,17 @@ export async function handleCheckout(request: Request, deps: BookingDeps): Promi
     log("booking_lock_busy");
     return reply({ ok: false, error: "unavailable" }, 502);
   }
-  const ctx: Context = { deps, service, party: shape.party, booking, metadata, calendarId, provider, cancelUrl, claims: [] };
+  const ctx: Context = { deps, service, party: shape.party, booking, metadata, calendarId, provider, cancelUrl, claims: [], releaseToken: input.releaseToken };
   let outcome: Response | "free_written";
   try {
     outcome = await underLock(ctx, lease);
   } finally {
-    await deps.lock.release(lease.token, ctx.claims);
+    try {
+      await deps.lock.release(lease.token, ctx.claims);
+    } catch {
+      // The lease is taken back on its own after a minute; a failed release must never replace the real outcome.
+      log("booking_lock_release_failed");
+    }
   }
   if (outcome !== "free_written") return outcome;
 

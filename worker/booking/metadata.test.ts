@@ -21,6 +21,7 @@ const INPUT: BookingInput = {
   item: { slug: "vase", name: "Blue vase" },
   siteMode: "production",
   site: "example-site",
+  releaseToken: "0123456789abcdef0123456789abcdef",
 };
 
 test("a booking survives its trip through metadata, every value within Stripe's limits", () => {

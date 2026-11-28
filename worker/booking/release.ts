@@ -7,14 +7,24 @@ import { deleteHolds } from "./events.ts";
 import { parseBooking } from "./metadata.ts";
 
 /**
- * POST /api/booking/release { sessionId }: the visitor came back from Stripe without paying (design R10). Only a booking
- * of this site and mode is touched. An open payment page is closed (so it can never be paid later) and the session is read
+ * POST /api/booking/release { sessionId, releaseToken }: the visitor came back from Stripe without paying (design R10). Only a
+ * booking of this site and mode is touched, and only when the token equals the one the checkout handed this browser (metadata
+ * `rt`): a session id alone, which Stripe's page shows in its address, releases nothing. An open payment page is closed (so it can never be paid later) and the session is read
  * again: only when it really is expired are its holds removed, so a payment that completed a moment ago keeps its time.
  * Always `{ ok: true }` for a well-formed id, whatever was or was not there, so the route tells a stranger nothing.
  */
 
 const SESSION_ID = /^cs_(?:test|live)_[A-Za-z0-9]{1,200}$/;
+const TOKEN = /^[0-9a-f]{32}$/;
 const BODY_BYTES = 1024;
+
+/** Compares without stopping at the first difference; the stored side must itself be 32 hex characters or the answer is no. */
+function sameToken(given: string, stored: string): boolean {
+  if (!TOKEN.test(stored) || !TOKEN.test(given)) return false;
+  let diff = 0;
+  for (let i = 0; i < 32; i++) diff |= given.charCodeAt(i) ^ stored.charCodeAt(i);
+  return diff === 0;
+}
 
 export async function handleRelease(request: Request, deps: BookingDeps): Promise<Response> {
   const { env, mode, url } = deps;
@@ -36,6 +46,8 @@ export async function handleRelease(request: Request, deps: BookingDeps): Promis
     }
   } else {
     log("rate_limit_binding_missing");
+    // Local development has no binding; anywhere else a missing one must not leave the route open to floods.
+    if (mode !== "development") return json(502, { ok: false });
   }
 
   let data: unknown;
@@ -44,8 +56,12 @@ export async function handleRelease(request: Request, deps: BookingDeps): Promis
   } catch {
     return json(400, { ok: false });
   }
-  const id = typeof data === "object" && data !== null && !Array.isArray(data) ? (data as Record<string, unknown>)["sessionId"] : undefined;
-  if (typeof id !== "string" || !SESSION_ID.test(id)) return json(400, { ok: false });
+  if (typeof data !== "object" || data === null || Array.isArray(data)) return json(400, { ok: false });
+  const fields = data as Record<string, unknown>;
+  if (Object.keys(fields).some((key) => key !== "sessionId" && key !== "releaseToken")) return json(400, { ok: false });
+  const id = fields["sessionId"];
+  const token = fields["releaseToken"];
+  if (typeof id !== "string" || !SESSION_ID.test(id) || typeof token !== "string" || !TOKEN.test(token)) return json(400, { ok: false });
   if (mode === "development" || !deps.payments) return json(200, { ok: true });
 
   const made = paymentProvider(deps.payments, env, mode);
@@ -58,6 +74,10 @@ export async function handleRelease(request: Request, deps: BookingDeps): Promis
   let session = read.value;
   const booking = session.metadata["site"] === deps.config.workerName ? parseBooking(session.metadata) : null;
   if (!booking || booking.siteMode !== mode) return json(200, { ok: true });
+  if (!sameToken(token, session.metadata["rt"] ?? "")) {
+    log("booking_release_refused");
+    return json(200, { ok: true });
+  }
 
   if (session.status === "open") {
     if (await made.provider.expireSession(id)) {

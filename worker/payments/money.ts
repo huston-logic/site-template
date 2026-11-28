@@ -3,7 +3,7 @@ import type { PaymentCurrency } from "../../src/payments/config.ts";
 /** Every supported currency has two decimals (design R2), so minor units are the amount times this. */
 export const MINOR_PER_UNIT = 100;
 
-const SYMBOLS: Record<PaymentCurrency, string> = { usd: "$", cad: "CA$", gbp: "£", eur: "€", aud: "A$", nzd: "NZ$" };
+export const SYMBOLS: Record<PaymentCurrency, string> = { usd: "$", cad: "CA$", gbp: "£", eur: "€", aud: "A$", nzd: "NZ$" };
 
 export const toMinor = (amount: number): number => amount * MINOR_PER_UNIT;
 

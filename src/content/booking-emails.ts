@@ -24,7 +24,7 @@ export type Facts = {
 
 export type Person = { name: string; email: string; phone: string };
 
-const sessionsBlock = (v: Facts): string => `${v.sessions.join("\n")}\nAll times are ${v.zoneName}.`;
+const sessionsBlock = (v: Facts): string => v.sessions.join("\n");
 const partyLine = (v: Facts): string[] => (v.party > 1 ? [`Party size: ${v.party}`] : []);
 const moneyLines = (v: Facts): string[] => [...(v.paid ? [`Paid now: ${v.paid}`] : []), ...(v.dueLater ? [`Still to pay: ${v.dueLater}`] : [])];
 const itemLine = (v: Facts): string[] => (v.item ? [`For: ${v.item}`] : []);

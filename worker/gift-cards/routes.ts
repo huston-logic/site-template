@@ -1,6 +1,7 @@
 import { log } from "../env.ts";
 import { readBody } from "../read-body.ts";
 import { paymentProvider, verifyPaymentWebhook } from "../payments/provider.ts";
+import { alertUnhandledBooking } from "../booking/unhandled.ts";
 import { handleCheckout } from "./checkout.ts";
 import { handleConfirm } from "./confirm.ts";
 import type { GiftCardDeps } from "./deps.ts";
@@ -61,8 +62,13 @@ async function handleWebhook(request: Request, deps: GiftCardDeps): Promise<Resp
   // A booking's payment (or its page closing) belongs to booking; an absent hook means booking is off, so nothing happens.
   if (session.metadata["kind"] === "booking") {
     if (!deps.booking) {
-      log("webhook_nothing_to_do", { reason: "booking_off" });
-      return json(200, { received: true });
+      // Booking cannot run here (off, or its form is unusable): a paid booking of this site is never answered with a silent 200.
+      if (!PAID_EVENTS.has(event.type)) {
+        log("webhook_nothing_to_do", { reason: "booking_off" });
+        return json(200, { received: true });
+      }
+      const told = await alertUnhandledBooking(deps, made.provider, session);
+      return json(told ? 200 : 500, { received: told });
     }
     const done = await deps.booking(event.type, session, made.provider);
     return json(done ? 200 : 500, { received: done });

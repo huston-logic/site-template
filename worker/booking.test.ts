@@ -13,7 +13,7 @@ import type { GiftCardSettings } from "../src/gift-cards/schema.ts";
 import { buildWorkerConfig, type WorkerSiteConfig } from "./config.ts";
 import type { CalendarClient, CalendarEvent, EventChanges, NewEvent } from "./booking/calendar.ts";
 import { resetBusyCache } from "./booking/events.ts";
-import { LockCore, memoryLock } from "./booking/lock.ts";
+import { LockCore, memoryLock, type Claim, type SlotLock } from "./booking/lock.ts";
 import { createWorker } from "./contact.ts";
 import type { ContactEnv } from "./env.ts";
 import type { Outcome } from "./payments/types.ts";
@@ -547,10 +547,14 @@ describe("the walk: times, checkout, payment, one signed webhook", () => {
     const cookie = await sourceCookie(w);
     const response = await checkout(w, baseBody([FIRST(), SECOND()]), env(), cookie);
     assert.equal(response.status, 200);
-    assert.deepEqual(response.body, { ok: true, kind: "checkout", url: "https://checkout.stripe.com/c/pay/cs_test_session1", sessionId: "cs_test_session1", dueNow: 112.5, currency: "USD" });
+    assert.ok(response.body.ok && response.body.kind === "checkout");
+    const token = response.body.ok && response.body.kind === "checkout" ? response.body.releaseToken : "";
+    assert.match(token, /^[0-9a-f]{32}$/);
+    assert.deepEqual(response.body, { ok: true, kind: "checkout", url: "https://checkout.stripe.com/c/pay/cs_test_session1", sessionId: "cs_test_session1", dueNow: 112.5, currency: "USD", releaseToken: token });
 
     const [session] = sessions;
     assert.ok(session);
+    assert.equal(session.metadata["rt"], token, "the token is in the session's metadata");
     assert.equal(session.unit_amount, 11_250, "25 percent of $150 for three people, the Worker's figure");
     assert.equal(session.currency, "usd");
     assert.deepEqual(session.paymentMethods, ["card"]);
@@ -625,7 +629,7 @@ describe("the walk: times, checkout, payment, one signed webhook", () => {
     assert.deepEqual(row?.row.slice(0, 11), [
       "2026-11-27T18:00:00.000Z",
       "Workshop",
-      "Tuesday, December 1, 2026, 9:00 AM\nFriday, December 4, 2026, 9:00 AM",
+      "Tuesday, December 1, 2026, 9:00 AM (Central Standard Time)\nFriday, December 4, 2026, 9:00 AM (Central Standard Time)",
       "3",
       NAME,
       EMAIL,
@@ -730,7 +734,8 @@ describe("expiry and release", () => {
     await checkout(w, baseBody([FIRST(), SECOND()]));
     const [session] = sessions;
     assert.ok(session);
-    const release = (id: unknown, origin = ORIGIN) => w.fetch(new Request(`${ORIGIN}/api/booking/release`, { method: "POST", headers: { origin, "content-type": "application/json", "sec-fetch-site": "same-origin" }, body: JSON.stringify({ sessionId: id }) }), env());
+    const tokenOf = (id: string): string => sessions.find((entry) => entry.id === id)?.metadata["rt"] ?? "";
+    const release = (id: unknown, origin = ORIGIN, token: unknown = typeof id === "string" ? tokenOf(id) : "") => w.fetch(new Request(`${ORIGIN}/api/booking/release`, { method: "POST", headers: { origin, "content-type": "application/json", "sec-fetch-site": "same-origin" }, body: JSON.stringify({ sessionId: id, releaseToken: token }) }), env());
     assert.equal((await release("nope")).status, 400);
     assert.equal((await release(session.id, "https://evil.test")).status, 403);
     const done = await release(session.id);
@@ -738,7 +743,7 @@ describe("expiry and release", () => {
     assert.deepEqual(await done.json(), { ok: true });
     assert.equal(session.status, "expired");
     assert.equal(holdsIn(REAL_CAL).length, 0);
-    assert.deepEqual(await (await release("cs_test_unknown")).json(), { ok: true });
+    assert.deepEqual(await (await release("cs_test_unknown", ORIGIN, "0123456789abcdef0123456789abcdef")).json(), { ok: true });
 
     // A page that was paid between the click and the release is not expired and keeps its holds.
     await checkout(w, baseBody([local("2026-12-08", "09:00"), local("2026-12-10", "09:00")]));
@@ -900,9 +905,9 @@ describe("daylight saving", () => {
       const [buyer] = emailsOf("buyer");
       assert.ok(buyer?.text.includes(label), buyer?.text);
       const summary = result.body.ok && result.body.kind === "booked" ? result.body.summary : null;
-      assert.ok(summary?.sessions[0]?.label.endsWith("9:00 AM"));
-      const ics = decode(buyer?.attachments?.[0]?.content ?? "");
       const offsetHours = date < "2026-03-08" || date >= "2026-11-01" ? 6 : 5;
+      assert.ok(summary?.sessions[0]?.label.includes(`9:00 AM (Central ${offsetHours === 6 ? "Standard" : "Daylight"} Time)`), summary?.sessions[0]?.label);
+      const ics = decode(buyer?.attachments?.[0]?.content ?? "");
       assert.ok(ics.includes(`DTSTART:${date.replaceAll("-", "")}T${String(9 + offsetHours).padStart(2, "0")}0000Z`), `${date} is UTC-${offsetHours}`);
       assert.match(summary?.zoneName ?? "", offsetHours === 6 ? /Central Standard Time/ : /Central Daylight Time/);
     });
@@ -921,7 +926,7 @@ describe("free services and a site without payments", () => {
     assert.equal(result.body.summary.service, "Consultation");
     assert.equal(result.body.summary.paidText, "");
     assert.equal(result.body.summary.dueLaterText, "");
-    assert.equal(result.body.summary.sessions[0]?.label, "Wednesday, December 2, 2026, 10:00 AM");
+    assert.equal(result.body.summary.sessions[0]?.label, "Wednesday, December 2, 2026, 10:00 AM (Central Standard Time)");
     assert.deepEqual(stripeCalls, []);
     assert.equal(bookingsIn(REAL_CAL).length, 1);
     assert.equal(holdsIn(REAL_CAL).length, 0);
@@ -1202,7 +1207,9 @@ describe("previews and development", () => {
     const freeBody = (await free.json()) as CheckoutAnswer;
     assert.ok(freeBody.ok && freeBody.kind === "booked" && freeBody.summary.reference === "dev");
     const paid = await w.fetch(request(baseBody([FIRST(), SECOND()])), dev);
-    assert.deepEqual(await paid.json(), { ok: true, kind: "checkout", url: "http://localhost:8787/book?checkout=cancelled", sessionId: "dev", dueNow: 112.5, currency: "USD" });
+    const paidBody = (await paid.json()) as CheckoutAnswer;
+    assert.ok(paidBody.ok && paidBody.kind === "checkout" && /^[0-9a-f]{32}$/.test(paidBody.releaseToken));
+    assert.deepEqual({ ...paidBody, releaseToken: "x" }, { ok: true, kind: "checkout", url: "http://localhost:8787/book?checkout=cancelled", sessionId: "dev", dueNow: 112.5, currency: "USD", releaseToken: "x" });
     assert.equal(calendar.log.length, 0);
     assert.deepEqual(stripeCalls, []);
     assert.equal(emails.length, 0);
@@ -1217,7 +1224,7 @@ describe("booking off", () => {
       const response = await w.fetch(new Request(`${ORIGIN}${path}`, { method, headers: { origin: ORIGIN, "content-type": "application/json" }, ...(method === "POST" ? { body: "{}" } : {}) }), env());
       assert.equal(response.status, 404, path);
     }
-    // A booking session that reaches this site's webhook is read and ignored: no booking, no email, no row, no 500 for Stripe to retry.
+    // A paid booking session that reaches this site's webhook is never a silent 200: no booking and no row, but the owner is told once.
     const started = worker();
     await checkout(started, baseBody([FIRST(), SECOND()]));
     const [session] = sessions;
@@ -1225,7 +1232,8 @@ describe("booking off", () => {
     pay(session);
     const response = await deliver(w, session);
     assert.equal(response.status, 200);
-    assert.equal(emails.length, 0);
+    assert.equal(emails.length, 1);
+    assert.equal(kindOf(emails[0] as Email), "unhandled");
     assert.equal(rows.length, 0);
     assert.equal(bookingsIn(REAL_CAL).length, 0);
     assert.equal(holdsIn(REAL_CAL).length, 2, "a site with booking off never touches the calendar");
@@ -1312,6 +1320,443 @@ describe("a gift card sale is untouched by the booking hook", () => {
     const response = await deliver(w, sessions[0] as Session, "checkout.session.expired");
     assert.equal(response.status, 200);
     assert.equal(emails.length, 0);
+  });
+});
+
+// ---- the fix wave ----
+
+const FREE2: Service = { ...WORKSHOP, id: "free2", name: "Free workshop", price: null, payment: { kind: "free" } };
+const free2Settings: BookingSettings = { ...SETTINGS, services: [FREE2] };
+const free2Body = (starts: number[], overrides: Record<string, unknown> = {}) => baseBody(starts, { service: "free2", party: 2, ...overrides });
+
+function capturingLock() {
+  const inner = memoryLock(new LockCore(() => clock));
+  const released: Claim[][] = [];
+  const lock: SlotLock = {
+    acquire: () => inner.acquire(),
+    release: async (token, claims) => {
+      released.push(claims);
+      await inner.release(token, claims);
+    },
+  };
+  return { lock, released };
+}
+
+describe("a clash is remembered on the event", () => {
+  test("a clash whose second patch fails stays a clash on the retry: no confirmation, no ordinary owner note", async () => {
+    const w = worker();
+    await checkout(w, baseBody([FIRST(), SECOND()]));
+    const [session] = sessions;
+    assert.ok(session);
+    calendar.events.set(`${BUSY_CAL}/ownerevent1`, { id: "ownerevent1", calendar: BUSY_CAL, start: SECOND() + 30 * MINUTE, end: SECOND() + 90 * MINUTE, transparent: false, status: "confirmed", summary: "Owner's own thing", props: {}, description: "", createdAt: 0 });
+    pay(session);
+    const realPatch = calendar.patchEvent.bind(calendar);
+    let patches = 0;
+    calendar.patchEvent = async (...args) => {
+      patches += 1;
+      return patches === 2 ? { ok: false, status: 500, code: null } : realPatch(...args);
+    };
+    assert.equal((await deliver(w, session)).status, 500);
+    assert.equal(session.piMetadata["hl_calendar"], undefined);
+    assert.equal(calendar.of(REAL_CAL).filter((event) => event.props["hl_check"] === "1").length, 1, "the first patch carried the marker");
+    // The cause goes away before the retry; the marker alone must keep the answer a clash.
+    calendar.events.delete(`${BUSY_CAL}/ownerevent1`);
+    calendar.patchEvent = realPatch;
+    assert.equal((await deliver(w, session)).status, 200);
+    assert.equal(session.piMetadata["hl_calendar"], "clash");
+    assert.equal(emailsOf("buyer").length, 0, "no confirmation");
+    assert.equal(emailsOf("owner").length, 0, "no ordinary owner note");
+    assert.equal(emailsOf("alert").length, 1);
+    const events = bookingsIn(REAL_CAL);
+    assert.equal(events.length, 2);
+    assert.ok(events.every((event) => event.summary.startsWith("CHECK:") && event.props["hl_check"] === "1" && !event.transparent));
+  });
+
+  test("a hold whose properties were forged to say booking, but is still transparent, is checked and patched opaque", async () => {
+    const w = worker();
+    await checkout(w, baseBody([FIRST(), SECOND()]));
+    const [session] = sessions;
+    assert.ok(session);
+    const [first] = holdsIn(REAL_CAL).sort((a, b) => a.start - b.start);
+    assert.ok(first);
+    first.props["hl_kind"] = "booking";
+    pay(session);
+    assert.equal((await deliver(w, session)).status, 200);
+    assert.equal(session.piMetadata["hl_calendar"], "booked");
+    const events = bookingsIn(REAL_CAL);
+    assert.equal(events.length, 2);
+    assert.ok(events.every((event) => !event.transparent && event.summary.startsWith("Workshop:")), "every event is opaque");
+  });
+});
+
+describe("insert retries and rollback", () => {
+  /** The first insert of each id lands but the caller sees the 409 its own retry got. */
+  function landedThenDuplicate() {
+    const real = calendar.insertEvent.bind(calendar);
+    calendar.insertEvent = async (calendarId, event) => {
+      const first = await real(calendarId, event);
+      if (!first.ok) return first;
+      return real(calendarId, event);
+    };
+  }
+
+  test("a free booking whose first insert landed but answered 503, then 409 on the retry, still succeeds", async () => {
+    landedThenDuplicate();
+    const w = worker();
+    const result = await checkout(w, baseBody([local("2026-12-02", "10:00")], { service: "consult", party: 1, answers: { name: NAME, email: EMAIL, phone: PHONE } }));
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(bookingsIn(REAL_CAL).length, 1);
+  });
+
+  test("a paid checkout with the same trouble on its holds succeeds", async () => {
+    landedThenDuplicate();
+    const w = worker();
+    const result = await checkout(w, baseBody([FIRST(), SECOND()]));
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(holdsIn(REAL_CAL).length, 2);
+  });
+
+  test("a 409 for an event that is not this booking's stays a failure", async () => {
+    const real = calendar.insertEvent.bind(calendar);
+    calendar.insertEvent = async (calendarId, event) => {
+      const stored = await real(calendarId, event);
+      const found = calendar.events.get(`${calendarId}/${event.id}`);
+      if (stored.ok && found) found.props["hl_ref"] = "BK-SOMEONEELSE";
+      return real(calendarId, event);
+    };
+    const w = worker();
+    const result = await checkout(w, baseBody([local("2026-12-02", "10:00")], { service: "consult", party: 1, answers: { name: NAME, email: EMAIL, phone: PHONE } }));
+    assert.equal(result.status, 502);
+  });
+
+  test("a free booking whose second insert fails leaves no event behind, even one that landed before its error", async () => {
+    const w = worker(BASE, free2Settings);
+    const real = calendar.insertEvent.bind(calendar);
+    let inserts = 0;
+    calendar.insertEvent = async (calendarId, event) => {
+      inserts += 1;
+      const stored = await real(calendarId, event);
+      return inserts === 2 ? { ok: false, status: 503, code: null } : stored;
+    };
+    const result = await checkout(w, free2Body([FIRST(), SECOND()]));
+    assert.equal(result.status, 502);
+    assert.deepEqual(result.body, { ok: false, error: "unavailable" });
+    assert.equal(calendar.of(REAL_CAL).length, 0, "nothing left on the calendar");
+    assert.equal(emails.length, 0);
+  });
+
+  test("a paid checkout whose second hold fails removes both holds and closes the payment page", async () => {
+    const w = worker();
+    const real = calendar.insertEvent.bind(calendar);
+    let inserts = 0;
+    calendar.insertEvent = async (calendarId, event) => {
+      inserts += 1;
+      const stored = await real(calendarId, event);
+      return inserts === 2 ? { ok: false, status: 503, code: null } : stored;
+    };
+    const result = await checkout(w, baseBody([FIRST(), SECOND()]));
+    assert.equal(result.status, 502);
+    assert.equal(calendar.of(REAL_CAL).length, 0);
+    assert.equal(sessions[0]?.status, "expired");
+  });
+});
+
+describe("the times route", () => {
+  const query = { service: "workshop", party: 3, index: 0, from: "2026-12-01", days: 2, chosen: "" };
+
+  test("a cross-site request is refused; an Origin that is not ours is refused; a plain page GET is fine", async () => {
+    const w = worker();
+    const params = new URLSearchParams(Object.entries(query).map(([key, value]) => [key, String(value)])).toString();
+    const get = (headers: Record<string, string>) => w.fetch(new Request(`${ORIGIN}/api/booking/times?${params}`, { headers }), env());
+    assert.equal((await get({ "sec-fetch-site": "cross-site" })).status, 403);
+    assert.equal((await get({ "sec-fetch-site": "same-site" })).status, 403);
+    assert.equal((await get({ "sec-fetch-site": "same-origin", origin: "https://evil.test" })).status, 403);
+    assert.equal((await get({ origin: "https://evil.test" })).status, 403);
+    assert.equal((await get({ "sec-fetch-site": "same-origin" })).status, 200);
+    assert.equal((await get({ "sec-fetch-site": "same-origin", origin: ORIGIN })).status, 200);
+    assert.equal((await get({})).status, 200);
+  });
+
+  test("dates outside the window are not answered and make no Google call", async () => {
+    const w = worker();
+    const far = await times(w, { ...query, from: "2999-01-01" });
+    assert.equal(far.status, 200);
+    assert.ok(far.body.ok);
+    if (far.body.ok) assert.deepEqual(far.body.days, []);
+    assert.equal(calendar.log.length, 0, "no calendar call");
+    // A range that starts before the window is clamped to it.
+    const clamped = await times(w, { ...query, from: "2026-11-20", days: 14 });
+    assert.ok(clamped.body.ok);
+    if (clamped.body.ok) assert.equal(clamped.body.days[0]?.date, "2026-11-27");
+    // Later sessions: only the rule's days around the first.
+    const later = await times(w, { ...query, index: 1, chosen: FIRST(), from: "2026-12-20", days: 14 });
+    assert.ok(later.body.ok);
+    if (later.body.ok) assert.deepEqual(later.body.days, [], "ten days after the first is the last");
+  });
+
+  test("busy time is read per fixed 14-day bucket: different queries inside one bucket make one free/busy call", async () => {
+    const w = worker();
+    await times(w, query);
+    await times(w, { ...query, from: "2026-12-02", party: 5 });
+    await times(w, { ...query, service: "consult", party: 1, from: "2026-12-02", days: 1 });
+    assert.equal(calendar.count("freebusy"), 1);
+    assert.equal(calendar.count("list"), 1, "holds are read per bucket too");
+    clock += 31_000;
+    await times(w, query);
+    assert.equal(calendar.count("freebusy"), 2);
+  });
+
+  test("the memory is capped at 64 buckets", async () => {
+    const w = worker(BASE, { ...SETTINGS, hours: { ...HOURS, aheadDays: 3000 } });
+    for (let week = 0; week < 40; week++) {
+      const date = new Date(Date.UTC(2026, 10, 30 + week * 14));
+      await times(w, { service: "consult", party: 1, index: 0, from: date.toISOString().slice(0, 10), days: 1, chosen: "" });
+    }
+    const weekQuery = (week: number) => {
+      const date = new Date(Date.UTC(2026, 10, 30 + week * 14));
+      return times(w, { service: "consult", party: 1, index: 0, from: date.toISOString().slice(0, 10), days: 1, chosen: "" });
+    };
+    for (let week = 40; week < 80; week++) await weekQuery(week);
+    const before = calendar.count("freebusy");
+    await weekQuery(79);
+    assert.equal(calendar.count("freebusy"), before, "the newest bucket is still remembered");
+    await weekQuery(0);
+    assert.equal(calendar.count("freebusy"), before + 1, "the oldest was dropped to stay at 64");
+  });
+});
+
+describe("the time zone of each session", () => {
+  test("two sessions straddling the spring change each carry their own zone name everywhere", async () => {
+    clock = local("2026-02-20", "12:00");
+    const w = worker(BASE, free2Settings);
+    const first = local("2026-03-06", "09:00");
+    const second = local("2026-03-10", "09:00");
+    const result = await checkout(w, free2Body([first, second]));
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.ok(result.body.ok && result.body.kind === "booked");
+    if (!result.body.ok || result.body.kind !== "booked") return;
+    assert.equal(result.body.summary.sessions[0]?.label, "Friday, March 6, 2026, 9:00 AM (Central Standard Time)");
+    assert.equal(result.body.summary.sessions[1]?.label, "Tuesday, March 10, 2026, 9:00 AM (Central Daylight Time)");
+    assert.equal(result.body.summary.zoneName, "Central Standard Time", "the page heading keeps the first session's zone");
+    const buyer = emailsOf("buyer")[0]?.text ?? "";
+    assert.ok(buyer.includes("Friday, March 6, 2026, 9:00 AM (Central Standard Time)") && buyer.includes("Tuesday, March 10, 2026, 9:00 AM (Central Daylight Time)"), buyer);
+    assert.ok(!buyer.includes("All times are"));
+    const cell = rows[0]?.row[2] ?? "";
+    assert.ok(cell.includes("(Central Standard Time)") && cell.includes("(Central Daylight Time)"), cell);
+    const descriptions = bookingsIn(REAL_CAL).sort((a, b) => a.start - b.start).map((event) => event.description);
+    assert.ok(descriptions[0]?.includes("9:00 AM (Central Standard Time)"));
+    assert.ok(descriptions[1]?.includes("9:00 AM (Central Daylight Time)"));
+  });
+});
+
+describe("what a visitor types never becomes markup in the calendar", () => {
+  test("&, < and > are escaped in every visitor value of a booking's description", async () => {
+    const w = worker();
+    const result = await checkout(w, baseBody([local("2026-12-02", "10:00")], { service: "consult", party: 1, answers: { name: "Ada <b>&</b>", email: EMAIL, phone: PHONE, notes: "<script>alert(1)</script> & more" } }));
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    const [event] = bookingsIn(REAL_CAL);
+    assert.ok(event);
+    assert.ok(event.description.includes("Name: Ada &lt;b&gt;&amp;&lt;/b&gt;"), event.description);
+    assert.ok(event.description.includes("&lt;script&gt;alert(1)&lt;/script&gt; &amp; more"));
+    assert.ok(!/<(b|script)>/.test(event.description));
+  });
+
+  test("the same on a paid booking's patch", async () => {
+    const w = worker();
+    await checkout(w, baseBody([FIRST(), SECOND()], { answers: { name: "Ada <i>", email: EMAIL, phone: PHONE, notes: "a & b" } }));
+    const [session] = sessions;
+    assert.ok(session);
+    pay(session);
+    await deliver(w, session);
+    for (const event of bookingsIn(REAL_CAL)) {
+      assert.ok(event.description.includes("Name: Ada &lt;i&gt;"), event.description);
+      assert.ok(event.description.includes("a &amp; b"));
+    }
+  });
+});
+
+describe("a hold with an unreadable expiry", () => {
+  test("is stale: its time is offered", async () => {
+    const w = worker();
+    const hold = { id: "hlbadexpiry", calendar: REAL_CAL, start: local("2026-12-01", "09:00"), end: local("2026-12-01", "11:00"), transparent: true, status: "confirmed", summary: "Hold", description: "", createdAt: 0 };
+    calendar.events.set(`${REAL_CAL}/hlbadexpiry`, { ...hold, props: { hl_kind: "hold", hl_site: "example-site", hl_expires: "soon" } });
+    const open = await times(w, { service: "consult", party: 1, index: 0, from: "2026-12-01", days: 1, chosen: "" });
+    assert.ok(open.body.ok && open.body.days[0]?.times.some((time) => time.label === "9:00 AM"));
+    resetBusyCache();
+    // A readable expiry still hides the time.
+    calendar.events.set(`${REAL_CAL}/hlbadexpiry`, { ...hold, props: { hl_kind: "hold", hl_site: "example-site", hl_expires: String(Math.floor(clock / 1000) + 600) } });
+    const closed = await times(w, { service: "consult", party: 1, index: 0, from: "2026-12-01", days: 1, chosen: "" });
+    assert.ok(closed.body.ok && !closed.body.days[0]?.times.some((time) => time.label === "9:00 AM"));
+  });
+});
+
+describe("the release token", () => {
+  const post = (w: ReturnType<typeof worker>, body: unknown) =>
+    w.fetch(new Request(`${ORIGIN}/api/booking/release`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json", "sec-fetch-site": "same-origin" }, body: JSON.stringify(body) }), env());
+
+  test("only the token handed out at checkout releases the holds; any other answers ok and does nothing", async () => {
+    const w = worker();
+    const started = await checkout(w, baseBody([FIRST(), SECOND()]));
+    assert.ok(started.body.ok && started.body.kind === "checkout");
+    const [session] = sessions;
+    assert.ok(session && started.body.ok && started.body.kind === "checkout");
+    const token = started.body.ok && started.body.kind === "checkout" ? started.body.releaseToken : "";
+    assert.equal(token, session.metadata["rt"]);
+
+    assert.equal((await post(w, { sessionId: session.id })).status, 400, "a token is required");
+    assert.equal((await post(w, { sessionId: session.id, releaseToken: "short" })).status, 400);
+    assert.equal((await post(w, { sessionId: session.id, releaseToken: token, extra: 1 })).status, 400, "unknown keys are refused");
+    const wrong = await post(w, { sessionId: session.id, releaseToken: "f".repeat(32) });
+    assert.equal(wrong.status, 200);
+    assert.deepEqual(await wrong.json(), { ok: true });
+    assert.equal(session.status, "open", "nothing was released");
+    assert.equal(holdsIn(REAL_CAL).length, 2);
+    assert.ok(logs.some((line) => line.includes("booking_release_refused")));
+
+    const right = await post(w, { sessionId: session.id, releaseToken: token });
+    assert.deepEqual(await right.json(), { ok: true });
+    assert.equal(session.status, "expired");
+    assert.equal(holdsIn(REAL_CAL).length, 0);
+  });
+});
+
+describe("a missing rate limit binding", () => {
+  const noLimit = (overrides: Partial<ContactEnv> = {}): ContactEnv => ({ ...env(overrides), CONTACT_RATE_LIMIT: undefined }) as ContactEnv;
+
+  test("checkout and release answer 502 in production and in a preview; development carries on; confirm is unchanged", async () => {
+    const w = worker();
+    const free = baseBody([local("2026-12-02", "10:00")], { service: "consult", party: 1, answers: { name: NAME, email: EMAIL, phone: PHONE } });
+    for (const environment of [noLimit(), noLimit({ SITE_ENV: "preview", STRIPE_SECRET_KEY: TEST_KEY })]) {
+      const response = await w.fetch(checkoutRequest(free), environment);
+      assert.equal(response.status, 502);
+      assert.deepEqual(await response.json(), { ok: false, error: "failed" });
+      const release = await w.fetch(new Request(`${ORIGIN}/api/booking/release`, { method: "POST", headers: { origin: ORIGIN, "content-type": "application/json", "sec-fetch-site": "same-origin" }, body: JSON.stringify({ sessionId: "cs_test_x", releaseToken: "a".repeat(32) }) }), environment);
+      assert.equal(release.status, 502);
+    }
+    assert.equal(calendar.count("insert"), 0);
+    assert.ok(logs.some((line) => line.includes("rate_limit_binding_missing")));
+
+    const confirm = await w.fetch(new Request(`${ORIGIN}/api/booking/confirm?session_id=cs_test_none`, { headers: { "sec-fetch-site": "same-origin" } }), noLimit());
+    assert.equal(confirm.status, 404, "confirm still goes on to look the session up");
+
+    const dev = await w.fetch(new Request("http://localhost:8787/api/booking/checkout", { method: "POST", headers: { origin: "http://localhost:8787", "content-type": "application/json", "sec-fetch-site": "same-origin" }, body: JSON.stringify(free) }), noLimit({ SITE_ENV: "development" }));
+    assert.equal(dev.status, 200);
+  });
+});
+
+describe("a paid booking that reaches a site that cannot take it", () => {
+  test("the owner is told once, with the whole booking; the webhook asks for a retry until that email is sent", async () => {
+    const w = worker();
+    await checkout(w, baseBody([FIRST(), SECOND()]));
+    const [session] = sessions;
+    assert.ok(session);
+    pay(session);
+    const off = worker({ ...BASE, booking: null });
+    resendFails = () => true;
+    assert.equal((await deliver(off, session)).status, 500, "the alert could not be sent");
+    assert.equal(emails.length, 0);
+    resendFails = () => false;
+    assert.equal((await deliver(off, session)).status, 200);
+    assert.equal(emails.length, 1);
+    const [alert] = emails;
+    assert.equal(alert?.key, `book-${session.pi}-unhandled`);
+    assert.equal(alert?.to, "hello@example.test");
+    assert.ok(alert?.subject.startsWith("ACTION NEEDED"));
+    for (const piece of [NAME, EMAIL, PHONE, "Workshop", session.pi, session.metadata["ref"] ?? "?", "Amount paid: $112.50"]) assert.ok(alert?.text.includes(piece), `missing: ${piece}`);
+    assert.equal(session.piMetadata["hl_alert"], "sent");
+    assert.ok(logs.some((line) => line.includes("booking_unhandled")));
+    assert.equal((await deliver(off, session)).status, 200);
+    assert.equal(emails.length, 1, "told once");
+    assert.equal(bookingsIn(REAL_CAL).length, 0, "the calendar is never touched");
+    assert.equal(rows.length, 0);
+  });
+
+  test("a session of another site, an unpaid one and a page that closed are 200 and silent", async () => {
+    const w = worker();
+    await checkout(w, baseBody([FIRST(), SECOND()]));
+    const [session] = sessions;
+    assert.ok(session);
+    const off = worker({ ...BASE, booking: null });
+    assert.equal((await deliver(off, session)).status, 200, "not paid");
+    session.status = "expired";
+    assert.equal((await deliver(off, session, "checkout.session.expired")).status, 200);
+    session.status = "complete";
+    session.payment_status = "paid";
+    session.metadata["site"] = "another-site";
+    assert.equal((await deliver(off, session)).status, 200);
+    assert.equal(emails.length, 0);
+  });
+});
+
+describe("lock use", () => {
+  test("a release that throws never replaces the outcome", async () => {
+    const inner = memoryLock(new LockCore(() => clock));
+    const w = worker(BASE, SETTINGS, {
+      lock: {
+        acquire: () => inner.acquire(),
+        release: async (token: string, claims: Claim[]) => {
+          await inner.release(token, claims);
+          throw new Error("boom");
+        },
+      },
+    });
+    const result = await checkout(w, baseBody([local("2026-12-02", "10:00")], { service: "consult", party: 1, answers: { name: NAME, email: EMAIL, phone: PHONE } }));
+    assert.equal(result.status, 200);
+    assert.ok(logs.some((line) => line.includes("booking_lock_release_failed")));
+    await checkout(w, baseBody([FIRST(), SECOND()]));
+    const [session] = sessions;
+    assert.ok(session);
+    pay(session);
+    assert.equal((await deliver(w, session)).status, 200, "fulfilment is not turned into a failure either");
+  });
+
+  test("the claims of the events written so far reach release even when a later write fails", async () => {
+    const { lock, released } = capturingLock();
+    const w = worker(BASE, free2Settings, { lock });
+    calendar.failInsertFrom = 2;
+    const result = await checkout(w, free2Body([FIRST(), SECOND()]));
+    assert.equal(result.status, 502);
+    assert.equal(released.length, 1);
+    assert.equal(released[0]?.length, 1, "the first session's claim was kept");
+  });
+
+  test("checkout out of time before an insert rolls back and answers 502 unavailable", async () => {
+    const w = worker(BASE, free2Settings);
+    const real = calendar.insertEvent.bind(calendar);
+    calendar.insertEvent = async (...args) => {
+      const stored = await real(...args);
+      clock += 25_000;
+      return stored;
+    };
+    const result = await checkout(w, free2Body([FIRST(), SECOND()]));
+    assert.equal(result.status, 502);
+    assert.deepEqual(result.body, { ok: false, error: "unavailable" });
+    assert.equal(calendar.of(REAL_CAL).length, 0, "the first event was rolled back");
+    assert.ok(logs.some((line) => line.includes("booking_lock_slow")));
+  });
+
+  test("fulfilment out of time before a patch is a failure the next delivery finishes; the claims were still released", async () => {
+    const { lock, released } = capturingLock();
+    const w = worker(BASE, SETTINGS, { lock });
+    await checkout(w, baseBody([FIRST(), SECOND()]));
+    const [session] = sessions;
+    assert.ok(session);
+    pay(session);
+    released.length = 0;
+    const realPatch = calendar.patchEvent.bind(calendar);
+    let patches = 0;
+    calendar.patchEvent = async (...args) => {
+      patches += 1;
+      const done = await realPatch(...args);
+      if (patches === 1) clock += 25_000;
+      return done;
+    };
+    assert.equal((await deliver(w, session)).status, 500);
+    assert.equal(patches, 1, "no second patch after the time ran out");
+    assert.equal(released[0]?.length, 1, "the patched event's claim was kept");
+    calendar.patchEvent = realPatch;
+    assert.equal((await deliver(w, session)).status, 200);
+    assert.equal(session.piMetadata["hl_calendar"], "booked");
   });
 });
 

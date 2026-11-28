@@ -1,3 +1,4 @@
+import { siteConfig } from "../../site.config.ts";
 import { pathForFile } from "../../src/blocks/schema.ts";
 import { DEFAULT_FORM_SETTINGS } from "../../src/forms/schema.ts";
 import { todayIn } from "../../src/settings/notice.ts";
@@ -151,6 +152,7 @@ export function createEditor(deps: EditorDeps): Editor {
   const formSettings = deps.formSettings ?? DEFAULT_FORM_SETTINGS;
   const paymentsOn = deps.paymentsOn;
   const calendarOn = deps.calendarOn;
+  const currency = deps.paymentsCurrency !== undefined ? deps.paymentsCurrency : (siteConfig.payments?.currency ?? null);
   const doFetch = deps.fetch ?? fetch;
   const makeId = deps.randomId ?? newId;
   const statuses = createStatusReader({ config, github, kv, now });
@@ -292,6 +294,7 @@ export function createEditor(deps: EditorDeps): Editor {
         touchedPages: touched.pages,
         pages: after,
         today: today(),
+        currency,
         formSettings,
         ...(extra.removedFromPages ? { removedFromPages: extra.removedFromPages } : {}),
       },
