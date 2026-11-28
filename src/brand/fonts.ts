@@ -11,6 +11,11 @@ export type CuratedFont = {
   label: string;
   /** Extra variable axes to load (opsz), when the family offers one worth having. */
   axes?: string[];
+  /**
+   * Keep the full variable file even in a role that uses one weight, because the file pinned at that weight does not
+   * render pixel-identically (measured, with the reason beside the entry).
+   */
+  keepVariable?: true;
 };
 
 /**
@@ -37,7 +42,9 @@ export const CURATED_FONTS: Record<FontRole, CuratedFont[]> = {
   ],
   accent: [
     { id: "newsreader", family: "Newsreader", label: "Newsreader", axes: ["opsz"] },
-    { id: "fraunces", family: "Fraunces", label: "Fraunces", axes: ["opsz"] },
+    // Pinned at italic 400, Fraunces drops from 80 KB to 41 KB but its anti-aliasing shifts slightly (2026-11-27:
+    // same glyphs and line breaks, pixel differences up to 181 of 255), so it keeps the variable file.
+    { id: "fraunces", family: "Fraunces", label: "Fraunces", axes: ["opsz"], keepVariable: true },
     { id: "lora", family: "Lora", label: "Lora" },
     { id: "playfair-display", family: "Playfair Display", label: "Playfair Display" },
   ],
@@ -61,14 +68,15 @@ const VARIABLES: Record<FontRole, string> = { display: "--hl-outfit", body: "--f
 const EXPORTS: Record<FontRole, string> = { display: "outfit", body: "inter", accent: "newsreader" };
 
 const importName = (family: string) => family.replace(/\s+/g, "_");
-const pinnedWeight = (role: FontRole) => (DESIGN_FACES[role].weights.length === 1 ? DESIGN_FACES[role].weights[0] : null);
+const pinnedWeight = (role: FontRole, font: CuratedFont) =>
+  DESIGN_FACES[role].weights.length === 1 && !font.keepVariable ? DESIGN_FACES[role].weights[0] : null;
 
 /**
  * True when the role pins one weight and the font keeps an extra axis (opsz). next/font/google can pin a weight only by
  * dropping every other axis, so those files come from scripts/fetch-font-files.mjs and are committed.
  */
 export function needsLocalFiles(role: FontRole, font: CuratedFont): boolean {
-  return pinnedWeight(role) !== null && (font.axes?.length ?? 0) > 0;
+  return pinnedWeight(role, font) !== null && (font.axes?.length ?? 0) > 0;
 }
 
 /** The key of a font's files in FONT_FILES and the start of their file names. */
@@ -81,8 +89,8 @@ type AxisData = { axes?: { tag: string; min: number; max: number }[] };
  * axes, except that the weight is the one the design uses. Axes are sorted as Google requires (lowercase tags first).
  */
 export function requestFor(role: FontRole, font: CuratedFont, data: AxisData): string {
-  const weight = pinnedWeight(role);
-  if (weight === null) throw new Error(`The ${role} role uses several weights; it loads the variable file`);
+  const weight = pinnedWeight(role, font);
+  if (weight === null) throw new Error(`${font.family} as ${role} loads the variable file`);
   const axes = (font.axes ?? []).map((tag) => {
     const axis = data.axes?.find((entry) => entry.tag === tag);
     if (!axis) throw new Error(`${font.family} has no ${tag} axis`);
@@ -109,7 +117,7 @@ const camel = (text: string) => text.replace(/-([a-z0-9])/g, (_, c: string) => c
 
 /** A next/font/google call: the variable file, or (one design weight, no extra axis) the file pinned at that weight. */
 function googleCall(role: FontRole, font: CuratedFont, preload: boolean, comment: string): string {
-  const weight = pinnedWeight(role);
+  const weight = pinnedWeight(role, font);
   const style = DESIGN_FACES[role].style;
   const lines = [
     `  subsets: ["latin"],`,
@@ -139,7 +147,7 @@ function localCalls(role: FontRole, font: CuratedFont, preload: boolean, comment
   // the export is the family name itself (CSS matches family names without regard to case). One word only.
   if (!/^[A-Z][A-Za-z]+$/.test(font.family)) throw new Error(`${font.family}: a locally loaded family must be one word`);
   const binding = font.family[0].toLowerCase() + font.family.slice(1);
-  const weight = pinnedWeight(role);
+  const weight = pinnedWeight(role, font);
   const style = DESIGN_FACES[role].style;
   const call = (face: (typeof entry.faces)[number], name: string, variable: string, isMain: boolean) => `${isMain ? `/** ${comment} */\nexport ` : ""}const ${name} = localFont({
   src: "../brand/font-files/${face.file}",
@@ -177,7 +185,7 @@ export function fontsModule(choice: Record<FontRole, string>): string {
   const roles: [FontRole, CuratedFont, boolean, string][] = [
     ["display", display, true, "Display and UI: headings, nav, buttons, eyebrows, labels. One variable file (weights 400 to 700 used)."],
     ["body", body, true, "Body text. One variable file (weights 400, 600 and 700 used)."],
-    ["accent", accent, false, `The second voice: ${accent.family} italic only, never roman, at the one weight the design uses (400).`],
+    ["accent", accent, false, accent.keepVariable ? `The second voice: ${accent.family} italic only, never roman. The full variable file (see keepVariable in src/brand/fonts.ts).` : `The second voice: ${accent.family} italic only, never roman, at the one weight the design uses (400).`],
   ];
   const googleNames = [...new Set(roles.filter(([role, font]) => !needsLocalFiles(role, font)).map(([, font]) => importName(font.family)))].sort();
   const usesLocal = roles.some(([role, font]) => needsLocalFiles(role, font));

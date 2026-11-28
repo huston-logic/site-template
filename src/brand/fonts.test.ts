@@ -116,9 +116,8 @@ test("the same family in two roles is imported once and called twice", () => {
   const out = fontsModule({ display: "fraunces", body: "inter", accent: "fraunces" });
   assert.match(out, /import \{ Fraunces, Inter \} from/);
   assert.match(out, /export const outfit = Fraunces\(/);
-  assert.match(out, /export const fraunces = localFont\(\{/);
-  assert.match(out, /\{ prop: "font-family", value: "Fraunces" \}/);
-  assert.match(out, /fraunces\.variable/);
+  assert.match(out, /export const newsreader = Fraunces\(\{\n  subsets: \["latin"\],\n  style: \["italic"\],\n  axes: \["opsz"\],/);
+  assert.doesNotMatch(out, /localFont/);
 });
 
 test("fontsModule throws on an id that is not in the role's list", () => {
