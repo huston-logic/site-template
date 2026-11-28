@@ -43,8 +43,8 @@ so a sale is never sent or recorded twice.
 **1. The client's Stripe account.** The client opens a Stripe account in their own name, and their bank details go there.
 Huston Logic does not own the account and does not hold its money.
 
-**2. A restricted key.** In the Stripe Dashboard, make a restricted key. Give it exactly two permissions, both with write access:
-Checkout Sessions and PaymentIntents. Nothing else. Use a test-mode key for previews (`rk_test_...`) and a live-mode key
+**2. A restricted key.** In the Stripe Dashboard, make a restricted key. Give it exactly these permissions: Checkout Sessions write, PaymentIntents write and Charges read
+(the Worker reads the payment's latest charge to date the sale). Nothing else. Use a test-mode key for previews (`rk_test_...`) and a live-mode key
 for production (`rk_live_...`). The Worker refuses a key whose mode does not match the site: a test key on production, or a
 live key on a preview, makes the checkout fail with `payments_misconfigured` and creates nothing.
 
@@ -165,10 +165,15 @@ A buyer who has paid always gets the certificate, or the owner is told.
   days. When the email finally goes out, the owner gets a note that it was delivered late.
 - **The ledger row fails.** The owner's email says the row was NOT saved and gives the row cell by cell. Add it to the
   tab by hand. The site will not add it a second time.
+- **A paid session does not match its sale** (the amount, the currency or the payment itself). No certificate is issued and no
+  code is given out. You get one email, "Action needed: gift card payment did not match", with the Stripe payment id and
+  amount; refund it in Stripe if needed.
+- **Two sites on one Stripe account.** Each sale carries its site's Worker name (`domain.workerName`); a site ignores any
+  payment that names another site.
 - **The owner's email fails.** Stripe retries the webhook. Steps already done are skipped.
 - **The webhook never arrives** (for example, the endpoint is wrong). When the buyer returns to the thank-you page and the
-  payment is more than 90 seconds old, the page sends the certificate and the owner's email says the webhook did not
-  arrive, with the fix. The page asks again at 30 and 100 seconds while the certificate has not gone out.
+  payment is more than 90 seconds old, the page sends the certificate and the owner's email says so in a neutral note (a slow
+  payment method that has only just cleared looks the same); if that note appears often, check the webhook as below. The page asks again at 30 and 100 seconds while the certificate has not gone out.
 
 If a payment is not in the ledger or the owner's inbox, check Stripe's webhook log for the endpoint first. Then check the
 site's Worker logs (Cloudflare Workers Logs) for the fixed event names: `webhook_refused`, `payments_misconfigured`,

@@ -54,7 +54,7 @@ needs the minor-unit factor per currency, a small change in `worker/payments/mon
 
 **R3. Two secrets.** `STRIPE_SECRET_KEY` (a restricted key, `rk_live_...` in production, `rk_test_...` in previews)
 and `STRIPE_WEBHOOK_SECRET` (`whsec_...`). Required only while `payments` is set (`secretsFor` in
-`scripts/config-rules.mjs`). The restricted key needs exactly: Checkout Sessions write, PaymentIntents write. The
+`scripts/config-rules.mjs`). The restricted key needs exactly: Checkout Sessions write, PaymentIntents write and Charges read (the session read expands `payment_intent.latest_charge`). The
 Worker refuses to start a checkout when the key's mode does not match the site's mode (a test key on production or a
 live key on a preview): 502 `payments_misconfigured`, nothing created. Cost if wrong: a key Grant made with other
 permissions fails with Stripe's 403, which the Worker logs as a fixed event and turns into a plain error.
