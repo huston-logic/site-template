@@ -1,6 +1,7 @@
 // Every block the site knows: the template's library followed by this site's own. Relative .ts imports only, so Node
 // scripts (the content check, the catalog) can load it.
 import { siteBlocks } from "../site-blocks/definitions.ts";
+import { bookingDefinition } from "./library/booking/definition.ts";
 import { businessDetailsDefinition } from "./library/business-details/definition.ts";
 import { catalogDefinition } from "./library/catalog/definition.ts";
 import { closingCtaDefinition } from "./library/closing-cta/definition.ts";
@@ -50,6 +51,7 @@ export const libraryBlocks: AnyBlockDefinition[] = [
   catalogDefinition,
   quoteBuilderDefinition,
   giftCardDefinition,
+  bookingDefinition,
 ];
 
 export const registry: AnyBlockDefinition[] = [...libraryBlocks, ...siteBlocks];

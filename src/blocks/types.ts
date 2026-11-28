@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { BookingSettings } from "../booking/schema.ts";
 import type { CatalogSettings, PricingTable } from "../catalog/schema.ts";
 import type { LoadedItem } from "../collections/schema.ts";
 import type { PublicForm } from "../forms/schema.ts";
@@ -23,6 +24,20 @@ export type CatalogView = {
 /** What the gift card block needs: the owner's settings and the currency the build charges in. The showcase passes the example settings. */
 export type GiftCardView = { settings: GiftCardSettings; currency: PaymentCurrency };
 
+/**
+ * What the booking block needs: the owner's settings (live services only), the currency (null while payments are off), the
+ * business's time zone, the details form, the gift card line (only while gift cards are on sale and payments are on) and the
+ * ways to reach the owner. The renderer builds it from the site's files; the showcase passes the example.
+ */
+export type BookingView = {
+  settings: BookingSettings;
+  currency: PaymentCurrency | null;
+  timeZone: string;
+  form: PublicForm;
+  giftCardLine: string | null;
+  contact: { href: string; email: string | null; phone: string | null };
+};
+
 /** What the renderer hands every block component. `content` is already checked against the block's fields. */
 export type BlockProps<C> = {
   content: C;
@@ -42,6 +57,8 @@ export type BlockProps<C> = {
   catalog?: CatalogView;
   /** The gift card settings the gift card block reads. Passed only to that block. */
   giftCards?: GiftCardView;
+  /** The booking settings the booking block reads. Passed only to that block. */
+  booking?: BookingView;
   /** The page of a paged list this view shows (1 and up), for the post index on /blog/page/<n>. */
   page?: number;
 };

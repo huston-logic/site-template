@@ -1,4 +1,6 @@
+import { bookingWords } from "@/content/booking";
 import { catalogWords } from "@/content/catalog";
+import { bookingItemHref } from "@/lib/booking";
 import type { CatalogView } from "@/blocks/types";
 import { Text } from "@/components/ui/Text";
 import { CatalogDraftTag, EstimateTag } from "./CatalogCard";
@@ -27,6 +29,7 @@ export function CatalogItemView({
   const facts = factsOf(view, settings);
   const eyebrow = facts[0]?.labels[0];
   const price = cardPrice(view, pricing);
+  const bookHref = bookingItemHref(view.slug);
   return (
     <article className="relative overflow-x-clip pb-16 pt-10 md:pb-24 md:pt-14">
       <Glow variant="green" className="hl-glow-hero" />
@@ -69,6 +72,11 @@ export function CatalogItemView({
               </dl>
             ) : null}
             <div className="mt-10">
+              {bookHref === null ? null : (
+                <div className="mb-6">
+                  <TextLink href={bookHref}>{bookingWords.bookATime}</TextLink>
+                </div>
+              )}
               <QuoteBuilder
                 pricing={pricingFor(pricing, view.slug)}
                 items={[

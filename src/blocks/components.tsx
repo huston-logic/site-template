@@ -1,4 +1,5 @@
 import { siteBlockComponents } from "@/site-blocks/components";
+import { BookingBlock } from "./library/booking/BookingBlock";
 import { BusinessDetailsBlock } from "./library/business-details/BusinessDetailsBlock";
 import { CatalogBlock } from "./library/catalog/CatalogBlock";
 import { ClosingCtaBlock } from "./library/closing-cta/ClosingCtaBlock";
@@ -51,5 +52,6 @@ export const blockComponents: Record<string, BlockComponent> = {
   catalog: CatalogBlock,
   "quote-builder": QuoteBuilderBlock,
   "gift-card": GiftCardBlock,
+  booking: BookingBlock,
   ...siteBlockComponents,
 };

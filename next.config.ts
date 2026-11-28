@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { siteConfig } from "./site.config";
+import { bookingForBuild } from "./src/booking/config";
 import { isProductionBuild } from "./src/lib/build-target";
 import { paymentsForBuild } from "./src/payments/config";
 import { trackingForBuild } from "./src/tracking/config";
@@ -12,13 +13,17 @@ const tagsAlias: Record<string, string> = trackingForBuild(siteConfig, process.e
 const giftCardsOn = paymentsForBuild(siteConfig, process.env) !== null || !isProductionBuild(process.env, siteConfig.domain.productionBranch);
 const giftCardAlias: Record<string, string> = giftCardsOn ? { "@/blocks/library/gift-card/form-slot": "./src/blocks/library/gift-card/form-slot-on.tsx" } : {};
 
+// The booking flow ships on the same terms: a build with booking connected, or any build that is not production.
+const bookingOn = bookingForBuild(siteConfig, process.env) !== null || !isProductionBuild(process.env, siteConfig.domain.productionBranch);
+const bookingAlias: Record<string, string> = bookingOn ? { "@/blocks/library/booking/flow-slot": "./src/blocks/library/booking/flow-slot-on.tsx" } : {};
+
 const nextConfig: NextConfig = {
   output: "export",
   images: { unoptimized: true },
   poweredByHeader: false,
   reactStrictMode: true,
   turbopack: {
-    resolveAlias: { ...tagsAlias, ...giftCardAlias },
+    resolveAlias: { ...tagsAlias, ...giftCardAlias, ...bookingAlias },
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],
