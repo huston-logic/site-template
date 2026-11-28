@@ -169,9 +169,10 @@ export const siteConfig = {
    * ships: no booking route answers, wrangler.jsonc has no lock binding or cron, the booking thank-you page is not built and
    * a live booking block fails the content check. Otherwise the Google Calendar bookings are written to, shared with the
    * site's service account ("Make changes to events"), and any extra calendars read for busy time only ("See only
-   * free/busy"). Owner-only file: no chat tool can connect a calendar. After a change run `npm run sync:config`.
+   * free/busy"). `previewCalendarId` is a test calendar for branch previews (null: previews show times but cannot book).
+   * Owner-only file: no chat tool can connect a calendar. After a change run `npm run sync:config`.
    */
-  booking: null as null | { calendarId: string; busyCalendarIds: string[] },
+  booking: null as null | { calendarId: string; busyCalendarIds: string[]; previewCalendarId: string | null },
   /** Published price text. Empty means none is published (not a launch blocker). */
   prices: { website: "" },
   /** Extra origins appended to the CSP in public/_headers. */

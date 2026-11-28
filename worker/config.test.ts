@@ -31,8 +31,8 @@ describe("buildWorkerConfig: payments and the gift card tabs", () => {
 
   test("booking: the template has it off; a set value is carried through with the business's time zone", () => {
     assert.equal(workerConfig.booking, null);
-    const built = buildWorkerConfig({ ...siteConfig, business: { ...siteConfig.business, timeZone: "America/Chicago" }, booking: { calendarId: "cal@example.test", busyCalendarIds: ["busy@example.test"] } });
-    assert.deepEqual(built.booking, { calendarId: "cal@example.test", busyCalendarIds: ["busy@example.test"] });
+    const built = buildWorkerConfig({ ...siteConfig, business: { ...siteConfig.business, timeZone: "America/Chicago" }, booking: { calendarId: "cal@example.test", busyCalendarIds: ["busy@example.test"], previewCalendarId: null } });
+    assert.deepEqual(built.booking, { calendarId: "cal@example.test", busyCalendarIds: ["busy@example.test"], previewCalendarId: null });
     assert.equal(built.timeZone, "America/Chicago");
   });
 });

@@ -192,7 +192,7 @@ export function buildWorkerConfig(config: WorkerSiteConfig): WorkerConfig {
     emailColors: { ...contact.emailColors },
     forms: { ...DEFAULT_FORM_SETTINGS, ...(config.forms ?? {}) },
     payments: config.payments ? { ...config.payments } : null,
-    booking: config.booking ? { calendarId: config.booking.calendarId, busyCalendarIds: [...config.booking.busyCalendarIds] } : null,
+    booking: config.booking ? { calendarId: config.booking.calendarId, busyCalendarIds: [...config.booking.busyCalendarIds], previewCalendarId: config.booking.previewCalendarId ?? null } : null,
     timeZone: config.business.timeZone ?? "UTC",
     editor: buildEditorConfig(config),
   };

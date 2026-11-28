@@ -99,6 +99,11 @@ export interface BookingConfig {
   calendarId: string;
   /** Extra calendars read for busy time only ("See only free/busy"). */
   busyCalendarIds: string[];
+  /**
+   * A test calendar for branch previews (design R19): previews write holds and bookings here and read busy time from it and
+   * the real calendars. null means a preview shows times but refuses to book.
+   */
+  previewCalendarId: string | null;
 }
 
 /** A span of time in Unix milliseconds, start included, end excluded. */

@@ -146,3 +146,11 @@ for paid bookings; `lead` with form id `booking` for free ones. Nothing personal
 
 **R18. Changes after booking are the owner's.** Moving or deleting the calendar event moves or frees the time (free/busy
 reads it); refunds happen in Stripe. Emails carry `changeWording`. Cost if wrong: none.
+
+**R19. Previews never touch the real calendar's times.** `booking.previewCalendarId` is a test calendar shared with the
+service account. A branch preview reads busy time from the real calendars and the test one, and writes holds and bookings
+only to the test one (emails to the site's address, the "Bookings preview" tab, Stripe test mode, as gift cards). With
+it null a preview shows times but refuses to book (502, `preview_calendar_missing`). Development (`wrangler dev`) calls
+no outside service: times come from the rules alone and a booking is a logged dry run. `BOOKING_FIXTURE=1` gives a local
+test build a fake calendar setting so the thank-you page and the flow build; a Workers Builds build with it set fails.
+Cost if wrong: none for the live calendar; Grant sets up one test calendar per site to walk a preview.
