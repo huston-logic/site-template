@@ -81,7 +81,7 @@ type StripProps = {
   /** True on the piece page, where the first photo is the largest first-screen image. */
   preloadFirst?: boolean;
   /** Drawn over each photo once the page is interactive. */
-  overlay?: (position: number) => ReactNode;
+  overlay?: (position: number, photo: ItemPhoto) => ReactNode;
   /** Makes the strip a keyboard stop, for a strip with nothing else in it to focus. */
   focusable?: { label: string };
 };
@@ -114,7 +114,7 @@ export function PhotoStrip({ photos, strip, sizes, className, preloadFirst = fal
               fetchPriority={preloadFirst && position === 0 ? "high" : undefined}
             />
           ) : null}
-          {hydrated ? overlay?.(position) : null}
+          {hydrated ? overlay?.(position, photo) : null}
         </div>
       ))}
     </div>

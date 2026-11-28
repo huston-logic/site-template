@@ -289,6 +289,11 @@
     }
   }
 
+  /* The closer look on a piece's photos is a modal dialog; the page behind does not scroll. */
+  html:has(dialog[open]) {
+    overflow: hidden;
+  }
+
   /* The card's second photo (spec photo views P2): absent from layout until a rule below shows it, so the browser never
      requests its lazy image on a touch screen or before the card is used. */
   .hl-card-second {

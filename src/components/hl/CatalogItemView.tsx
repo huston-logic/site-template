@@ -45,7 +45,7 @@ export function CatalogItemView({
           {view.draft ? <CatalogDraftTag /> : null}
         </div>
         <div className="mt-6 grid items-start gap-10 split:grid-cols-[7fr_5fr] split:gap-14">
-          <ItemPhotos photos={view.photos} />
+          <ItemPhotos photos={view.photos} name={view.name} />
           <div>
             {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
             <h1

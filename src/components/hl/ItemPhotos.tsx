@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import { cardPathFor } from "@/catalog/schema";
 import type { ItemPhoto } from "./catalog-data";
 import { catalogWords } from "@/content/catalog";
 import { PhotoStrip, usePhotoStrip } from "./PhotoStrip";
+import { PhotoViewer, type PhotoViewerHandle } from "./PhotoViewer";
 
 const SIZES = "(min-width: 900px) 58vw, 100vw";
 
@@ -14,11 +16,11 @@ const SIZES = "(min-width: 900px) 58vw, 100vw";
  * thumbnails, the small card files, that follow the swipe. The first photo loads at once and is the page's largest first-screen
  * image; the others load when they start to show. No carousel, no autoplay.
  */
-export function ItemPhotos({ photos }: { photos: readonly ItemPhoto[] }) {
+export function ItemPhotos({ photos, name }: { photos: readonly ItemPhoto[]; /** The piece's name, for the closer look's label. */ name: string }) {
   const [only] = photos;
   if (only === undefined) return null;
   if (photos.length === 1) return <OnePhoto photo={only} />;
-  return <SeveralPhotos photos={photos} />;
+  return <SeveralPhotos photos={photos} name={name} />;
 }
 
 function OnePhoto({ photo }: { photo: ItemPhoto }) {
@@ -31,12 +33,48 @@ function OnePhoto({ photo }: { photo: ItemPhoto }) {
   );
 }
 
-function SeveralPhotos({ photos }: { photos: readonly ItemPhoto[] }) {
+function SeveralPhotos({ photos, name }: { photos: readonly ItemPhoto[]; name: string }) {
   const strip = usePhotoStrip();
   const { index, select } = strip;
+  const viewer = useRef<PhotoViewerHandle>(null);
+  const openers = useRef<(HTMLButtonElement | null)[]>([]);
+  const [returned, setReturned] = useState<{ at: number } | null>(null);
+
+  // After the closer look closes, focus goes back to the button that opens the photo last seen. That is the opening button
+  // unless the visitor stepped to another photo, whose slot is the one in view (the others are inert).
+  useEffect(() => {
+    if (returned !== null) openers.current[returned.at]?.focus({ preventScroll: true });
+  }, [returned]);
+
   return (
     <div>
-      <PhotoStrip photos={photos} strip={strip} sizes={SIZES} className="relative aspect-square w-full rounded-card bg-tint" preloadFirst />
+      <PhotoStrip
+        photos={photos}
+        strip={strip}
+        sizes={SIZES}
+        className="relative aspect-square w-full rounded-card bg-tint"
+        preloadFirst
+        overlay={(position, photo) => (
+          <button
+            type="button"
+            ref={(element) => {
+              openers.current[position] = element;
+            }}
+            aria-label={catalogWords.openLarge(position + 1, photos.length, photo.alt)}
+            onClick={() => viewer.current?.open(position)}
+            className="absolute inset-0 z-10 h-full w-full cursor-zoom-in focus-visible:-outline-offset-4"
+          />
+        )}
+      />
+      <PhotoViewer
+        ref={viewer}
+        photos={photos}
+        name={name}
+        onClose={(last) => {
+          select(last, true);
+          setReturned({ at: last });
+        }}
+      />
       <noscript>
         <ul role="list" className="mt-4 flex flex-wrap gap-x-6">
           {photos.slice(1).map((photo, position) => (
