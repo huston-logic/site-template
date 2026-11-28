@@ -116,8 +116,29 @@ test("the longest allowed texts fit inside the border and do not overlap", () =>
   for (let i = 1; i < sorted.length; i += 1) assert.ok(sorted[i].box.y + sorted[i].box.h <= sorted[i - 1].box.y + 0.01, `"${sorted[i].text}" overlaps "${sorted[i - 1].text}"`);
   const messageLines = lines.filter((e) => e.role === "message");
   assert.ok(messageLines.length >= 1 && messageLines.length <= 6);
-  assert.ok(lines.filter((e) => e.role === "redeem").length <= 6);
-  assert.ok(lines.filter((e) => e.role === "terms").length <= 4);
+  assert.ok(lines.filter((e) => e.role === "redeem").length <= 4);
+  assert.ok(lines.filter((e) => e.role === "terms").length <= 3);
+});
+
+test("within the limits no word is ever cut: the laid-out lines hold every word of each text", () => {
+  const words = (t: string) => t.split(/\s+/).filter(Boolean).join(" ");
+  const complete: CertificateInput = {
+    ...worst,
+    to: "Bartholomew Maximilian Featherstonehaugh Cholmondeley Jr Esquire The Third",
+    message: words("Thank you for everything you do for our family every single week without ever being asked and without ever asking for anything back. ".repeat(3)).slice(0, 300).replace(/ \S*$/, ""),
+    redeemWording: words("To redeem, show this certificate or quote the code when you book, and we will take care of everything from there. ".repeat(3)).slice(0, 300).replace(/ \S*$/, ""),
+    termsLine: words("Valid for one visit or purchase. Not exchangeable for cash. Lost certificates cannot be replaced. ".repeat(3)).slice(0, 200).replace(/ \S*$/, ""),
+  };
+  for (const [role, text] of [["message", complete.message], ["redeem", complete.redeemWording], ["terms", complete.termsLine]] as const) {
+    assert.ok(text !== null && text.length > 150);
+    const layout = layoutCertificate(complete, fonts, null);
+    const joined = textOf(layout).filter((e) => e.role === role).map((e) => e.text).join(" ");
+    assert.equal(joined, words(text ?? ""), `${role} lost words`);
+    assert.ok(!joined.includes("\u2026"));
+  }
+  const layout = layoutCertificate(complete, fonts, null);
+  assert.equal(textOf(layout).filter((e) => e.role === "giftFor").map((e) => e.text).join(" "), `A gift for ${complete.to}`);
+  assert.equal(layout.fits, true);
 });
 
 test("any text longer than the limits is cut with an ellipsis, never overflowing", () => {

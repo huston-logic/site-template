@@ -24,13 +24,24 @@ export const SAMPLE_INPUT = {
   colors: { green: "#1e4fa3", ink: "#1c1917", ink2: "#44403c", rust: "#9a3412", line: "#d6d3d1" },
 };
 
+/** Whole words from `text` repeated, as many as fit in `max` characters: the limits are real, a cut word would hide the sample's point. */
+function wordsUpTo(text, max) {
+  let out = "";
+  for (let i = 0; ; i += 1) {
+    const word = text.split(" ")[i % text.split(" ").length];
+    const next = out === "" ? word : `${out} ${word}`;
+    if (next.length > max) return out;
+    out = next;
+  }
+}
+
 export const LONG_INPUT = {
   ...SAMPLE_INPUT,
   to: "Bartholomew Maximilian Featherstonehaugh-Cholmondeley",
   from: "Alexandria Wilhelmina Montgomery-Fitzgerald III",
-  message: "Thank you for everything you do for our family, every single week, without ever being asked. ".repeat(4).slice(0, 300),
-  redeemWording: "To redeem, show this certificate or quote the code when you book, and we will take care of everything from there. ".repeat(3).slice(0, 300),
-  termsLine: "Valid for one visit or purchase. Not exchangeable for cash. Lost certificates cannot be replaced. No change given. ".repeat(2).slice(0, 200),
+  message: wordsUpTo("Thank you for everything you do for our family, every single week, without ever being asking anything back.", 300),
+  redeemWording: wordsUpTo("To redeem, show this certificate or quote the code when you book, and we will take care of everything from there.", 300),
+  termsLine: wordsUpTo("Valid for one visit or purchase. Not exchangeable for cash. Lost certificates cannot be replaced. No change given.", 200),
 };
 
 /** A small 96 by 32 RGBA PNG with a soft gradient and transparent corners, so the transparency path is exercised. */

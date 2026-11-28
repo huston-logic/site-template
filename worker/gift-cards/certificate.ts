@@ -212,7 +212,7 @@ function blocks(input: CertificateInput, fonts: Fonts, logo: { width: number; he
 
 export function layoutCertificate(input: CertificateInput, fonts: Fonts, logo: { width: number; height: number } | null): CertificateLayout {
   const available = STACK_BOTTOM - STACK_TOP;
-  const capSets: Caps[] = [{ message: 6, redeem: 6, terms: 4 }, { message: 5, redeem: 4, terms: 3 }, { message: 4, redeem: 3, terms: 2 }];
+  const capSets: Caps[] = [{ message: 6, redeem: 4, terms: 3 }];
   let chosen: { list: Block[]; height: number; k: number } | null = null;
   let last: { list: Block[]; height: number; k: number } | null = null;
   search: for (const caps of capSets) {
