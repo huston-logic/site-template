@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { siteConfig } from "../site.config.ts";
-import { finishBuild } from "./finish-build.mjs";
+import { copyCertificateFonts, finishBuild } from "./finish-build.mjs";
 import { headersText } from "./headers-text.mjs";
 import { FIXTURE_TRACKING } from "../src/tracking/config.ts";
 
@@ -141,12 +141,13 @@ test("a build without a gift-cards folder and without siteConfig still succeeds 
 
 test("with payments set, or PAYMENTS_FIXTURE=1 on a local build, out/gift-cards stays", () => {
   const set = withGiftCards(fakeOut());
-  const result = finishBuild({ outDir: set, env: {}, productionBranch: "main", siteConfig: { ...siteConfig, payments: { provider: "stripe", currency: "usd" } } });
+  const fonts = { display: "outfit", body: "inter", accent: "newsreader" };
+  const result = finishBuild({ outDir: set, env: {}, productionBranch: "main", siteConfig: { ...siteConfig, payments: { provider: "stripe", currency: "usd" } }, brandFonts: fonts });
   assert.equal(result.giftCardsRemoved, false);
   assert.equal(readFileSync(join(set, "gift-cards", "thanks.html"), "utf8"), "thanks");
 
   const fixture = withGiftCards(fakeOut());
-  assert.equal(finishBuild({ outDir: fixture, env: { PAYMENTS_FIXTURE: "1" }, productionBranch: "main", siteConfig }).giftCardsRemoved, false);
+  assert.equal(finishBuild({ outDir: fixture, env: { PAYMENTS_FIXTURE: "1" }, productionBranch: "main", siteConfig, brandFonts: fonts }).giftCardsRemoved, false);
   assert.equal(existsSync(join(fixture, "gift-cards", "thanks.html")), true);
 });
 
@@ -155,10 +156,34 @@ test("PAYMENTS_FIXTURE=1 on a production build throws", () => {
   assert.throws(() => finishBuild({ outDir, env: { PAYMENTS_FIXTURE: "1", WORKERS_CI: "1", WORKERS_CI_BRANCH: "main" }, productionBranch: "main", siteConfig }), /PAYMENTS_FIXTURE/);
 });
 
-test("a production build with payments set keeps the page, and the certificate font step is called with the brand fonts", () => {
+test("a production build with payments set keeps the page and copies the certificate fonts", () => {
   const outDir = withGiftCards(fakeOut());
-  const result = finishBuild({ outDir, env: { WORKERS_CI: "1", WORKERS_CI_BRANCH: "main" }, productionBranch: "main", siteConfig: { ...siteConfig, payments: { provider: "stripe", currency: "usd" } }, brandFonts: { display: "Outfit" } });
+  const result = finishBuild({ outDir, env: { WORKERS_CI: "1", WORKERS_CI_BRANCH: "main" }, productionBranch: "main", siteConfig: { ...siteConfig, payments: { provider: "stripe", currency: "usd" } }, brandFonts: { display: "outfit", body: "inter", accent: "newsreader" } });
   assert.equal(result.giftCardsRemoved, false);
   assert.equal(existsSync(join(outDir, "gift-cards")), true);
+  assert.equal(existsSync(join(outDir, "_certificate", "accent.ttf")), true);
+});
+
+test("with payments on, the brand's certificate fonts are copied under fixed names, and the thank-you page stays", () => {
+  const outDir = fakeOut();
+  mkdirSync(join(outDir, "gift-cards"));
+  writeFileSync(join(outDir, "gift-cards", "thanks.html"), "thanks");
+  const siteConfig = { payments: { provider: "stripe", currency: "usd" } };
+  const result = finishBuild({ outDir, env: {}, productionBranch: "main", siteConfig, brandFonts: { display: "sora", body: "inter", accent: "lora" } });
+  assert.equal(result.giftCardsRemoved, false);
+  assert.equal(existsSync(join(outDir, "gift-cards", "thanks.html")), true);
+  const real = (name) => readFileSync(new URL(`../src/brand/certificate-fonts/${name}`, import.meta.url));
+  assert.deepEqual(readFileSync(join(outDir, "_certificate", "display.ttf")), real("display-sora-400.ttf"));
+  assert.deepEqual(readFileSync(join(outDir, "_certificate", "display-bold.ttf")), real("display-sora-600.ttf"));
+  assert.deepEqual(readFileSync(join(outDir, "_certificate", "accent.ttf")), real("accent-lora-italic.ttf"));
+});
+
+test("with payments off, no certificate fonts are copied", () => {
+  const outDir = fakeOut();
+  finishBuild({ outDir, env: {}, productionBranch: "main", siteConfig: { payments: null }, brandFonts: { display: "outfit", accent: "newsreader" } });
   assert.equal(existsSync(join(outDir, "_certificate")), false);
+});
+
+test("a missing certificate font stops the build", () => {
+  assert.throws(() => copyCertificateFonts(fakeOut(), { display: "nope", accent: "newsreader" }), /Missing certificate font display-nope-400\.ttf/);
 });
