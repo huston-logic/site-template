@@ -108,7 +108,7 @@ export function designProblems(path, text) {
   return out;
 }
 
-const LOADED_WEIGHTS = new Set(["400", "500", "600", "700", "normal", "bold", "inherit"]);
+const LOADED_WEIGHTS = new Set(["400", "500", "600", "700", "normal", "bold", "inherit", "initial", "unset", "revert"]);
 
 /** font-weight values in a stylesheet that the loaded fonts do not carry (DESIGN_FACES in src/brand/fonts.ts). */
 export function cssWeightProblems(css) {

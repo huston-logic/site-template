@@ -19,8 +19,9 @@ export type CuratedFont = {
 };
 
 /**
- * The only fonts a site may choose, three roles. Each is one variable Google font with a latin subset, self-hosted by
- * next/font at build time (no third-party font request). The accent role is italic only. The first entry of each role
+ * The only fonts a site may choose, three roles. Each is one variable Google font with a latin subset, self-hosted
+ * through next/font (next/font/google at build time, or next/font/local for the committed files in src/brand/font-files/;
+ * no third-party font request). The accent role is italic only. The first entry of each role
  * is the template default. src/brand/fonts.test.ts checks every entry against Next's own font data.
  */
 export const CURATED_FONTS: Record<FontRole, CuratedFont[]> = {
@@ -150,12 +151,12 @@ function localCalls(role: FontRole, font: CuratedFont, preload: boolean, comment
   const weight = pinnedWeight(role, font);
   const style = DESIGN_FACES[role].style;
   const call = (face: (typeof entry.faces)[number], name: string, variable: string, isMain: boolean) => `${isMain ? `/** ${comment} */\nexport ` : ""}const ${name} = localFont({
-  src: "../brand/font-files/${face.file}",
+  src: ${JSON.stringify(`../brand/font-files/${face.file}`)},
   weight: "${weight}",
   style: "${style}",
   declarations: [
     { prop: "font-family", value: "${font.family}" },
-    { prop: "unicode-range", value: "${face.unicodeRange}" },
+    { prop: "unicode-range", value: ${JSON.stringify(face.unicodeRange)} },
   ],
   variable: "${variable}",
   display: "swap",

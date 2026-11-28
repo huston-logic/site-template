@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import { createHash } from "node:crypto";
 import { FONT_FILES } from "./font-files.ts";
@@ -78,11 +78,16 @@ test("every font that needs local files has them, and they are the bytes the tab
         const bytes = readFileSync(new URL(`./font-files/${face.file}`, import.meta.url));
         assert.equal(bytes.length, face.bytes, face.file);
         assert.equal(createHash("sha256").update(bytes).digest("hex"), face.sha256, face.file);
+        assert.equal(bytes.subarray(0, 4).toString("latin1"), "wOF2", `${face.file} is not a woff2 file`);
+        assert.match(face.file, /^[a-z0-9-]+\.woff2$/);
+        assert.match(face.unicodeRange, /^U\+[0-9A-F?]{1,6}(?:-[0-9A-F]{1,6})?(?:, U\+[0-9A-F?]{1,6}(?:-[0-9A-F]{1,6})?)*$/);
       }
     }
   }
   const expected = FONT_ROLES.flatMap((role) => CURATED_FONTS[role].filter((font) => needsLocalFiles(role, font)).map((font) => localFontKey(role, font)));
   assert.deepEqual(Object.keys(FONT_FILES).sort(), expected.sort());
+  const listed = Object.values(FONT_FILES).flatMap((entry) => entry.faces.map((face) => face.file)).sort();
+  assert.deepEqual(readdirSync(new URL("./font-files/", import.meta.url)).sort(), listed, "a file in src/brand/font-files/ is not in the table");
 });
 
 test("only the accent pins a weight, and every curated font carries the design's weights", () => {

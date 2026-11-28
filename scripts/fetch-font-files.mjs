@@ -10,9 +10,10 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { CURATED_FONTS, FONT_ROLES, localFontKey, needsLocalFiles, requestFor } from "../src/brand/fonts.ts";
 
-const REPO = new URL("..", import.meta.url).pathname;
+const REPO = fileURLToPath(new URL("..", import.meta.url));
 const FILES_DIR = "src/brand/font-files";
 const TABLE_PATH = "src/brand/font-files.ts";
 // A current desktop Chrome, so Google answers with woff2 split by subset (what next/font/google receives).
@@ -22,15 +23,21 @@ const metadata = JSON.parse(
   readFileSync(join(REPO, "node_modules/next/dist/compiled/@next/font/dist/google/font-data.json"), "utf8"),
 );
 
+/** A unicode-range as Google writes it: "U+0000-00FF, U+0131, ...". Nothing else may reach the generated module. */
+export const UNICODE_RANGE = /^U\+[0-9A-F?]{1,6}(?:-[0-9A-F]{1,6})?(?:, U\+[0-9A-F?]{1,6}(?:-[0-9A-F]{1,6})?)*$/;
+
+/** True when the bytes start with the woff2 signature "wOF2". */
+export const isWoff2 = (bytes) => bytes.length > 4 && bytes.subarray(0, 4).toString("latin1") === "wOF2";
+
 /** Splits Google's css2 answer into { subset, url, unicodeRange } faces, in Google's order. */
 export function parseGoogleCss(css) {
   const faces = [];
   const pattern = /\/\*\s*([a-z0-9-]+)\s*\*\/\s*@font-face\s*\{([^}]*)\}/g;
   for (const match of css.matchAll(pattern)) {
     const body = match[2];
-    const url = body.match(/src:\s*url\((https:[^)]+)\)\s*format\('woff2'\)/)?.[1];
+    const url = body.match(/src:\s*url\((https:\/\/fonts\.gstatic\.com\/[^)\s"']+)\)\s*format\('woff2'\)/)?.[1];
     const unicodeRange = body.match(/unicode-range:\s*([^;]+);/)?.[1]?.trim();
-    if (!url || !unicodeRange) throw new Error(`Unexpected @font-face for subset ${match[1]}`);
+    if (!url || !unicodeRange || !UNICODE_RANGE.test(unicodeRange)) throw new Error(`Unexpected @font-face for subset ${match[1]}`);
     faces.push({ subset: match[1], url, unicodeRange });
   }
   if (faces.length === 0) throw new Error("Google Fonts returned no @font-face rules");
@@ -60,7 +67,10 @@ async function main() {
       if (!response.ok) throw new Error(`${request} answered ${response.status}`);
       const faces = [];
       for (const face of parseGoogleCss(await response.text())) {
-        const bytes = Buffer.from(await (await fetch(face.url)).arrayBuffer());
+        const fileResponse = await fetch(face.url);
+        if (!fileResponse.ok) throw new Error(`${face.url} answered ${fileResponse.status}`);
+        const bytes = Buffer.from(await fileResponse.arrayBuffer());
+        if (!isWoff2(bytes)) throw new Error(`${face.url} is not a woff2 file`);
         const file = `${localFontKey(role, font)}-${face.subset}.woff2`;
         writeFileSync(join(REPO, FILES_DIR, file), bytes);
         faces.push({
@@ -79,4 +89,4 @@ async function main() {
   console.log(`Wrote ${TABLE_PATH}. Run npm run sync:config, then npm run build.`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) await main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();
