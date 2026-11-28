@@ -272,6 +272,22 @@
     outline-offset: 3px;
   }
 
+  /* The card's second photo (spec photo views P2): absent from layout until a rule below shows it, so the browser never
+     requests its lazy image on a touch screen or before the card is used. */
+  .hl-card-second {
+    display: none;
+  }
+
+  .hl-card:has(a:focus-visible) .hl-card-second {
+    display: block;
+  }
+
+  @media (hover: hover) {
+    .hl-card:hover .hl-card-second {
+      display: block;
+    }
+  }
+
   /* §2 glows: radial gradients on a positioned, non-interactive element. No images, no blur filter. Place one
      per seam by giving it absolute offsets; scale is 55% on phones. */
   .hl-glow {
@@ -371,6 +387,23 @@
 
   .js [data-motion="enter"]:not([data-entered]) {
     translate: 0 var(--motion-enter-distance);
+  }
+}
+
+/* The card's second photo fades in when a rule shows it. Opacity only; under reduced motion it simply appears. */
+@media (prefers-reduced-motion: no-preference) {
+  .hl-card-second {
+    animation: hl-card-second-in var(--duration-lift) var(--ease-hover);
+  }
+
+  @keyframes hl-card-second-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
   }
 }
 
