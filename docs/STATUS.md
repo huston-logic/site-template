@@ -12,14 +12,14 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 - **Live:** not checked from the repo; client sites deploy from their own repos.
 - **Merged:** PRs #1 to #39, all merged except #3 (Dependabot, closed unmerged). #39 (payments and gift cards) merged on
   2026-11-27.
-- **Open:** the booking PR (`feat/booking`), queued for auto-merge behind the required checks.
+- **Open:** #40, booking (`feat/booking`), queued for auto-merge behind the required checks.
 - **In `main`:** the site editor, uploads, collections, brand, forms and ad tracking (owners change pages, photos,
   PDFs, posts, videos, episodes, testimonials, team, business details, brand, a notice and forms by chatting; editor and
   uploads off by default, mocks only; tags off until IDs are set); catalog and quotes (#37; `/blocks` shows a 60-piece
   example); fonts loading only the faces the design uses (#38: photo-led pages 89 to 92, every page pixel-identical).
 - **Payments and gift cards (#39, in `main`):** off by default (`payments: null`). Stripe hosted Checkout,
   Worker-computed amounts, a PDF certificate by email, ledger row, owner email, owner tools. Mocked Stripe only.
-- **Booking (open PR):** off by default (`booking: null`; a production build ships none of it). Google Calendar is the one
+- **Booking (#40):** off by default (`booking: null`; a production build ships none of it). Google Calendar is the one
   record; services, sessions, deposits and hours by chat; holds, a lock, exactly-once confirmation. Mocked Google and
   Stripe only (`docs/BOOKING.md`).
 - **Still open per `docs/TEMPLATE.md`:** README polish; which Huston content rules in AGENTS.md stay as defaults.
@@ -28,7 +28,7 @@ history, unchanged: `docs/history/STATUS-history.md`. Last verified with `gh` on
 
 In order:
 
-1. Check that the booking PR merged (auto-merge queued). "Needs your eyes": AGENTS.md (Booking paragraph, Worker imports,
+1. Check that #40 (booking) merged (auto-merge queued). "Needs your eyes": AGENTS.md (Booking paragraph, Worker imports,
    secrets, `BOOKING_FIXTURE`), README, package.json (test globs; no dependency). Copy: `src/content/booking.ts`,
    `booking-emails.ts`, event text in `worker/booking/events.ts`, `src/content/forms/booking.json`, `booking.json`'s and
    (from #39) `gift-cards.json`'s placeholders, `gift-cards.ts`, `gift-card-emails.ts`, `gift-certificate.ts`.
@@ -132,7 +132,7 @@ Earlier lines were copied to the master and moved to `docs/history/STATUS-histor
 
 ## Last run: Booking (2026-11-27)
 
-Process run, unattended, one PR. Design: `docs/superpowers/specs/2026-11-27-booking-design.md` (R1 to R19). Opus designed,
+Process run, unattended, one PR (#40). Design: `docs/superpowers/specs/2026-11-27-booking-design.md` (R1 to R19). Opus designed,
 wrote the contracts and integrated; Sonnet built seven parts in parallel worktrees and two fix waves; Haiku wrote docs.
 - `npm run check` passes (1,427 Worker and shared tests, 635 script tests); `test:a11y` 179 passed (incl. no-JavaScript), booking and gift card
   specs on a fixture build 70 passed; Lighthouse CI passes, unchanged thresholds. Booking off: 18 of 18 page
