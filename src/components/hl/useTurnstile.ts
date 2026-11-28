@@ -51,8 +51,8 @@ export function turnstileSiteKey(configured: string | null): string | null {
   return configured;
 }
 
-/** `action` is judged by the Worker: `contact` for the contact form, `form` for every other form. */
-export function useTurnstile(configuredSiteKey: string | null, action: "contact" | "form" = "contact") {
+/** `action` is judged by the Worker: `contact` for the contact form, `form` for every other form, `gift_card` for the gift card checkout. */
+export function useTurnstile(configuredSiteKey: string | null, action: "contact" | "form" | "gift_card" = "contact") {
   const container = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
   const token = useRef<string | null>(null);

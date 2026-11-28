@@ -1,6 +1,8 @@
 // The single list of site routes. The sitemap, the accessibility check (tests/a11y) and Lighthouse CI (lighthouserc.cjs)
 // all read it, so a page added as a file in src/content/pages is listed for search engines and scanned by CI.
 // Plain Node (type stripping) and Playwright load this file: relative imports with .ts, no aliases, no enums.
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { exampleCatalog } from "../catalog/example.ts";
 import { CATALOG_BLOCK, itemPathFor } from "../catalog/schema.ts";
 import { pickItems } from "../collections/pick.ts";
@@ -84,5 +86,8 @@ export const showcaseItemRoutes: string[] = exampleCatalog.items.map((item) => `
 /** The one example item page the accessibility scan covers (the others are the same design with other data). */
 export const exampleItemRoute: string = showcaseItemRoutes[0] ?? `${showcaseRoute}/catalog`;
 
+/** The gift card thank-you page is built only while payments are on (finish-build removes it otherwise), so it is listed only when the build in `out/` has it. */
+const giftCardThanks = ["/gift-cards/thanks"].filter(() => existsSync(join(process.cwd(), "out", "gift-cards", "thanks.html")));
+
 /** Real pages that stay out of the sitemap (noindex): the thanks page, the showcase, one example item page, draft posts and draft catalog items. The other example item pages are `showcaseItemRoutes`. */
-export const noindexRoutes = ["/contact/thanks", showcaseRoute, exampleItemRoute, ...blog.draftPosts, ...catalogItemRoutes.drafts];
+export const noindexRoutes = ["/contact/thanks", ...giftCardThanks, showcaseRoute, exampleItemRoute, ...blog.draftPosts, ...catalogItemRoutes.drafts];

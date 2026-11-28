@@ -4,12 +4,14 @@ import type { LoadedItem } from "@/collections/schema";
 import type { BusinessData } from "@/settings/business";
 import { getCatalog } from "@/lib/catalog";
 import { getItems } from "@/lib/collections";
+import { getGiftCards } from "@/lib/gift-cards";
+import { GIFT_CARD_BLOCK } from "@/gift-cards/schema";
 import { blockComponents } from "./components";
 import { EnterObserver } from "./EnterObserver";
 import { registry } from "./definitions";
 import { spacingFor } from "./rhythm";
 import type { AnyBlockDefinition, BlockInstance } from "./schema";
-import type { BlockProps, CatalogView } from "./types";
+import type { BlockProps, CatalogView, GiftCardView } from "./types";
 
 type AnyProps = BlockProps<Record<string, unknown>>;
 
@@ -31,13 +33,15 @@ type BlockViewProps = {
   business?: BusinessData;
   /** The catalog the catalog blocks read: the renderer builds it from the site's files, the showcase passes the example catalog. */
   catalog?: CatalogView;
+  /** The settings the gift card block reads: the renderer takes the site's, the showcase passes the example. */
+  giftCards?: GiftCardView;
 };
 
 /**
  * One block in its wrapper, which owns the spacing (rhythm.ts), the glows and the entrance motion, so a block's
  * component carries none of those. The page renderer and the /blocks showcase both build blocks with this.
  */
-export function BlockView({ block, index, previous, primary, items = [], page, business, catalog }: BlockViewProps) {
+export function BlockView({ block, index, previous, primary, items = [], page, business, catalog, giftCards }: BlockViewProps) {
   const def = definitions.get(block.type);
   const Component = blockComponents[block.type] as ComponentType<AnyProps> | undefined;
   if (!def || !Component) throw new Error(`The block type "${block.type}" has no definition or component.`);
@@ -48,7 +52,7 @@ export function BlockView({ block, index, previous, primary, items = [], page, b
     <div className={`relative ${spacingFor(def, index, previous)}`} data-block={block.type} data-motion={animated ? "enter" : undefined}>
       {def.placement.position === "first" ? <Glow variant="green" className="hl-glow-hero" /> : null}
       {def.placement.position === "last" ? <Glow variant="seam" className="hl-glow-closing" /> : null}
-      <Component content={block.content} variant={block.variant ?? def.variants[0]?.name ?? "default"} anchor={anchor} headingId={headingId} primary={primary} items={items} page={page} business={business} catalog={catalog} />
+      <Component content={block.content} variant={block.variant ?? def.variants[0]?.name ?? "default"} anchor={anchor} headingId={headingId} primary={primary} items={items} page={page} business={business} catalog={catalog} giftCards={giftCards} />
     </div>
   );
 }
@@ -61,6 +65,7 @@ export function BlockView({ block, index, previous, primary, items = [], page, b
 export function BlockRenderer({ blocks, page }: { blocks: readonly BlockInstance[]; page?: number }) {
   const isCatalogBlock = (type: string) => definitions.get(type)?.collection === "catalog";
   const catalog = blocks.some((block) => isCatalogBlock(block.type)) ? getCatalog() : undefined;
+  const giftCards = blocks.some((block) => block.type === GIFT_CARD_BLOCK) ? getGiftCards() : undefined;
   const shown = blocks.flatMap((block) => {
     const def = definitions.get(block.type);
     const items = def?.collection === undefined ? [] : getItems(def.collection);
@@ -78,6 +83,7 @@ export function BlockRenderer({ blocks, page }: { blocks: readonly BlockInstance
           items={items}
           page={page}
           catalog={isCatalogBlock(block.type) ? catalog : undefined}
+          giftCards={block.type === GIFT_CARD_BLOCK ? giftCards : undefined}
         />
       ))}
       <EnterObserver />
