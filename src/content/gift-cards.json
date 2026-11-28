@@ -1,0 +1,8 @@
+{
+  "selling": false,
+  "amounts": [{ "amount": 25 }, { "amount": 50 }, { "amount": 100 }],
+  "custom": null,
+  "redeemWording": "[[How to redeem a gift card]]",
+  "termsLine": "[[Gift card terms in one line]]",
+  "validForMonths": null
+}
