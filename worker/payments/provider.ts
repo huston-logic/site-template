@@ -1,6 +1,6 @@
 import type { PaymentsConfig } from "../../src/payments/config.ts";
 import type { ContactEnv, Mode } from "../env.ts";
-import { createCheckoutSession, getSession, markPayment } from "./stripe.ts";
+import { createCheckoutSession, expireSession, getSession, markPayment } from "./stripe.ts";
 import type { PaymentProvider } from "./types.ts";
 import { verifyStripeSignature, type VerifyResult } from "./webhook.ts";
 
@@ -36,6 +36,7 @@ export function paymentProvider(config: PaymentsConfig, env: ContactEnv, mode: M
           createCheckout: (params, idempotencyKey) => createCheckoutSession(key, params, idempotencyKey),
           readSession: (id) => getSession(key, id),
           writeMarks: (paymentId, marks) => markPayment(key, paymentId, marks),
+          expireSession: (sessionId) => expireSession(key, sessionId),
         },
       };
     }
